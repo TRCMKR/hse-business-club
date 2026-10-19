@@ -76,8 +76,12 @@ func (s *Server) newDebugRouter() chi.Router {
 	r.Get("/docs/", serveSwaggerUI)
 	r.Get("/docs/swagger.json", s.serveSwaggerJSON)
 
-	// "Try it out" in Swagger UI calls the API on the same origin.
-	r.Handle("/v1/*", s.public)
+	// "Try it out" in Swagger UI calls the API on the same origin. The public router
+	// gets a fresh chi route context: otherwise it appends its pattern to "/v1/*" and
+	// metrics/spans are labelled "/v1/v1/ping" instead of "/v1/ping".
+	r.Handle("/v1/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		s.public.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, nil)))
+	}))
 	return r
 }
 
