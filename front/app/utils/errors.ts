@@ -6,6 +6,8 @@
  *   always ready to show);
  * - ofetch `FetchError` (`error.data` is the parsed body, `error.status`/`statusCode`);
  * - H3 / Nuxt `createError` (`statusCode`, `statusMessage`, `data.message`);
+ * - the same wrapper made by `useAsyncData` around an API error: the original error is in
+ *   `cause` and is used instead (a network failure is not «Внутренняя ошибка»);
  * - network errors without a response and timeouts;
  * - plain `Error` and strings.
  */
@@ -24,6 +26,24 @@ function isRecord(value: unknown): value is AnyRecord {
 
 function nonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+/** Original error behind the H3 / Nuxt wrapper that `useAsyncData` puts around a rejection. */
+function isApiCause(value: unknown): boolean {
+  return isAxiosError(value) || (isRecord(value) && value.name === 'FetchError');
+}
+
+function unwrap(error: unknown): unknown {
+  let current = error;
+  for (let depth = 0; depth < 3 && isRecord(current); depth++) {
+    const isWrapper = current.__nuxt_error === true
+      || (current.constructor as { __h3_error__?: boolean } | undefined)?.__h3_error__ === true;
+    if (!isWrapper || !isApiCause(current.cause)) {
+      break;
+    }
+    current = current.cause;
+  }
+  return current;
 }
 
 /** Response body of the error, if any (axios `response.data`, ofetch/H3 `data`). */
@@ -74,7 +94,8 @@ function isNetworkError(error: unknown): boolean {
 }
 
 /** HTTP status of the error response, if there was one. */
-export function getErrorStatus(error: unknown): number | undefined {
+export function getErrorStatus(rawError: unknown): number | undefined {
+  const error = unwrap(rawError);
   if (isAxiosError(error)) {
     return error.response?.status;
   }
@@ -95,7 +116,7 @@ export function getErrorStatus(error: unknown): number | undefined {
 
 /** gRPC status code from the grpc-gateway body (`3` InvalidArgument, `6` AlreadyExists, …). */
 export function getErrorCode(error: unknown): number | undefined {
-  const body = getErrorBody(error);
+  const body = getErrorBody(unwrap(error));
   if (!isRecord(body)) {
     return undefined;
   }
@@ -121,7 +142,8 @@ export function isApiError(error: unknown, status?: number): boolean {
 }
 
 /** A message ready to show to the user (toast, form error). Never throws. */
-export function getErrorMessage(error: unknown, fallback: string = DEFAULT_ERROR_MESSAGE): string {
+export function getErrorMessage(rawError: unknown, fallback: string = DEFAULT_ERROR_MESSAGE): string {
+  const error = unwrap(rawError);
   if (typeof error === 'string') {
     return nonEmptyString(error) ?? fallback;
   }
@@ -166,4 +188,14 @@ export function getErrorMessage(error: unknown, fallback: string = DEFAULT_ERROR
     return nonEmptyString(error.message) ?? fallback;
   }
   return fallback;
+}
+
+/**
+ * `statusMessage` set by our pages (`createError({ statusCode: 404, statusMessage:
+ * 'Публикация не найдена' })`) for the error page. Messages made by Nuxt / Nitro
+ * themselves are English (`Page not found: /x`, `Internal Server Error`) — not shown.
+ */
+export function getUserStatusMessage(error: { statusMessage?: string }): string | undefined {
+  const message = error.statusMessage?.trim();
+  return message && /\p{Script=Cyrillic}/u.test(message) ? message : undefined;
 }

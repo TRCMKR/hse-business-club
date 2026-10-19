@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { AxiosError, AxiosHeaders } from 'axios';
 import type { AxiosResponse } from 'axios';
+import { createError } from 'h3';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ERROR_MESSAGE,
   getErrorCode,
   getErrorMessage,
   getErrorStatus,
+  getUserStatusMessage,
   INTERNAL_ERROR_MESSAGE,
   isApiError,
   NETWORK_ERROR_MESSAGE,
@@ -79,5 +81,50 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(42)).toBe(DEFAULT_ERROR_MESSAGE);
     expect(getErrorMessage({})).toBe(DEFAULT_ERROR_MESSAGE);
     expect(getErrorMessage('')).toBe(DEFAULT_ERROR_MESSAGE);
+  });
+});
+
+/** What `useAsyncData` stores in `error`: a Nuxt (H3) error with the original in `cause`. */
+function asyncDataError(original: unknown) {
+  const error = createError(original as Error);
+  Object.defineProperty(error, '__nuxt_error', { value: true });
+  return error;
+}
+
+describe('errors wrapped by useAsyncData', () => {
+  it('network failure is not «Внутренняя ошибка»', () => {
+    const wrapped = asyncDataError(axiosError(undefined, undefined, AxiosError.ERR_NETWORK));
+    expect(wrapped.statusCode).toBe(500);
+    expect(getErrorMessage(wrapped)).toBe(NETWORK_ERROR_MESSAGE);
+    expect(getErrorStatus(wrapped)).toBeUndefined();
+    expect(isApiError(wrapped)).toBe(false);
+  });
+
+  it('timeout', () => {
+    expect(getErrorMessage(asyncDataError(axiosError(undefined, undefined, AxiosError.ECONNABORTED))))
+      .toBe(TIMEOUT_ERROR_MESSAGE);
+  });
+
+  it('API error: message, status and code from the original', () => {
+    const wrapped = asyncDataError(axiosError(403, { code: 7, message: 'Недостаточно прав', details: [] }));
+    expect(getErrorMessage(wrapped)).toBe('Недостаточно прав');
+    expect(getErrorStatus(wrapped)).toBe(403);
+    expect(getErrorCode(wrapped)).toBe(7);
+    expect(isApiError(wrapped, 403)).toBe(true);
+  });
+
+  it('a wrapper around a non-API error is used as is', () => {
+    const wrapped = asyncDataError(new Error('boom'));
+    expect(getErrorStatus(wrapped)).toBe(500);
+    expect(getErrorMessage(wrapped)).toBe(INTERNAL_ERROR_MESSAGE);
+  });
+});
+
+describe('getUserStatusMessage', () => {
+  it('shows Russian messages set by pages, hides Nuxt / Nitro ones', () => {
+    expect(getUserStatusMessage({ statusMessage: 'Публикация не найдена' })).toBe('Публикация не найдена');
+    expect(getUserStatusMessage({ statusMessage: 'Page not found: /nope' })).toBeUndefined();
+    expect(getUserStatusMessage({ statusMessage: 'Internal Server Error' })).toBeUndefined();
+    expect(getUserStatusMessage({})).toBeUndefined();
   });
 });
