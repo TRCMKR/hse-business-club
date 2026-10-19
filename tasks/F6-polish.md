@@ -61,3 +61,12 @@
     F4 (`throw createError({ statusCode: 404, statusMessage })` на сервере), чтобы HTTP-код и
     первый кадр были верными; `onBeforeRouteLeave` в unit-тестах не регистрируется
     (предупреждение Vue Router) — покрыть охрану несохранённой формы в Playwright e2e.
+13. Из ревью F8: токен `--font-family` — добавить `'Montserrat Fallback: Arial'` (метрический
+    fallback `@nuxt/fonts` не попадает в CSS-переменную → сдвиг вёрстки при загрузке);
+    `theme-color` в `nuxt.config.ts` → `#f4f6fb` (светлая) / `#06081c` (тёмная, через
+    `media`); литералы мимо токенов (`rgb()` в `create-fab`, `tab-bar`, `layouts/auth`,
+    `ui/chip`; размеры в `page-header` и шапке) — в токены, README-фразу «без hex в модулях»
+    привести к факту; в тёмной теме активный чип-фильтр на `/me/applications` выделить
+    заметнее; navy-полоса на `/login` в тёмной теме сливается с фоном — добавить границу/тень;
+    `prefers-reduced-motion` гасит и skeleton-анимацию — оставить мягкую; FAB «Создать» на
+    375 перекрывает низ карточек — добавить нижний отступ контенту.
