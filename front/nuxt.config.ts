@@ -63,7 +63,7 @@ export default defineNuxtConfig({
       subsets: ['cyrillic', 'latin'],
     },
     families: [
-      { name: 'Inter', provider: 'google' },
+      { name: 'Montserrat', provider: 'google' },
     ],
   },
 });
