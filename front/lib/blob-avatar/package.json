@@ -1,0 +1,42 @@
+{
+  "name": "@fe/blob-avatar",
+  "version": "1.0.0",
+  "description": "Deterministic SVG blob avatars with faces, generated from any string",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "default": "./dist/vue.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "gallery": "tsx scripts/gallery.ts",
+    "screenshot": "tsx scripts/gallery.ts --screenshot"
+  },
+  "peerDependencies": {
+    "vue": "3.x"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@vue/test-utils": "^2.5.1",
+    "jsdom": "^27.0.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vitest": "^3.2.7",
+    "vue": "^3.5.44"
+  }
+}
