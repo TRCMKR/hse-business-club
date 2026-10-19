@@ -44,10 +44,10 @@ test:
 	go test -race -count=1 ./...
 
 .PHONY: test-integration
-## runs integration tests (needs the root compose test env: make test-env-up)
+## runs integration tests (needs docker-compose.test.yaml: make test-env-up)
 test-integration:
-	TEST_POSTGRES_DSN="$${TEST_POSTGRES_DSN:-postgres://hbc:hbc@localhost:$${TEST_POSTGRES_PORT:-5433}/hbc?sslmode=disable}" \
-	TEST_S3_ENDPOINT="$${TEST_S3_ENDPOINT:-localhost:$${TEST_MINIO_PORT:-9000}}" \
+	TEST_POSTGRES_DSN="$${TEST_POSTGRES_DSN:-postgres://hbc:hbc@localhost:5433/hbc?sslmode=disable}" \
+	TEST_S3_ENDPOINT="$${TEST_S3_ENDPOINT:-localhost:9000}" \
 	go test -race -count=1 -tags=integration ./...
 
 .PHONY: test-e2e
@@ -56,18 +56,15 @@ test-e2e:
 	@if [ -d tests/e2e ]; then go test -count=1 -tags=e2e ./tests/e2e/...; \
 	else echo "tests/e2e is not implemented yet (B5)"; fi
 
-# Root compose + test override: db on :5433, minio on :9000, data in tmpfs.
-TEST_COMPOSE := docker compose -f ../docker-compose.yaml -f ../docker-compose.test.yaml
-
 .PHONY: test-env-up
 ## starts postgres and minio for integration tests
 test-env-up:
-	$(TEST_COMPOSE) up -d --wait db minio
+	docker compose -f ../docker-compose.yaml -f ../docker-compose.test.yaml up -d --wait db minio
 
 .PHONY: test-env-down
 ## stops postgres and minio for integration tests
 test-env-down:
-	$(TEST_COMPOSE) down -v
+	docker compose -f ../docker-compose.yaml -f ../docker-compose.test.yaml down -v
 
 .PHONY: run
 ## runs the app locally (reads .env when APP_ENV=local)
