@@ -1,8 +1,8 @@
 .bar {
-  backdrop-filter: saturate(180%) blur(12px);
-  background: rgb(255 255 255 / 92%);
-  border-top: 1px solid var(--color-border);
+  background: var(--color-nav-bg);
+  border-top: 1px solid var(--color-nav-border);
   bottom: 0;
+  box-shadow: 0 -4px 20px rgb(6 8 28 / 18%);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
@@ -21,44 +21,82 @@
 
 .item {
   align-items: center;
-  color: var(--color-text-muted);
+  color: var(--color-nav-text);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   justify-content: center;
   min-width: 0;
+  position: relative;
   text-decoration: none;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+.item:focus-visible {
+  outline-color: var(--color-nav-text-active);
+  outline-offset: -4px;
 }
 
 .active {
-  color: var(--color-accent);
+  color: var(--color-nav-text-active);
+}
+
+/* Yellow use #1 of 2: the active navigation marker. */
+.active::before {
+  background: var(--color-highlight);
+  border-radius: 0 0 3px 3px;
+  content: '';
+  height: 3px;
+  left: 50%;
+  position: absolute;
+  top: -1px;
+  transform: translateX(-50%);
+  width: 28px;
 }
 
 .icon {
+  align-items: center;
+  border-radius: var(--radius-full);
   display: inline-flex;
+  height: 28px;
+  justify-content: center;
   position: relative;
+  transition: background-color var(--duration-fast) var(--ease);
+  width: 48px;
+}
+
+.active .icon {
+  background: var(--color-nav-active-bg);
 }
 
 .label {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
+  max-width: 100%;
   overflow: hidden;
+  padding: 0 2px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.active .label {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Yellow use #2 of 2: the applications counter in the navigation. */
 .counter {
-  background: var(--color-danger);
-  border: 2px solid #fff;
+  background: var(--color-highlight);
+  border: 2px solid var(--color-nav-bg);
   border-radius: 999px;
-  color: #fff;
+  color: var(--color-highlight-text);
   font-size: 10px;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
   line-height: 14px;
   min-width: 18px;
   padding: 0 4px;
   position: absolute;
-  right: -10px;
+  right: 2px;
   text-align: center;
-  top: -4px;
+  top: -5px;
 }

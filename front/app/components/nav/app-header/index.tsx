@@ -24,9 +24,12 @@ export const AppHeader = defineComponent(() => {
   return () => (
     <header class={styles.header}>
       <div class={styles.inner}>
-        <NuxtLink to={'/'} class={styles.logo} aria-label={'Бизнес-клуб ВШЭ — на главную'}>
-          <span class={styles.logoMark}>{'ВШЭ'}</span>
-          <span class={styles.logoText}>{'Бизнес-клуб'}</span>
+        <NuxtLink to={'/'} class={styles.logo} aria-label={'Бизнес-клуб — на главную'}>
+          <span class={styles.logoMark} aria-hidden={'true'}>{'БК'}</span>
+          <span class={styles.logoText}>
+            <span class={styles.logoTitle}>{'Бизнес-клуб'}</span>
+            <span class={styles.logoSubtitle}>{'Стартапы и вакансии'}</span>
+          </span>
         </NuxtLink>
 
         <nav class={styles.nav} aria-label={'Основная навигация'}>
