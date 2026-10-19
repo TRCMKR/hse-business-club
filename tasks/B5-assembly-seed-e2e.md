@@ -43,6 +43,12 @@
    `back/docker-compose.test.yaml`, порт 5433; I0 заменит на корневой compose), ждут
    `pg_isready`, запускают тесты, гасят контейнер.
 6. Сверить `hbc.swagger.json` с реальным поведением (пути, методы); README бэка дополнить.
+7. Gateway: ошибки разбора тела (невалидный JSON, неизвестный enum) должны отдаваться как
+   400 с текстом «Некорректный формат запроса» (SPEC §2.4, ARCHITECTURE §3) — проверить в
+   e2e, при необходимости доработать error handler в `internal/platform/server` (правка вне
+   зоны — в отчёт).
+8. `StatsForListings`: `total` без withdrawn (SPEC §4.2) — проверить в e2e на сиде (у
+   публикации №5 withdrawn от Веры → `stats.total = 0`).
 
 ## Выходы
 
@@ -68,3 +74,20 @@
 
 Команды, время прогона e2e, правки в чужих зонах, замечания для фронта (точные тексты
 ошибок, формы ответов).
+
+## Доработки по ревью B0 (не блокирующие, закрыть в B5 — зона `platform/server`, `Dockerfile`, с записью в отчёт)
+
+1. `internal/platform/server/http.go` (`r.Handle("/v1/*", s.public)` на debug-порту): метка
+   `route` в `http_requests_total` и имя спана получаются `/v1/v1/ping` — ожидается `/v1/ping`,
+   как на публичном порту.
+2. 401 от gateway ставит заголовок `Www-Authenticate: Требуется вход` (не-ASCII) — заменить на
+   `Bearer` или убрать заголовок.
+3. Logging-интерцептор стоит до auth → в строке `grpc call` нет `user_id`. Переставить auth
+   перед logging (или обогащать после), чтобы `user_id` попадал в лог вызова.
+4. `Dockerfile` HEALTHCHECK зашит на `:8080` — при другом `HTTP_ADDR` контейнер unhealthy;
+   допустимо оставить, но задокументировать в README бэка.
+5. `docker-compose.test.yaml`: `cgr.dev/chainguard/minio:latest` — зафиксировать тег/digest
+   (I0 заменит файл на корневой compose — согласовать один и тот же образ).
+6. Тесты auth: добавить кейсы `alg=none` и RS256 (защита есть, покрытия нет).
+7. `s3.WithRegisterer` и `PoolCollector` молча игнорируют `AlreadyRegistered` — для e2e с
+   несколькими `app.New` на один реестр использовать отдельный `prometheus.NewRegistry` на тест.

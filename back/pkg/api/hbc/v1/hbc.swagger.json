@@ -1,0 +1,1281 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "hbc-back",
+    "description": "API модуля стартапов и вакансий Бизнес-клуба НИУ ВШЭ",
+    "version": "1.0"
+  },
+  "tags": [
+    {
+      "name": "HseBusinessClub",
+      "description": "Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login и\nV1GetAvatar, требуют заголовок Authorization: Bearer \u003cjwt\u003e.\n\n---------- Служебное ----------"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/ping": {
+      "get": {
+        "operationId": "HseBusinessClub_V1Ping",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1PingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "operationId": "HseBusinessClub_V1Register",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1AuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1V1RegisterRequest"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "operationId": "HseBusinessClub_V1Login",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1AuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1V1LoginRequest"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "HseBusinessClub_V1GetMe",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1User"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "HseBusinessClub"
+        ]
+      },
+      "put": {
+        "summary": "Полная замена редактируемых полей профиля.",
+        "operationId": "HseBusinessClub_V1UpdateMe",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1User"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1V1UpdateMeRequest"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/users/{id}": {
+      "get": {
+        "operationId": "HseBusinessClub_V1GetUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1User"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/me/avatar": {
+      "delete": {
+        "summary": "Удалить фото. Идемпотентно: без фото — 200 с текущим профилем.",
+        "operationId": "HseBusinessClub_V1DeleteAvatar",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1User"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "HseBusinessClub"
+        ]
+      },
+      "post": {
+        "summary": "Загрузить или заменить фото. Тело — JSON с изображением в base64 (JPEG/PNG/WebP,\nдо 5 МБ). Сервер обрезает до квадрата, уменьшает до 512×512 и сохраняет как JPEG.",
+        "operationId": "HseBusinessClub_V1UploadAvatar",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1User"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1V1UploadAvatarRequest"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/avatars/{file}": {
+      "get": {
+        "summary": "Отдать файл фото (image/jpeg) по пути из User.avatar_url. Без авторизации:\nимя файла — непредсказуемый uuid. Ответ кэшируется (immutable).",
+        "operationId": "HseBusinessClub_V1GetAvatar",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiHttpBody"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "file",
+            "description": "Имя файла из User.avatar_url: \"\u003cuuid\u003e.jpg\".",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/listings": {
+      "get": {
+        "summary": "Лента: только активные публикации всех участников, новые первыми.",
+        "operationId": "HseBusinessClub_V1ListListings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1ListListingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "description": "UNSPECIFIED = все типы.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "LISTING_KIND_UNSPECIFIED",
+              "LISTING_KIND_STARTUP",
+              "LISTING_KIND_VACANCY"
+            ],
+            "default": "LISTING_KIND_UNSPECIFIED"
+          },
+          {
+            "name": "query",
+            "description": "Поиск по title и description без учёта регистра. Пусто = без фильтра.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "page",
+            "description": "С 1. По умолчанию 1.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "limit",
+            "description": "1..50. По умолчанию 20.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      },
+      "post": {
+        "operationId": "HseBusinessClub_V1CreateListing",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Listing"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1V1CreateListingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/listings/{id}": {
+      "get": {
+        "operationId": "HseBusinessClub_V1GetListing",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Listing"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      },
+      "put": {
+        "summary": "Только автор, только пока публикация активна. Поле kind менять нельзя.",
+        "operationId": "HseBusinessClub_V1UpdateListing",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Listing"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/HseBusinessClubV1UpdateListingBody"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/listings/{id}/close": {
+      "post": {
+        "summary": "Только автор. Идемпотентно: повторное закрытие возвращает 200.",
+        "operationId": "HseBusinessClub_V1CloseListing",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Listing"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/HseBusinessClubV1CloseListingBody"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/me/listings": {
+      "get": {
+        "summary": "Публикации текущего пользователя (активные и закрытые) со статистикой откликов.",
+        "operationId": "HseBusinessClub_V1ListMyListings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1ListMyListingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "description": "UNSPECIFIED = все.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "LISTING_STATUS_UNSPECIFIED",
+              "LISTING_STATUS_ACTIVE",
+              "LISTING_STATUS_CLOSED"
+            ],
+            "default": "LISTING_STATUS_UNSPECIFIED"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/listings/{listingId}/applications": {
+      "get": {
+        "summary": "Отклики на конкретную публикацию. Только автор публикации.",
+        "operationId": "HseBusinessClub_V1ListListingApplications",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1ApplicationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "description": "UNSPECIFIED = все.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "APPLICATION_STATUS_UNSPECIFIED",
+              "APPLICATION_STATUS_PENDING",
+              "APPLICATION_STATUS_ACCEPTED",
+              "APPLICATION_STATUS_DECLINED",
+              "APPLICATION_STATUS_WITHDRAWN"
+            ],
+            "default": "APPLICATION_STATUS_UNSPECIFIED"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      },
+      "post": {
+        "summary": "Откликнуться на публикацию. Нельзя на свою, нельзя на закрытую,\nнельзя повторно, пока есть не отозванный отклик (409).",
+        "operationId": "HseBusinessClub_V1CreateApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Application"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/HseBusinessClubV1CreateApplicationBody"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/applications/{id}/accept": {
+      "post": {
+        "summary": "Автор публикации принимает отклик. pending -\u003e accepted. Идемпотентно для accepted.",
+        "operationId": "HseBusinessClub_V1AcceptApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Application"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/HseBusinessClubV1AcceptApplicationBody"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/applications/{id}/decline": {
+      "post": {
+        "summary": "Автор публикации отклоняет отклик. pending -\u003e declined. Идемпотентно для declined.",
+        "operationId": "HseBusinessClub_V1DeclineApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Application"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/HseBusinessClubV1DeclineApplicationBody"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/applications/{id}/withdraw": {
+      "post": {
+        "summary": "Откликнувшийся отзывает свой отклик. pending -\u003e withdrawn. Идемпотентно для withdrawn.",
+        "operationId": "HseBusinessClub_V1WithdrawApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Application"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/HseBusinessClubV1WithdrawApplicationBody"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/me/applications/sent": {
+      "get": {
+        "summary": "Отклики, отправленные текущим пользователем.",
+        "operationId": "HseBusinessClub_V1ListSentApplications",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1ApplicationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "description": "UNSPECIFIED = все.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "APPLICATION_STATUS_UNSPECIFIED",
+              "APPLICATION_STATUS_PENDING",
+              "APPLICATION_STATUS_ACCEPTED",
+              "APPLICATION_STATUS_DECLINED",
+              "APPLICATION_STATUS_WITHDRAWN"
+            ],
+            "default": "APPLICATION_STATUS_UNSPECIFIED"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/me/applications/received": {
+      "get": {
+        "summary": "Отклики, полученные на все публикации текущего пользователя.",
+        "operationId": "HseBusinessClub_V1ListReceivedApplications",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1ApplicationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "description": "UNSPECIFIED = все.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "APPLICATION_STATUS_UNSPECIFIED",
+              "APPLICATION_STATUS_PENDING",
+              "APPLICATION_STATUS_ACCEPTED",
+              "APPLICATION_STATUS_DECLINED",
+              "APPLICATION_STATUS_WITHDRAWN"
+            ],
+            "default": "APPLICATION_STATUS_UNSPECIFIED"
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "HseBusinessClubV1AcceptApplicationBody": {
+      "type": "object"
+    },
+    "HseBusinessClubV1CloseListingBody": {
+      "type": "object"
+    },
+    "HseBusinessClubV1CreateApplicationBody": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "HseBusinessClubV1DeclineApplicationBody": {
+      "type": "object"
+    },
+    "HseBusinessClubV1UpdateListingBody": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "lookingFor": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stage": {
+          "$ref": "#/definitions/v1StartupStage"
+        },
+        "compensation": {
+          "type": "string"
+        }
+      }
+    },
+    "HseBusinessClubV1WithdrawApplicationBody": {
+      "type": "object"
+    },
+    "apiHttpBody": {
+      "type": "object",
+      "properties": {
+        "contentType": {
+          "type": "string",
+          "description": "The HTTP Content-Type header value specifying the content type of the body."
+        },
+        "data": {
+          "type": "string",
+          "format": "byte",
+          "description": "The HTTP request/response body as raw binary."
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          },
+          "description": "Application specific response metadata. Must be set in the first response\nfor streaming APIs."
+        }
+      },
+      "description": "Message that represents an arbitrary HTTP body. It should only be used for\npayload formats that can't be represented as JSON, such as raw binary or\nan HTML page.\n\n\nThis message can be used both in streaming and non-streaming API methods in\nthe request as well as the response.\n\nIt can be used as a top-level request field, which is convenient if one\nwants to extract parameters from either the URL or HTTP template into the\nrequest fields and also want access to the raw HTTP body.\n\nExample:\n\n    message GetResourceRequest {\n      // A unique request id.\n      string request_id = 1;\n\n      // The raw HTTP body is bound to this field.\n      google.api.HttpBody http_body = 2;\n\n    }\n\n    service ResourceService {\n      rpc GetResource(GetResourceRequest)\n        returns (google.api.HttpBody);\n      rpc UpdateResource(google.api.HttpBody)\n        returns (google.protobuf.Empty);\n\n    }\n\nExample with streaming methods:\n\n    service CaldavService {\n      rpc GetCalendar(stream google.api.HttpBody)\n        returns (stream google.api.HttpBody);\n      rpc UpdateCalendar(stream google.api.HttpBody)\n        returns (stream google.api.HttpBody);\n\n    }\n\nUse of this type only changes how the request and response bodies are\nhandled, all other features will continue to work unchanged."
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string",
+          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com. As of May 2023, there are no widely used type server\nimplementations and no plans to implement one.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
+        }
+      },
+      "additionalProperties": {},
+      "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n    // or ...\n    if (any.isSameTypeAs(Foo.getDefaultInstance())) {\n      foo = any.unpack(Foo.getDefaultInstance());\n    }\n\n Example 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\n Example 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := anypb.New(foo)\n     if err != nil {\n       ...\n     }\n     ...\n     foo := \u0026pb.Foo{}\n     if err := any.UnmarshalTo(foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\nJSON\n====\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v1Application": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "listing": {
+          "$ref": "#/definitions/v1ListingSummary"
+        },
+        "applicant": {
+          "$ref": "#/definitions/v1User"
+        },
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1ApplicationStatus"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "decidedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Момент accept/decline. null для pending и withdrawn."
+        }
+      }
+    },
+    "v1ApplicationStatus": {
+      "type": "string",
+      "enum": [
+        "APPLICATION_STATUS_UNSPECIFIED",
+        "APPLICATION_STATUS_PENDING",
+        "APPLICATION_STATUS_ACCEPTED",
+        "APPLICATION_STATUS_DECLINED",
+        "APPLICATION_STATUS_WITHDRAWN"
+      ],
+      "default": "APPLICATION_STATUS_UNSPECIFIED"
+    },
+    "v1Listing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/v1ListingKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "lookingFor": {
+          "type": "string",
+          "description": "Кого ищет автор (свободный текст)."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Роли и навыки, которые ищет автор. Используются как теги в карточке."
+        },
+        "stage": {
+          "$ref": "#/definitions/v1StartupStage",
+          "description": "Только для STARTUP, иначе UNSPECIFIED."
+        },
+        "compensation": {
+          "type": "string",
+          "description": "Только для VACANCY (условия: доля, оплата, формат), иначе пусто."
+        },
+        "status": {
+          "$ref": "#/definitions/v1ListingStatus"
+        },
+        "author": {
+          "$ref": "#/definitions/v1User"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "closedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "null, пока публикация активна."
+        },
+        "isMine": {
+          "type": "boolean",
+          "description": "true, если текущий пользователь — автор."
+        },
+        "myApplication": {
+          "$ref": "#/definitions/v1Application",
+          "description": "Не отозванный отклик текущего пользователя на эту публикацию. null, если нет."
+        },
+        "stats": {
+          "$ref": "#/definitions/v1ListingStats",
+          "description": "Только для is_mine = true, иначе null."
+        }
+      }
+    },
+    "v1ListingKind": {
+      "type": "string",
+      "enum": [
+        "LISTING_KIND_UNSPECIFIED",
+        "LISTING_KIND_STARTUP",
+        "LISTING_KIND_VACANCY"
+      ],
+      "default": "LISTING_KIND_UNSPECIFIED"
+    },
+    "v1ListingStats": {
+      "type": "object",
+      "properties": {
+        "pending": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "accepted": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "declined": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "Статистика откликов по публикации. Отдаётся только автору."
+    },
+    "v1ListingStatus": {
+      "type": "string",
+      "enum": [
+        "LISTING_STATUS_UNSPECIFIED",
+        "LISTING_STATUS_ACTIVE",
+        "LISTING_STATUS_CLOSED"
+      ],
+      "default": "LISTING_STATUS_UNSPECIFIED"
+    },
+    "v1ListingSummary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/v1ListingKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1ListingStatus"
+        },
+        "author": {
+          "$ref": "#/definitions/v1User"
+        }
+      },
+      "description": "Краткая публикация для вложения в отклик."
+    },
+    "v1StartupStage": {
+      "type": "string",
+      "enum": [
+        "STARTUP_STAGE_UNSPECIFIED",
+        "STARTUP_STAGE_IDEA",
+        "STARTUP_STAGE_PROTOTYPE",
+        "STARTUP_STAGE_MVP",
+        "STARTUP_STAGE_LAUNCHED"
+      ],
+      "default": "STARTUP_STAGE_UNSPECIFIED",
+      "description": "Стадия стартапа. Заполняется только для kind = STARTUP."
+    },
+    "v1User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "about": {
+          "type": "string"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "telegram": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "Путь к фото относительно корня API: \"/v1/avatars/\u003cuuid\u003e.jpg\". Пусто — фото нет,\nклиент рисует сгенерированный аватар по username."
+        }
+      }
+    },
+    "v1V1ApplicationsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Application"
+          }
+        }
+      }
+    },
+    "v1V1AuthResponse": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/definitions/v1User"
+        }
+      }
+    },
+    "v1V1CreateListingRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/v1ListingKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "lookingFor": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stage": {
+          "$ref": "#/definitions/v1StartupStage"
+        },
+        "compensation": {
+          "type": "string"
+        }
+      }
+    },
+    "v1V1ListListingsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Listing"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1V1ListMyListingsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Listing"
+          }
+        }
+      }
+    },
+    "v1V1LoginRequest": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      }
+    },
+    "v1V1PingResponse": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      }
+    },
+    "v1V1RegisterRequest": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      }
+    },
+    "v1V1UpdateMeRequest": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "about": {
+          "type": "string"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "telegram": {
+          "type": "string"
+        }
+      }
+    },
+    "v1V1UploadAvatarRequest": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "string",
+          "format": "byte",
+          "description": "Исходное изображение (в JSON — base64). JPEG, PNG или WebP, до 5 МБ."
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "description": "Формат: Bearer \u003cjwt\u003e",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ]
+}
