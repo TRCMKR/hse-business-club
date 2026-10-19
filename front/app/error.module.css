@@ -1,0 +1,29 @@
+.page {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.code {
+  color: var(--color-accent);
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.title {
+  font-size: 22px;
+  margin: 0;
+}
+
+.text {
+  color: var(--color-text-secondary);
+  margin: 0 0 8px;
+  max-width: 360px;
+}
