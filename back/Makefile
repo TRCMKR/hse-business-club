@@ -6,7 +6,9 @@ LDFLAGS := -s -w \
 	-X github.com/trcmkr/hse-business-club/back/internal/platform/telemetry.Version=$(VERSION) \
 	-X github.com/trcmkr/hse-business-club/back/internal/platform/telemetry.Commit=$(COMMIT)
 
-GOLANGCI_LINT ?= golangci-lint
+# Built with the local Go toolchain: a prebuilt binary older than the toolchain
+# cannot type-check the standard library.
+GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
 ifneq (,$(wildcard .env))
 	include .env

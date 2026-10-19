@@ -1,0 +1,75 @@
+version: "2"
+
+run:
+  concurrency: 8
+  timeout: 10m
+  issues-exit-code: 1
+  tests: true
+  build-tags:
+    - integration
+    - e2e
+
+output:
+  formats:
+    text:
+      print-linter-name: true
+      print-issued-lines: true
+      colors: true
+    tab:
+      print-linter-name: true
+      colors: true
+  sort-order:
+    - linter
+    - severity
+    - file
+  show-stats: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - goconst
+    - gosec
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+  settings:
+    govet:
+      shadow: true
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurencies: 2
+  exclusions:
+    paths:
+      - bin
+      - \.pb\.go$
+      - \.pb\.gw\.go$
+      - \.pb\.scratch\.go$
+      - \.pb\.goclay\.go$
+      - pkg/api
+    rules:
+      # _ instead of err checks
+      - path: /
+        text: G104
+
+      # for "public interface + private struct implementation" cases only!
+      - path: /
+        text: exported func .* returns unexported type .*, which can be annoying to use
+
+      # can be removed in the development phase
+      # - (comment on exported (method|function|type|const)|should have( a package)? comment|comment should be of the form)
+      # not for the active development - can be removed in the stable phase
+      - path: /
+        text: should have a package comment
+      - path: /
+        text: don't use an underscore in package name
+
+      # EXC0001 errcheck: Almost all programs ignore errs on these functions and in most cases it's ok
+      - path: /
+        text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+      - path: /
+        text: should check returned error before deferring
