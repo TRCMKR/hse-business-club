@@ -1,5 +1,5 @@
 // Package app assembles the application from its infrastructure dependencies.
-// cmd/hbc builds the real dependencies; e2e tests (B5) can pass e.g. blob/memory.
+// cmd/hbc builds the real dependencies; e2e tests pass blob/memory instead of S3.
 package app
 
 import (
@@ -10,13 +10,21 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
+	"github.com/trcmkr/hse-business-club/back/internal/adapters"
+	appspg "github.com/trcmkr/hse-business-club/back/internal/applications/postgres"
+	appssvc "github.com/trcmkr/hse-business-club/back/internal/applications/service"
 	"github.com/trcmkr/hse-business-club/back/internal/bff"
+	listingspg "github.com/trcmkr/hse-business-club/back/internal/listings/postgres"
+	listingssvc "github.com/trcmkr/hse-business-club/back/internal/listings/service"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/auth"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/blob"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/config"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/db"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/server"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/telemetry"
+	"github.com/trcmkr/hse-business-club/back/internal/seed"
+	userspg "github.com/trcmkr/hse-business-club/back/internal/users/postgres"
+	userssvc "github.com/trcmkr/hse-business-club/back/internal/users/service"
 )
 
 // Deps are the infrastructure dependencies owned by the caller: the caller closes
@@ -36,12 +44,14 @@ type App struct {
 }
 
 // Migrators returns the migrators of all bounded contexts, in order.
-// B1–B3 add theirs here: users, listings, applications.
 func Migrators() []db.Migrator {
-	return []db.Migrator{}
+	return []db.Migrator{userspg.Migrator, listingspg.Migrator, appspg.Migrator}
 }
 
-// New runs migrations, builds contexts, the BFF and the server (listeners are bound).
+// New runs migrations, builds contexts and the BFF, seeds demo data when
+// SEED_DEMO_DATA is set, and builds the server (listeners are bound). Since all of
+// it happens before Run, /readyz answers only after migrations; it then checks the
+// pool and the blob store.
 func New(ctx context.Context, cfg *config.Config, d Deps) (*App, error) {
 	if d.Log == nil || d.Telemetry == nil || d.Pool == nil || d.Blob == nil {
 		return nil, errors.New("app: Log, Telemetry, Pool and Blob are required")
@@ -60,15 +70,24 @@ func New(ctx context.Context, cfg *config.Config, d Deps) (*App, error) {
 
 	jwt := auth.NewJWT(cfg.Auth.JWTSecret, cfg.Auth.JWTTTL)
 
-	// Contexts are wired here by B1–B4 (users.Service needs d.Blob for photos;
-	// applications.ListingReader comes from internal/adapters).
-	impl := bff.New(bff.Deps{
-		Issuer: jwt,
-	})
+	usersSvc := userssvc.New(userspg.New(d.Pool), userssvc.Bcrypt, d.Blob)
+	listingsSvc := listingssvc.New(listingspg.New(d.Pool))
+	applicationsSvc := appssvc.New(appspg.New(d.Pool), adapters.NewListingReader(listingsSvc))
 
 	if cfg.Seed.DemoData {
-		d.Log.Warn("SEED_DEMO_DATA is set, but seeding is not implemented yet")
+		if _, err := seed.Run(ctx, d.Pool, d.Log.With(zap.String("component", "seed")), seed.Deps{
+			Users: usersSvc, Listings: listingsSvc, Applications: applicationsSvc,
+		}); err != nil {
+			return nil, fmt.Errorf("app: %w", err)
+		}
 	}
+
+	impl := bff.New(bff.Deps{
+		Users:        usersSvc,
+		Listings:     listingsSvc,
+		Applications: applicationsSvc,
+		Issuer:       jwt,
+	})
 
 	srv, err := server.New(ctx, cfg.Server, d.Log, d.Telemetry, jwt, impl)
 	if err != nil {
