@@ -49,7 +49,10 @@ TEST_ENV          ?= compose
 
 TEST_INTEGRATION_CMD = TEST_POSTGRES_DSN="$(TEST_POSTGRES_DSN)" TEST_S3_ENDPOINT="$(TEST_S3_ENDPOINT)" \
 	go test -race -count=1 -tags=integration ./...
-TEST_E2E_CMD = TEST_POSTGRES_DSN="$(TEST_POSTGRES_DSN)" go test -race -count=1 -tags=e2e ./tests/e2e/...
+# -race makes e2e ~10x slower (bcrypt under the race detector): ~60 s instead of ~6 s.
+# E2E_FLAGS= make test-e2e runs without it.
+E2E_FLAGS ?= -race
+TEST_E2E_CMD = TEST_POSTGRES_DSN="$(TEST_POSTGRES_DSN)" go test $(E2E_FLAGS) -count=1 -tags=e2e ./tests/e2e/...
 
 # with_test_env runs $(2) with the compose services $(1) up (waiting for their
 # healthchecks: pg_isready for Postgres) and always stops them afterwards,
