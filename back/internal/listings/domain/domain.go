@@ -4,6 +4,7 @@
 package domain
 
 import (
+	"errors"
 	"strings"
 	"unicode/utf8"
 
@@ -255,3 +256,8 @@ func runeLenIn(s string, minLen, maxLen int) bool {
 	n := utf8.RuneCountInString(s)
 	return n >= minLen && n <= maxLen
 }
+
+// ErrNotActive is returned by the repository when a conditional update (edit, close)
+// matched no active listing: the listing is missing or already closed. The service
+// re-reads the listing to tell the cases apart. It never leaves the context.
+var ErrNotActive = errors.New("listings: listing is missing or not active")
