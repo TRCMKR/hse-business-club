@@ -1,0 +1,27 @@
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.option {
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 0;
+}
+
+.option:focus-visible {
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.option:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.option:not([aria-pressed='true']):hover > span {
+  background: var(--color-surface-hover);
+}
