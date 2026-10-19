@@ -36,7 +36,7 @@ func (s *Server) newGRPCServer(verifier auth.Verifier, publicMethods map[string]
 		grpc.ChainUnaryInterceptor(
 			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandlerContext(recoveryHandler)),
 			s.tel.GRPCUnaryInterceptor(),
-			loggingInterceptor(s.log),
+			loggingInterceptor(s.baseLog),
 			auth.UnaryInterceptor(verifier, publicMethods),
 		),
 	)

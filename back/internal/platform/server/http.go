@@ -209,4 +209,3 @@ func swaggerRoutes(doc []byte) ([]route, error) {
 	})
 	return routes, nil
 }
-

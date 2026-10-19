@@ -67,9 +67,10 @@ type namedCheck struct {
 
 // Server owns the listeners, the gRPC server, the gateway connection and both routers.
 type Server struct {
-	cfg config.Server
-	log *zap.Logger
-	tel *telemetry.Telemetry
+	cfg     config.Server
+	log     *zap.Logger // component=server
+	baseLog *zap.Logger
+	tel     *telemetry.Telemetry
 
 	grpcLis, httpLis, debugLis net.Listener
 
@@ -87,7 +88,7 @@ type Server struct {
 // New listens on cfg.GRPCAddr, cfg.HTTPAddr and cfg.DebugAddr, registers services
 // on the gRPC server and the gateway and builds the routers. Call Run to serve.
 func New(ctx context.Context, cfg config.Server, log *zap.Logger, tel *telemetry.Telemetry, verifier auth.Verifier, services ...Service) (_ *Server, err error) {
-	s := &Server{cfg: cfg, log: log.With(zap.String("component", "server")), tel: tel}
+	s := &Server{cfg: cfg, log: log.With(zap.String("component", "server")), baseLog: log, tel: tel}
 	defer func() {
 		if err != nil {
 			s.closeAll()

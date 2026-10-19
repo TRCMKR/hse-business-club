@@ -1,0 +1,12 @@
+.git
+.idea
+.vscode
+.DS_Store
+bin/
+build/
+coverage.out
+.env
+.env.*
+docker-compose*.yaml
+Dockerfile
+.dockerignore

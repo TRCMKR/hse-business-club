@@ -53,7 +53,8 @@ test-integration:
 .PHONY: test-e2e
 ## runs HTTP end-to-end tests (implemented in B5)
 test-e2e:
-	go test -count=1 -tags=e2e ./tests/e2e/...
+	@if [ -d tests/e2e ]; then go test -count=1 -tags=e2e ./tests/e2e/...; \
+	else echo "tests/e2e is not implemented yet (B5)"; fi
 
 .PHONY: test-env-up
 ## starts postgres and minio for integration tests
@@ -85,4 +86,4 @@ tidy:
 migration-create:
 	@test -n "$(ctx)" || (echo "ctx is required: make migration-create ctx=users name=init" && exit 1)
 	@test -n "$(name)" || (echo "name is required: make migration-create ctx=users name=init" && exit 1)
-	go run github.com/pressly/goose/v3/cmd/goose@v3.26.0 -dir internal/$(ctx)/postgres/migrations -s create $(name) sql
+	go run github.com/pressly/goose/v3/cmd/goose@v3.27.0 -dir internal/$(ctx)/postgres/migrations -s create $(name) sql
