@@ -65,7 +65,7 @@ interface Route {
 const MSG = {
   wrongCredentials: 'Неверный логин или пароль',
   usernameTaken: 'Логин уже занят',
-  userNotFound: 'Пользователь не найден',
+  userNotFound: 'Участник не найден',
   listingNotFound: 'Публикация не найдена',
   applicationNotFound: 'Отклик не найден',
   avatarNotFound: 'Фото не найдено',

@@ -1,40 +1,65 @@
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
 import { PageHeader } from '~/components/ui/page-header';
 import { Button } from '~/components/ui/button';
-import { Card } from '~/components/ui/card';
-import { UserSummary } from '~/components/cards/user-summary';
-import { EmptyState } from '~/components/states/empty-state';
+import { AvatarEditor } from '~/components/profile/avatar-editor';
+import { ProfileCard } from '~/components/profile/profile-card';
+import { ProfileForm } from '~/components/profile/profile-form';
 import { useAuthStore } from '~/stores/auth';
-import styles from './index.module.css';
 
-/** Stub (F0): shows the current user and «Выйти». Profile view/edit and photo — F5. */
+/** Own profile: view, inline edit (PUT /v1/me), photo upload/delete, logout. */
 export default defineComponent({
   name: 'MePage',
   setup() {
     useHead({ title: 'Профиль' });
     const auth = useAuthStore();
+    const editing = ref(false);
+    const loggingOut = ref(false);
 
     const onLogout = async () => {
-      await auth.logout();
-      await navigateTo('/login');
+      loggingOut.value = true;
+      try {
+        await auth.logout();
+        await navigateTo('/login');
+      } finally {
+        loggingOut.value = false;
+      }
     };
 
-    return () => (
-      <div>
-        <PageHeader title={'Профиль'} subtitle={'Ваши данные в клубе'}>
-          {{
-            actions: () => (
-              <Button variant={'secondary'} size={'sm'} onClick={onLogout}>{'Выйти'}</Button>
-            ),
-          }}
-        </PageHeader>
-        {auth.user && (
-          <Card class={styles.card}>
-            <UserSummary user={auth.user} size={'lg'} />
-          </Card>
-        )}
-        <EmptyState title={'Скоро здесь будет экран'} description={'Редактирование профиля и фото — в разработке (F5).'} />
-      </div>
-    );
+    return () => {
+      const user = auth.user;
+      return (
+        <div>
+          <PageHeader title={'Профиль'} subtitle={'Ваши данные в клубе'}>
+            {{
+              actions: () => (
+                <Button variant={'secondary'} size={'sm'} icon={'logout'} loading={loggingOut.value} onClick={onLogout}>
+                  {'Выйти'}
+                </Button>
+              ),
+            }}
+          </PageHeader>
+          {user && (editing.value
+            ? (
+              <ProfileForm
+                user={user}
+                onSaved={() => (editing.value = false)}
+                onCancel={() => (editing.value = false)}
+              />
+            )
+            : (
+              <ProfileCard user={user}>
+                {{
+                  avatar: () => <AvatarEditor user={user} />,
+                  actions: () => (
+                    <Button variant={'secondary'} size={'sm'} icon={'edit'} onClick={() => (editing.value = true)}>
+                      {'Редактировать'}
+                    </Button>
+                  ),
+                }}
+              </ProfileCard>
+            ))}
+        </div>
+      );
+    };
   },
 });
