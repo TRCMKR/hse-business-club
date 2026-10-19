@@ -1,5 +1,6 @@
 import { createRng } from "./random.js";
 import { el, d } from "./svg.js";
+const FIGURE_RADIUS = 30;
 function roundedPolygon(points, radius) {
   const n = points.length;
   let path = "";
@@ -34,80 +35,41 @@ function smoothClosed(points) {
 }
 function blobOutline(shapeSeed) {
   const rng = createRng(shapeSeed ^ 2654435769);
-  const count = rng.int(6, 9);
+  const count = rng.int(5, 7);
   const step = Math.PI * 2 / count;
   const start = rng.range(0, step);
   const points = [];
   for (let i = 0; i < count; i++) {
-    const angle = start + i * step + rng.range(-0.22, 0.22) * step;
-    const radius = rng.range(29, 36);
-    points.push({ x: 50 + Math.cos(angle) * radius, y: 54 + Math.sin(angle) * radius * 0.94 });
+    const angle = start + i * step + rng.range(-0.15, 0.15) * step;
+    const radius = rng.range(27, 32);
+    points.push({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
   }
   return smoothClosed(points);
 }
-function buildBody(shape, shapeSeed) {
+function buildShape(shape, shapeSeed) {
+  const r = FIGURE_RADIUS;
   switch (shape) {
     case "round":
-      return {
-        node: el("circle", { cx: 50, cy: 54, r: 33 }),
-        face: { x: 50, y: 53, scale: 1.2 },
-        shine: { x: 36, y: 35, rx: 7, ry: 4, angle: -35 }
-      };
+      return el("circle", { r });
     case "squircle":
-      return {
-        node: el("rect", { x: 17, y: 21, width: 66, height: 66, rx: 24 }),
-        face: { x: 50, y: 54, scale: 1.2 },
-        shine: { x: 32, y: 32, rx: 6, ry: 3.5, angle: -40 }
-      };
+      return el("rect", { x: -27, y: -27, width: 54, height: 54, rx: 17 });
     case "blob":
-      return {
-        node: el("path", { d: blobOutline(shapeSeed) }),
-        face: { x: 50, y: 54, scale: 1.12 },
-        shine: { x: 37, y: 38, rx: 6, ry: 3.5, angle: -35 }
-      };
+      return el("path", { d: blobOutline(shapeSeed) });
     case "droplet":
-      return {
-        node: el("path", { d: "M50 13C60 29 83 43 83 62C83 80 68 89 50 89C32 89 17 80 17 62C17 43 40 29 50 13Z" }),
-        face: { x: 50, y: 62, scale: 1.1 },
-        shine: { x: 38, y: 44, rx: 5, ry: 3, angle: -55 }
-      };
+      return el("path", { d: "M-27-27H0A27 27 0 0 1 27 0A27 27 0 0 1 0 27A27 27 0 0 1-27 0Z" });
     case "hexagon": {
       const points = [];
       for (let i = 0; i < 6; i++) {
-        const angle = Math.PI / 3 * i;
-        points.push({ x: 50 + Math.cos(angle) * 37, y: 54 + Math.sin(angle) * 35 });
+        const angle = Math.PI / 3 * i + Math.PI / 6;
+        points.push({ x: Math.cos(angle) * 31, y: Math.sin(angle) * 31 });
       }
-      return {
-        node: el("path", { d: roundedPolygon(points, 9) }),
-        face: { x: 50, y: 55, scale: 1.15 },
-        shine: { x: 37, y: 30, rx: 6, ry: 3, angle: -20 }
-      };
+      return el("path", { d: roundedPolygon(points, 8) });
     }
-    case "cloud":
-      return {
-        node: el("g", {}, [
-          el("circle", { cx: 33, cy: 55, r: 17 }),
-          el("circle", { cx: 51, cy: 42, r: 21 }),
-          el("circle", { cx: 69, cy: 54, r: 16 }),
-          el("rect", { x: 16, y: 54, width: 68, height: 32, rx: 16 })
-        ]),
-        face: { x: 50, y: 60, scale: 1.12 },
-        shine: { x: 42, y: 29, rx: 6, ry: 3, angle: -25 }
-      };
     case "capsule":
-      return {
-        node: el("rect", { x: 24, y: 14, width: 52, height: 76, rx: 26 }),
-        face: { x: 50, y: 48, scale: 1 },
-        shine: { x: 36, y: 28, rx: 4.5, ry: 3, angle: -50 }
-      };
-    case "triangle":
-      return {
-        node: el("path", { d: roundedPolygon([{ x: 50, y: 12 }, { x: 90, y: 84 }, { x: 10, y: 84 }], 11) }),
-        face: { x: 50, y: 67, scale: 0.88 },
-        shine: { x: 42, y: 32, rx: 4.5, ry: 2.5, angle: -60 }
-      };
+      return el("rect", { x: -19, y: -31, width: 38, height: 62, rx: 19 });
   }
 }
 export {
-  buildBody
+  FIGURE_RADIUS,
+  buildShape
 };

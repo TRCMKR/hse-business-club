@@ -1,21 +1,8 @@
+import { PALETTES } from "./colors.js";
 import { createRng, hashString, normalizeSeed } from "./random.js";
-const SHAPES = ["round", "squircle", "blob", "droplet", "hexagon", "cloud", "capsule", "triangle"];
-const HUES = [12, 30, 50, 140, 175, 210, 260, 320];
-const TONES = ["light", "dark"];
-const EYE_SHAPES = ["dot", "oval", "wide", "wink"];
-const EXPRESSIONS = [
-  "happy",
-  "neutral",
-  "surprised",
-  "smirk",
-  "sleepy",
-  "mad",
-  "thinking",
-  "cheeky",
-  "sad",
-  "shy"
-];
-const EXTRAS = ["blush", "freckles", "none"];
+const SHAPES = ["round", "squircle", "blob", "droplet", "hexagon", "capsule"];
+const ACCENTS = ["orbit", "ring", "arc", "inset", "overlap", "split"];
+const DETAILS = ["none", "satellite", "trail"];
 function quantize(items, value) {
   return items[Math.min(items.length - 1, Math.floor(value * items.length))];
 }
@@ -24,15 +11,12 @@ function deriveTraits(seed, overrides = {}) {
   const derived = {
     shape: quantize(SHAPES, rng.next()),
     shapeSeed: Math.floor(rng.next() * 4294967296) >>> 0,
-    hue: quantize(HUES, rng.next()),
-    tone: quantize(TONES, rng.next()),
-    eyeShape: quantize(EYE_SHAPES, rng.next()),
-    eyeSize: rng.next(),
-    eyeSpacing: rng.next(),
-    eyeTilt: rng.next(),
-    pupilShift: rng.next(),
-    expression: quantize(EXPRESSIONS, rng.next()),
-    extras: quantize(EXTRAS, rng.next())
+    palette: Math.min(PALETTES.length - 1, Math.floor(rng.next() * PALETTES.length)),
+    accent: quantize(ACCENTS, rng.next()),
+    detail: quantize(DETAILS, rng.next()),
+    rotation: rng.next(),
+    accentAngle: rng.next(),
+    scale: rng.next()
   };
   const result = { ...derived };
   for (const key of Object.keys(overrides)) {
@@ -45,13 +29,13 @@ function deriveTraits(seed, overrides = {}) {
 }
 const VARIANTS = {
   shape: SHAPES,
-  hue: HUES,
-  tone: TONES,
-  eyeShape: EYE_SHAPES,
-  expression: EXPRESSIONS,
-  extras: EXTRAS
+  accent: ACCENTS,
+  detail: DETAILS
 };
-const UNIT_AXES = ["eyeSize", "eyeSpacing", "eyeTilt", "pupilShift"];
+const UNIT_AXES = ["rotation", "accentAngle", "scale"];
+function isInteger(value, max) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= max;
+}
 function isValid(key, value) {
   const variants = VARIANTS[key];
   if (variants) {
@@ -60,17 +44,17 @@ function isValid(key, value) {
   if (UNIT_AXES.includes(key)) {
     return typeof value === "number" && value >= 0 && value <= 1;
   }
+  if (key === "palette") {
+    return isInteger(value, PALETTES.length - 1);
+  }
   if (key === "shapeSeed") {
-    return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 4294967295;
+    return isInteger(value, 4294967295);
   }
   return false;
 }
 export {
-  EXPRESSIONS,
-  EXTRAS,
-  EYE_SHAPES,
-  HUES,
+  ACCENTS,
+  DETAILS,
   SHAPES,
-  TONES,
   deriveTraits
 };
