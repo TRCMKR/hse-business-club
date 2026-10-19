@@ -49,12 +49,6 @@ func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-// StatusChange is a status update computed under the row lock.
-type StatusChange struct {
-	Status    applications.Status
-	DecidedAt *time.Time
-}
-
 // Create inserts a new pending application from ListingID, ListingAuthorID, ApplicantID
 // and Message of a; the other fields are assigned by the database.
 // A live (not withdrawn) application of the same applicant to the same listing →
@@ -100,7 +94,7 @@ func (r *Repo) UpdateStatus(ctx context.Context, tx pgx.Tx, id uuid.UUID, status
 // a non-nil change, applies it — all in one transaction. A nil change means no-op: the
 // current state is returned without writing. Errors of fn abort the transaction as is.
 func (r *Repo) Update(ctx context.Context, id uuid.UUID,
-	fn func(cur *applications.Application) (*StatusChange, error),
+	fn func(cur *applications.Application) (*domain.StatusChange, error),
 ) (*applications.Application, error) {
 	var result *applications.Application
 	err := db.WithTx(ctx, r.pool, func(ctx context.Context, tx pgx.Tx) error {

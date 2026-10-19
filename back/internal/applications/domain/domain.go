@@ -5,6 +5,7 @@ package domain
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/trcmkr/hse-business-club/back/internal/applications"
@@ -125,4 +126,11 @@ func Transition(from applications.Status, action Action) (to applications.Status
 	default:
 		return "", false, apperr.New(apperr.KindUnknown, fmt.Sprintf("unknown application status %q", from))
 	}
+}
+
+// StatusChange is a status update the service computes under the row lock and the
+// repository applies. DecidedAt is set for accept/decline only (nil — NULL).
+type StatusChange struct {
+	Status    applications.Status
+	DecidedAt *time.Time
 }

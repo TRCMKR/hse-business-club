@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/trcmkr/hse-business-club/back/internal/applications"
+	"github.com/trcmkr/hse-business-club/back/internal/applications/domain"
 	"github.com/trcmkr/hse-business-club/back/internal/applications/postgres"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/db/dbtest"
@@ -64,9 +65,9 @@ func equalIDs(t *testing.T, got []*applications.Application, want ...uuid.UUID) 
 	if len(g) != len(want) {
 		t.Fatalf("got %d items %v, want %d %v", len(g), g, len(want), want)
 	}
-	for i := range g {
-		if g[i] != want[i] {
-			t.Fatalf("item %d = %v, want %v (got %v)", i, g[i], want[i], g)
+	for i, w := range want {
+		if g[i] != w {
+			t.Fatalf("item %d = %v, want %v (got %v)", i, g[i], w, g)
 		}
 	}
 }
@@ -186,7 +187,7 @@ func TestUpdate(t *testing.T) {
 	a := create(t, r, uuid.New(), uuid.New(), uuid.New())
 
 	// nil change → no write, current state returned.
-	got, err := r.Update(ctx, a.ID, func(cur *applications.Application) (*postgres.StatusChange, error) {
+	got, err := r.Update(ctx, a.ID, func(*applications.Application) (*domain.StatusChange, error) {
 		return nil, nil
 	})
 	if err != nil || *got != *a {
@@ -195,18 +196,18 @@ func TestUpdate(t *testing.T) {
 
 	// fn error aborts.
 	boom := errors.New("boom")
-	if _, err := r.Update(ctx, a.ID, func(*applications.Application) (*postgres.StatusChange, error) {
+	if _, err := r.Update(ctx, a.ID, func(*applications.Application) (*domain.StatusChange, error) {
 		return nil, boom
 	}); !errors.Is(err, boom) {
 		t.Fatalf("err = %v, want boom", err)
 	}
 
 	decided := time.Now().UTC().Truncate(time.Microsecond)
-	got, err = r.Update(ctx, a.ID, func(cur *applications.Application) (*postgres.StatusChange, error) {
+	got, err = r.Update(ctx, a.ID, func(cur *applications.Application) (*domain.StatusChange, error) {
 		if cur.Status != applications.StatusPending {
 			t.Errorf("cur status = %s", cur.Status)
 		}
-		return &postgres.StatusChange{Status: applications.StatusAccepted, DecidedAt: &decided}, nil
+		return &domain.StatusChange{Status: applications.StatusAccepted, DecidedAt: &decided}, nil
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -220,7 +221,7 @@ func TestUpdate(t *testing.T) {
 		t.Fatalf("reread = %+v, %v", reread, err)
 	}
 
-	if _, err := r.Update(ctx, uuid.New(), func(*applications.Application) (*postgres.StatusChange, error) {
+	if _, err := r.Update(ctx, uuid.New(), func(*applications.Application) (*domain.StatusChange, error) {
 		t.Error("fn must not be called for a missing row")
 		return nil, nil
 	}); apperr.KindOf(err) != apperr.KindNotFound {
@@ -311,8 +312,8 @@ func TestGetMineForListings(t *testing.T) {
 	live2 := create(t, r, l2, author, me) // re-applied after withdraw
 	w3 := create(t, r, l3, author, me)
 	setStatus(t, pool, w3.ID, applications.StatusWithdrawn) // only a withdrawn one
-	create(t, r, l4, author, uuid.New())                   // somebody else's
-	d4 := create(t, r, uuid.New(), author, me)             // not requested
+	create(t, r, l4, author, uuid.New())                    // somebody else's
+	d4 := create(t, r, uuid.New(), author, me)              // not requested
 	setStatus(t, pool, d4.ID, applications.StatusDeclined)
 
 	got, err := r.GetMineForListings(ctx, me, []uuid.UUID{l1, l2, l3, l4})
