@@ -8,7 +8,7 @@
 | B0 | merged | task/B0 | opus | 00:52 | 01:27 | tasks/reports/B0.md | принять (12 не блокирующих → B5) |
 | B1 | running | task/B1 | opus | 01:32 | | | |
 | B2 | running | task/B2 | opus | 01:32 | | | |
-| B3 | running | task/B3 | opus | 01:32 | | | |
+| B3 | review | task/B3 | opus | 01:32 | 01:44 | tasks/reports/B3.md | в работе |
 | B4 | running | task/B4 | opus | 01:32 | | | |
 | B5 | queued | task/B5 | | | | | |
 | F0 | rework | task/F0 | opus | 00:52 | 01:25 | tasks/reports/F0.md | итерация 1: вернуть (обход запрета /v1/auth/* в прокси — JWT в JS) |
@@ -37,6 +37,7 @@
 - 01:35 — решения по дырам SPEC/ARCHITECTURE из отчётов B0/F0 записаны в DECISIONS (`93b9b4a`).
 - 01:32 — B0: ревью принят (все проверки воспроизведены; 12 не блокирующих — переданы в B5, ARCHITECTURE §5 дополнен про debug-порт). Merge в main. Волна 1 (бэк): запущены B1, B2, B3, B4.
 - 01:36 — F0: ревью → доработка (блокер безопасности: прокси пропускает `/api/v1/auth/login/` и `/v1//auth/login` → токен в теле ответа; + 5 мелких + решения DECISIONS 01:35). Возвращено исполнителю. Записано в DECISIONS: дефолт cookie `Secure=false` в compose (HTTP на localhost), включается `NUXT_COOKIE_SECURE=true` за HTTPS.
+- 01:45 — B3: исполнитель закончил (4 коммита, гонка Apply проверена 30 раз). Противоречие порт↔SPEC по 403/404 решено в пользу SPEC (DECISIONS 01:45, ARCHITECTURE §2, SPEC §2.3/§3 — FK между схемами убраны). B4 уведомлён. Запущен ревьюер B3.
 
 ## Время по волнам
 
