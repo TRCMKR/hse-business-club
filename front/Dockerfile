@@ -2,7 +2,7 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY lib ./lib
 
 # postinstall (nuxt prepare) runs later with the full sources
