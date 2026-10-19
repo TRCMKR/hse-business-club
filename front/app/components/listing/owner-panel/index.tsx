@@ -63,7 +63,7 @@ export const OwnerPanel = defineComponent((props: OwnerPanelProps, { emit }) => 
 
     return (
       <Card as={'section'} class={styles.panel} data-testid={'owner-panel'} aria-labelledby={'owner-panel-title'}>
-        <h2 id={'owner-panel-title'} class={styles.title}>{'Отклики'}</h2>
+        <h2 id={'owner-panel-title'} class={styles.title}>{'Статистика откликов'}</h2>
 
         <dl class={styles.stats} data-testid={'owner-stats'}>
           {items.map(item => (

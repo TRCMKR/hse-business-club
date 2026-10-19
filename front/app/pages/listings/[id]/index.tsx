@@ -32,7 +32,13 @@ export default defineComponent({
       () => api.listings.get(id.value),
     );
 
-    const notFound = computed(() => getErrorStatus(error.value) === 404);
+    // useAsyncData wraps the rejection into a NuxtError (status 500 when the original had
+    // none, e.g. a network failure); the API error itself is in `cause`.
+    const loadError = computed<unknown>(() => {
+      const e = error.value as { cause?: unknown } | null | undefined;
+      return e?.cause ?? e ?? null;
+    });
+    const notFound = computed(() => getErrorStatus(loadError.value) === 404);
     const actions = computed(() => (data.value ? resolveActions(data.value) : null));
     const applyOpen = ref(false);
 
@@ -125,10 +131,10 @@ export default defineComponent({
           </ErrorState>
         );
       }
-      if (error.value) {
+      if (loadError.value) {
         return (
           <ErrorState
-            message={getErrorMessage(error.value)}
+            message={getErrorMessage(loadError.value)}
             retry
             retrying={status.value === 'pending'}
             onRetry={() => refresh()}
