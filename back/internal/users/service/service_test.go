@@ -312,3 +312,46 @@ func TestNoHashInErrors(t *testing.T) {
 		t.Fatalf("error leaks hash: %v", err)
 	}
 }
+
+// If the hasher fails in New, misses are still compared against a real bcrypt hash.
+func TestDummyHashFallback(t *testing.T) {
+	h := &brokenHasher{}
+	svc := service.New(newFakeRepo(), h, memory.New())
+	_, err := svc.Authenticate(context.Background(), "ghost", testPassword)
+	wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
+	if len(h.checked) != 1 || !strings.HasPrefix(h.checked[0], "$2a$10$") || len(h.checked[0]) != 60 {
+		t.Fatalf("miss compared against %q, want a bcrypt cost-10 hash", h.checked)
+	}
+}
+
+// The miss hash is computed in New, not on the first miss.
+func TestDummyHashComputedInNew(t *testing.T) {
+	h := &countingHasher{}
+	svc := service.New(newFakeRepo(), h, memory.New())
+	if n := h.hashes; n != 1 {
+		t.Fatalf("Hash called %d times in New, want 1", n)
+	}
+	_, _ = svc.Authenticate(context.Background(), "ghost", testPassword)
+	_, _ = svc.Authenticate(context.Background(), "ghost2", testPassword)
+	if n := h.hashes; n != 1 {
+		t.Fatalf("Hash called %d times after misses, want 1", n)
+	}
+}
+
+type brokenHasher struct{ checked []string }
+
+func (*brokenHasher) Hash(string) (string, error) { return "", errors.New("rng failure") }
+func (b *brokenHasher) Check(hash, _ string) bool {
+	b.checked = append(b.checked, hash)
+	return false
+}
+
+type countingHasher struct {
+	fakeHasher
+	hashes int
+}
+
+func (c *countingHasher) Hash(p string) (string, error) {
+	c.hashes++
+	return c.fakeHasher.Hash(p)
+}

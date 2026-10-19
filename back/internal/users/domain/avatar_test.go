@@ -183,3 +183,21 @@ func largePNG(t *testing.T) []byte {
 	}
 	return encodePNG(t, img)
 }
+
+// JPEG has no alpha: transparent source pixels become white, not black.
+func TestNormalizeAvatar_TransparentBecomesWhite(t *testing.T) {
+	src := image.NewNRGBA(image.Rect(0, 0, 128, 128)) // fully transparent
+	for _, data := range [][]byte{
+		encodePNG(t, src),
+		solidWebP(128, 128, color.NRGBA{R: 0, G: 0, B: 0, A: 0}),
+	} {
+		out, err := domain.NormalizeAvatar(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, g, b, _ := decodeJPEG(t, out).At(256, 256).RGBA()
+		if !near(r>>8, 255) || !near(g>>8, 255) || !near(b>>8, 255) {
+			t.Fatalf("transparent pixel became %d,%d,%d, want white", r>>8, g>>8, b>>8)
+		}
+	}
+}

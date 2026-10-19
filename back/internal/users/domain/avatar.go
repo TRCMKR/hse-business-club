@@ -33,7 +33,8 @@ const (
 var avatarFormats = map[string]bool{"jpeg": true, "png": true, "webp": true}
 
 // NormalizeAvatar validates a source photo and converts it into a 512×512 JPEG (q85):
-// the centered square is cut out and resized with Catmull-Rom. Size, format and
+// the centered square is cut out and resized with Catmull-Rom over a white background
+// (transparency becomes white). Size, format and
 // dimensions are checked from the image header before the image is decoded, which
 // protects from decompression bombs. EXIF orientation is not applied; metadata of the
 // source is not carried over. Errors are apperr.Validation("avatar", …).
@@ -57,8 +58,10 @@ func NormalizeAvatar(data []byte) ([]byte, error) {
 		return nil, apperr.Validation(FieldAvatar, MsgAvatarFormat)
 	}
 
+	// JPEG has no alpha: transparent areas are composited over white, not black.
 	dst := image.NewRGBA(image.Rect(0, 0, AvatarSize, AvatarSize))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), src, centerSquare(src.Bounds()), draw.Src, nil)
+	draw.Draw(dst, dst.Bounds(), image.White, image.Point{}, draw.Src)
+	draw.CatmullRom.Scale(dst, dst.Bounds(), src, centerSquare(src.Bounds()), draw.Over, nil)
 
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: AvatarQuality}); err != nil {

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"sync"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -67,15 +66,24 @@ type Service struct {
 	hasher Hasher
 	store  blob.Store
 
-	dummyOnce sync.Once
-	dummyHash string
+	dummyHash string // hash of a random password, compared on misses
 }
 
 var _ users.Service = (*Service)(nil)
 
-// New returns the users service.
+// fallbackDummyHash is a valid bcrypt cost-10 hash of a password nobody uses; it is
+// the miss hash when hasher.Hash fails in New, so a miss still costs a full comparison.
+const fallbackDummyHash = "$2a$10$THdrbhnK4GNQsTumdSCR3.kJ66ed.TkcKVhO50YoT/Q9ZVAt.XVYe" //nolint:gosec // not a credential
+
+// New returns the users service. The hash compared on login misses is computed here,
+// once, so that the first miss costs the same as any other.
 func New(repo Repository, hasher Hasher, store blob.Store) users.Service {
-	return &Service{repo: repo, hasher: hasher, store: store}
+	dummy, err := hasher.Hash(uuid.NewString())
+	if err != nil || dummy == "" {
+		logger.L().Error("users: dummy password hash, using the built-in one", zap.Error(err))
+		dummy = fallbackDummyHash
+	}
+	return &Service{repo: repo, hasher: hasher, store: store, dummyHash: dummy}
 }
 
 // Register implements users.Service.
@@ -98,13 +106,13 @@ func (s *Service) Register(ctx context.Context, p users.RegisterParams) (*users.
 func (s *Service) Authenticate(ctx context.Context, username, password string) (*users.User, error) {
 	username = domain.NormalizeUsername(username)
 	if domain.ValidateUsername(username) != nil {
-		s.hasher.Check(s.dummy(), password)
+		s.hasher.Check(s.dummyHash, password)
 		return nil, apperr.New(apperr.KindUnauthenticated, MsgInvalidCredentials)
 	}
 	u, hash, err := s.repo.GetByUsername(ctx, username)
 	switch {
 	case apperr.KindOf(err) == apperr.KindNotFound:
-		s.hasher.Check(s.dummy(), password)
+		s.hasher.Check(s.dummyHash, password)
 		return nil, apperr.New(apperr.KindUnauthenticated, MsgInvalidCredentials)
 	case err != nil:
 		return nil, err
@@ -113,18 +121,6 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 		return nil, apperr.New(apperr.KindUnauthenticated, MsgInvalidCredentials)
 	}
 	return u, nil
-}
-
-// dummy returns a hash of a random password, computed once, for constant-time misses.
-func (s *Service) dummy() string {
-	s.dummyOnce.Do(func() {
-		h, err := s.hasher.Hash(uuid.NewString())
-		if err != nil {
-			logger.L().Error("users: dummy password hash", zap.Error(err))
-		}
-		s.dummyHash = h
-	})
-	return s.dummyHash
 }
 
 // Get implements users.Service.

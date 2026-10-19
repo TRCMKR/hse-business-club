@@ -25,7 +25,7 @@ var Migrator = db.Migrator{Schema: "users", FS: migrations, Dir: "migrations"}
 // Messages of errors returned by the repository.
 const (
 	MsgUsernameTaken = "Логин уже занят"
-	MsgUserNotFound  = "Пользователь не найден"
+	MsgUserNotFound  = "Участник не найден"
 	msgInternal      = "Внутренняя ошибка"
 )
 
