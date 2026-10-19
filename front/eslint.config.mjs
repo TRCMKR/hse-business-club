@@ -3,14 +3,18 @@ import withNuxt from './.nuxt/eslint.config.mjs';
 import stylistic from '@stylistic/eslint-plugin';
 
 export default withNuxt(
-  stylistic.configs.recommended,
   {
-    // files: ['app/**/*'],
+    // Global ignores: generated code and local @fe/* packages (they have their own tooling).
     ignores: [
       '.nuxt/',
+      '.output/',
       'api/generated/',
+      'lib/',
       'node_modules/',
     ],
+  },
+  stylistic.configs.recommended,
+  {
     rules: {
       '@stylistic/jsx-curly-brace-presence': ['error', 'always'],
       '@stylistic/indent': ['error', 2],
