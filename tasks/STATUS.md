@@ -10,7 +10,7 @@
 | B2 | merged | task/B2 | opus | 01:32 | 01:46 | tasks/reports/B2.md | принять (5 не блокирующих) |
 | B3 | merged | task/B3 | opus | 01:32 | 01:44 | tasks/reports/B3.md | принять (7 не блокирующих) |
 | B4 | merged | task/B4 | opus | 01:32 | 01:48 | tasks/reports/B4.md | принять (4 не блокирующих, покрытие 94,7%) |
-| B5 | running | task/B5 | opus | 01:58 | | | |
+| B5 | review | task/B5 | opus | 01:58 | 02:28 | tasks/reports/B5.md | в работе |
 | F0 | merged | task/F0 | opus | 00:52 | 01:47 | tasks/reports/F0.md | итерация 1: вернуть (обход /v1/auth/* в прокси) → итерация 2: принять |
 | F1 | merged | task/F1 | opus | 01:47 | 02:16 | tasks/reports/F1.md | итерация 1: вернуть (скелетоны при смене фильтра) → итерация 2: принять |
 | F2 | merged | task/F2 | opus | 01:47 | 02:14 | tasks/reports/F2.md | принять (7 не блокирующих → F8/F6) |
@@ -59,6 +59,7 @@
 - 02:20 — F3: ревью принят; merge в main, worktree удалён.
 - 02:22 — F2: ревью принят; merge в main. Волна 1 (фронт) закрыта: F1–F5 в main.
 - 02:24 — волна 2 (фронт): запущен F8 (визуальный стиль). В main переустановлен front/node_modules (был неполный из-за ENOSPC).
+- 02:28 — B5: исполнитель закончил (12 коммитов, `make test-all` зелёный с нуля за 2:01, контейнер с внешними Postgres/MinIO проверен). Запущен ревьюер. ARCHITECTURE §3 дополнен (enum-имена).
 
 ## Время по волнам
 

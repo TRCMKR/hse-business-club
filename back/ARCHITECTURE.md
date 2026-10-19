@@ -333,6 +333,8 @@ EmitUnpopulated, DiscardUnknown}})` — чтобы `V1GetAvatar` (`google.api.Ht
 
 Ошибки разбора тела запроса в gateway (невалидный JSON, неизвестный enum) — `InvalidArgument`
 с текстом «Некорректный формат запроса» (подмена в error handler gateway, SPEC §2.4).
+`DiscardUnknown` игнорирует только неизвестные **поля**; имена enum сверяются с дескриптором
+запроса до декодирования (иначе protojson молча превращал бы `"stage":"MVP"` в UNSPECIFIED).
 
 Ошибки: сервис контекста возвращает `*apperr.Error`; BFF в одном месте
 (`internal/bff/errors.go`) переводит `Kind` → `codes.*` и `Msg` → `status.Message`.
