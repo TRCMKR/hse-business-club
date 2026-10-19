@@ -1,55 +1,35 @@
+import { PALETTES } from './colors';
 import { createRng, hashString, normalizeSeed } from './random';
 
-export const SHAPES = ['round', 'squircle', 'blob', 'droplet', 'hexagon', 'cloud', 'capsule', 'triangle'] as const;
-export const HUES = [12, 30, 50, 140, 175, 210, 260, 320] as const;
-export const TONES = ['light', 'dark'] as const;
-export const EYE_SHAPES = ['dot', 'oval', 'wide', 'wink'] as const;
-export const EXPRESSIONS = [
-  'happy',
-  'neutral',
-  'surprised',
-  'smirk',
-  'sleepy',
-  'mad',
-  'thinking',
-  'cheeky',
-  'sad',
-  'shy',
-] as const;
-export const EXTRAS = ['blush', 'freckles', 'none'] as const;
+export const SHAPES = ['round', 'squircle', 'blob', 'droplet', 'hexagon', 'capsule'] as const;
+export const ACCENTS = ['orbit', 'ring', 'arc', 'inset', 'overlap', 'split'] as const;
+export const DETAILS = ['none', 'satellite', 'trail'] as const;
 
 export type Shape = (typeof SHAPES)[number];
-export type Hue = (typeof HUES)[number];
-export type Tone = (typeof TONES)[number];
-export type EyeShape = (typeof EYE_SHAPES)[number];
-export type Expression = (typeof EXPRESSIONS)[number];
-export type Extras = (typeof EXTRAS)[number];
+export type Accent = (typeof ACCENTS)[number];
+export type Detail = (typeof DETAILS)[number];
 
 /**
  * Everything that defines how an avatar looks. Continuous axes are normalized to
  * [0, 1); the renderer maps them to geometry. Two equal Traits render the same SVG.
  */
 export interface Traits {
-  /** Body silhouette. */
+  /** Base figure. */
   shape: Shape;
-  /** Seed for silhouette details (blob outline, slight body tilt), uint32. */
+  /** Seed for silhouette details (the `blob` outline), uint32. */
   shapeSeed: number;
-  /** Base hue in degrees, one of HUES. */
-  hue: Hue;
-  /** Lightness family of body and background. */
-  tone: Tone;
-  eyeShape: EyeShape;
-  /** Eye size, 0 = small, 1 = big. */
-  eyeSize: number;
-  /** Distance between eyes, 0 = close, 1 = far. */
-  eyeSpacing: number;
-  /** Eye rotation, 0 = tilted outward-down, 0.5 = straight, 1 = tilted inward-down. */
-  eyeTilt: number;
-  /** Horizontal gaze, 0 = left, 0.5 = center, 1 = right. */
-  pupilShift: number;
-  /** Mouth and brows. */
-  expression: Expression;
-  extras: Extras;
+  /** Index into PALETTES: background, figure and accent colors. */
+  palette: number;
+  /** Main accent element drawn over or next to the base figure. */
+  accent: Accent;
+  /** Optional small secondary element. */
+  detail: Detail;
+  /** Rotation of the base figure, 0..1 of a full turn. */
+  rotation: number;
+  /** Direction of the accent from the center, 0..1 of a full turn. */
+  accentAngle: number;
+  /** Size of the base figure, 0 = smaller, 1 = larger. */
+  scale: number;
 }
 
 function quantize<T>(items: readonly T[], value: number): T {
@@ -65,15 +45,12 @@ export function deriveTraits(seed: string, overrides: Partial<Traits> = {}): Tra
   const derived: Traits = {
     shape: quantize(SHAPES, rng.next()),
     shapeSeed: Math.floor(rng.next() * 4294967296) >>> 0,
-    hue: quantize(HUES, rng.next()),
-    tone: quantize(TONES, rng.next()),
-    eyeShape: quantize(EYE_SHAPES, rng.next()),
-    eyeSize: rng.next(),
-    eyeSpacing: rng.next(),
-    eyeTilt: rng.next(),
-    pupilShift: rng.next(),
-    expression: quantize(EXPRESSIONS, rng.next()),
-    extras: quantize(EXTRAS, rng.next()),
+    palette: Math.min(PALETTES.length - 1, Math.floor(rng.next() * PALETTES.length)),
+    accent: quantize(ACCENTS, rng.next()),
+    detail: quantize(DETAILS, rng.next()),
+    rotation: rng.next(),
+    accentAngle: rng.next(),
+    scale: rng.next(),
   };
   const result: Traits = { ...derived };
   for (const key of Object.keys(overrides) as (keyof Traits)[]) {
@@ -87,14 +64,15 @@ export function deriveTraits(seed: string, overrides: Partial<Traits> = {}): Tra
 
 const VARIANTS: Partial<Record<keyof Traits, readonly unknown[]>> = {
   shape: SHAPES,
-  hue: HUES,
-  tone: TONES,
-  eyeShape: EYE_SHAPES,
-  expression: EXPRESSIONS,
-  extras: EXTRAS,
+  accent: ACCENTS,
+  detail: DETAILS,
 };
 
-const UNIT_AXES: readonly (keyof Traits)[] = ['eyeSize', 'eyeSpacing', 'eyeTilt', 'pupilShift'];
+const UNIT_AXES: readonly (keyof Traits)[] = ['rotation', 'accentAngle', 'scale'];
+
+function isInteger(value: unknown, max: number): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max;
+}
 
 /** Overrides outside the known variants or ranges are ignored (the seed-derived value wins). */
 function isValid(key: keyof Traits, value: unknown): boolean {
@@ -105,8 +83,11 @@ function isValid(key: keyof Traits, value: unknown): boolean {
   if (UNIT_AXES.includes(key)) {
     return typeof value === 'number' && value >= 0 && value <= 1;
   }
+  if (key === 'palette') {
+    return isInteger(value, PALETTES.length - 1);
+  }
   if (key === 'shapeSeed') {
-    return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
+    return isInteger(value, 0xffffffff);
   }
   return false;
 }
