@@ -1,0 +1,58 @@
+.shell {
+  align-items: center;
+  background: radial-gradient(1200px 600px at 10% -10%, var(--color-accent-soft), transparent 60%), var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  justify-content: flex-start;
+  min-height: 100dvh;
+  padding: calc(env(safe-area-inset-top) + 40px) 16px calc(env(safe-area-inset-bottom) + 24px);
+}
+
+@media (width >= 768px) {
+  .shell {
+    justify-content: center;
+    padding-top: 24px;
+  }
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.mark {
+  background: var(--color-accent);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.subtitle {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+  max-width: 420px;
+  padding: 24px 20px;
+  width: 100%;
+}
+
+@media (width >= 768px) {
+  .card {
+    padding: 32px;
+  }
+}

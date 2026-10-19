@@ -1,12 +1,18 @@
 import { defineComponent } from 'vue';
-import { NuxtLayout, NuxtPage } from '#components';
+import { Toaster } from 'vue-sonner';
+import 'vue-sonner/style.css';
+import { NuxtLayout, NuxtPage, NuxtRouteAnnouncer } from '#components';
 
 export default defineComponent({
   setup() {
     return () => (
-      <NuxtLayout>
-        <NuxtPage />
-      </NuxtLayout>
+      <>
+        <NuxtRouteAnnouncer />
+        <NuxtLayout>
+          <NuxtPage />
+        </NuxtLayout>
+        <Toaster position={'top-center'} richColors closeButton />
+      </>
     );
   },
 });
