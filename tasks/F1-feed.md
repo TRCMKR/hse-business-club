@@ -35,7 +35,7 @@
 ## Критерии приёмки
 
 - [ ] На mock API: 5 карточек, фильтр «Стартапы» → 3, поиск «FinTrack» → 2, пустой поиск «xyz» → пустое состояние с кнопкой сброса.
-- [ ] Перезагрузка `/?kind=LISTING_KIND_VACANCY&q=Go` воспроизводит выдачу с сервера.
+- [ ] Перезагрузка `/?kind=LISTING_KIND_VACANCY&q=FinTrack` воспроизводит выдачу с сервера (1 вакансия; поиск — только по title/description, SPEC §1.2).
 - [ ] `npm run lint`, `npm run test` зелёные.
 
 ## Отчёт `tasks/reports/F1.md`
