@@ -12,14 +12,8 @@ import (
 	"github.com/trcmkr/hse-business-club/back/internal/platform/logger"
 )
 
-// User-facing messages produced by the BFF itself.
-const (
-	msgInternal       = "Внутренняя ошибка"
-	msgNotImplemented = "Метод ещё не реализован"
-)
-
-// errNotImplemented is returned by stubs until the method is implemented (B4).
-var errNotImplemented = status.Error(codes.Unimplemented, msgNotImplemented)
+// msgInternal hides details of unexpected errors from the user (SPEC §4.2).
+const msgInternal = "Внутренняя ошибка"
 
 // kindCodes maps apperr kinds to gRPC codes (SPEC §4.2).
 var kindCodes = map[apperr.Kind]codes.Code{

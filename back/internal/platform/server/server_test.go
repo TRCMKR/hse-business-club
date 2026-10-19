@@ -14,13 +14,41 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trcmkr/hse-business-club/back/internal/bff"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+
 	"github.com/trcmkr/hse-business-club/back/internal/platform/auth"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/config"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/logger"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/server"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/telemetry"
+	hbcv1 "github.com/trcmkr/hse-business-club/back/pkg/api/hbc/v1"
 )
+
+// stubService serves hbc.v1 with only V1Ping implemented: the server is tested
+// independently of the BFF (every other method answers Unimplemented).
+type stubService struct {
+	hbcv1.UnimplementedHseBusinessClubServer
+}
+
+func (stubService) V1Ping(context.Context, *hbcv1.V1PingRequest) (*hbcv1.V1PingResponse, error) {
+	return &hbcv1.V1PingResponse{Ok: true}, nil
+}
+
+func (s stubService) RegisterGRPC(r grpc.ServiceRegistrar) { hbcv1.RegisterHseBusinessClubServer(r, s) }
+
+func (stubService) RegisterGateway(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return hbcv1.RegisterHseBusinessClubHandler(ctx, mux, conn)
+}
+
+func (stubService) PublicMethods() []string {
+	return []string{
+		hbcv1.HseBusinessClub_V1Ping_FullMethodName,
+		hbcv1.HseBusinessClub_V1GetAvatar_FullMethodName,
+	}
+}
+
+func (stubService) SwaggerJSON() []byte { return hbcv1.SwaggerJSON() }
 
 // syncBuffer is a goroutine-safe log sink.
 type syncBuffer struct {
@@ -72,7 +100,7 @@ func start(t *testing.T, blobErr error) *env {
 		CORSOrigins:     []string{"http://localhost:3000"},
 		ShutdownTimeout: 5 * time.Second,
 	}
-	srv, err := server.New(ctx, cfg, log, tel, jwt, bff.New(bff.Deps{Issuer: jwt}))
+	srv, err := server.New(ctx, cfg, log, tel, jwt, stubService{})
 	if err != nil {
 		t.Fatal(err)
 	}
