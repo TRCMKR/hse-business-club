@@ -1,0 +1,26 @@
+{
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-css-modules",
+    "@stylistic/stylelint-config"
+  ],
+  "plugins": [
+    "@stylistic/stylelint-plugin",
+    "stylelint-order"
+  ],
+  "rules": {
+    "order/properties-alphabetical-order": true,
+    "@stylistic/string-quotes": "single"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.module.css"],
+      "rules": {
+        "selector-class-pattern": [
+          "",
+          {}
+        ]
+      }
+    }
+  ]
+}
