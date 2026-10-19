@@ -13,13 +13,13 @@
 | B5 | running | task/B5 | opus | 01:58 | | | |
 | F0 | merged | task/F0 | opus | 00:52 | 01:47 | tasks/reports/F0.md | итерация 1: вернуть (обход /v1/auth/* в прокси) → итерация 2: принять |
 | F1 | merged | task/F1 | opus | 01:47 | 02:16 | tasks/reports/F1.md | итерация 1: вернуть (скелетоны при смене фильтра) → итерация 2: принять |
-| F2 | review | task/F2 | opus | 01:47 | 02:17 | tasks/reports/F2.md | в работе |
+| F2 | merged | task/F2 | opus | 01:47 | 02:14 | tasks/reports/F2.md | принять (7 не блокирующих → F8/F6) |
 | F3 | merged | task/F3 | opus | 01:50 | 02:13 | tasks/reports/F3.md | принять (5 не блокирующих → F6) |
 | F4 | merged | task/F4 | opus | 01:50 | 02:10 | tasks/reports/F4.md | принять (6 не блокирующих → F6) |
 | F5 | merged | task/F5 | opus | 01:50 | 02:08 | tasks/reports/F5.md | принять (5 не блокирующих → F6) |
 | F6 | queued | task/F6 | | | | | |
 | F7 | merged | task/F7 | opus | 00:52 / 01:12 | 01:04 / 01:24 | tasks/reports/F7.md | итер. 1: вернуть → принять; итер. 2: принять (3 мелких, не блокируют) |
-| F8 | queued | task/F8 | | | | | после merge F1–F5 |
+| F8 | running | task/F8 | opus | 02:24 | | | |
 | I0 | running | task/I0 | opus | 02:14 | | | |
 | I1 | queued | task/I1 | | | | | |
 | I2 | queued | task/I2 | | | | | |
@@ -57,6 +57,8 @@
 - 02:15 — F4: ревью принят; merge в main, worktree удалён. Замечания → F6.
 - 02:17 — F1: доработка принята; merge в main, worktree удалён.
 - 02:20 — F3: ревью принят; merge в main, worktree удалён.
+- 02:22 — F2: ревью принят; merge в main. Волна 1 (фронт) закрыта: F1–F5 в main.
+- 02:24 — волна 2 (фронт): запущен F8 (визуальный стиль). В main переустановлен front/node_modules (был неполный из-за ENOSPC).
 
 ## Время по волнам
 
