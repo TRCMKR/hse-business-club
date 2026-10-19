@@ -34,14 +34,7 @@ export default defineComponent({
       () => `listing-applications:${id.value}:${filter.value || 'all'}`,
       () => api.applications.listForListing(id.value, statusFilterToEnum(filter.value)),
     );
-    await Promise.all([listing, applications]);
-
     const { data, error, status, refresh } = applications;
-
-    if (getErrorStatus(listing.error.value) === 404 || getErrorStatus(error.value) === 404) {
-      throw createError({ statusCode: 404, statusMessage: 'Публикация не найдена', fatal: true });
-    }
-
     const forbidden = computed(() => getErrorStatus(error.value) === 403);
 
     useHead(() => ({
@@ -54,10 +47,16 @@ export default defineComponent({
       watch(forbidden, (isForbidden) => {
         if (isForbidden) {
           toast.error(NOT_AUTHOR_MESSAGE);
-          void navigateTo(`/listings/${id.value}`, { replace: true });
+          void router.replace(`/listings/${id.value}`);
         }
       }, { immediate: true });
     });
+
+    // Every composable is registered above: after `await` the Nuxt context is gone.
+    await Promise.all([listing, applications]);
+    if (getErrorStatus(listing.error.value) === 404 || getErrorStatus(error.value) === 404) {
+      throw createError({ statusCode: 404, statusMessage: 'Публикация не найдена', fatal: true });
+    }
 
     const setFilter = (value: StatusFilterValue) => {
       void router.replace({ query: { ...route.query, status: value || undefined } });

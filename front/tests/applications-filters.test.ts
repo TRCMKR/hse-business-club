@@ -26,6 +26,7 @@ beforeEach(() => {
   api.listSent.mockResolvedValue([]);
   api.listReceived.mockResolvedValue([]);
   useAuthStore().setUser(makeUser());
+  clearNuxtData();
 });
 
 describe('applications/status filter helpers', () => {
