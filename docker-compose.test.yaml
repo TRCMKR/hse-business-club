@@ -8,7 +8,7 @@ services:
   db:
     volumes: !reset []
     tmpfs:
-      - /var/lib/postgresql/data
+      - /var/lib/postgresql/data:rw,size=512m
     ports:
       - "${TEST_POSTGRES_PORT:-5433}:5432"
     healthcheck:
@@ -19,7 +19,7 @@ services:
   minio:
     volumes: !reset []
     tmpfs:
-      - /data
+      - /data:rw,size=256m
     ports:
       - "${TEST_MINIO_PORT:-9000}:9000"
     healthcheck:

@@ -33,11 +33,9 @@ logs:
 	$(COMPOSE) --profile observability logs -f --tail=100
 
 .PHONY: test
-## back: unit + integration + e2e; front: vitest
+## back: unit + integration + e2e (starts and stops its own test env); front: vitest
 test:
-	$(MAKE) -C back test
-	$(MAKE) -C back test-env-up
-	$(MAKE) -C back test-integration test-e2e; rc=$$?; $(MAKE) -C back test-env-down; exit $$rc
+	$(MAKE) -C back test-all
 	cd front && npm run test
 
 .PHONY: lint

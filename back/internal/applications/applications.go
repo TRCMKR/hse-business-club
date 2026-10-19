@@ -58,11 +58,14 @@ type Service interface {
 	Apply(ctx context.Context, listingID, applicantID uuid.UUID, message string) (*Application, error)
 	// Виден автору публикации и откликнувшемуся, остальным KindNotFound.
 	Get(ctx context.Context, id, actorID uuid.UUID) (*Application, error)
-	// actor = автор публикации, иначе KindNotFound. pending→accepted; accepted→accepted = no-op;
-	// из declined/withdrawn — KindPrecondition «Решение по отклику уже принято».
+	// actor = автор публикации. Откликнувшийся — KindForbidden «Недостаточно прав»; посторонний —
+	// KindNotFound «Отклик не найден» (SPEC §2.3). Права проверяются до перехода.
+	// pending→accepted; accepted→accepted = no-op; из declined/withdrawn — KindPrecondition
+	// «Решение по отклику уже принято».
 	Accept(ctx context.Context, id, actorID uuid.UUID) (*Application, error)
 	Decline(ctx context.Context, id, actorID uuid.UUID) (*Application, error)
-	// actor = откликнувшийся, иначе KindNotFound. pending→withdrawn; withdrawn = no-op; иначе KindPrecondition.
+	// actor = откликнувшийся. Автор публикации — KindForbidden; посторонний — KindNotFound.
+	// pending→withdrawn; withdrawn = no-op; иначе KindPrecondition.
 	Withdraw(ctx context.Context, id, actorID uuid.UUID) (*Application, error)
 	// actor должен быть автором публикации, иначе KindForbidden. status "" = все. Сортировка: pending первыми, затем created_at DESC.
 	ListByListing(ctx context.Context, listingID, actorID uuid.UUID, status Status) ([]*Application, error)

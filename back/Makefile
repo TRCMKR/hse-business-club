@@ -38,33 +38,65 @@ lint:
 	buf lint
 	$(GOLANGCI_LINT) run ./...
 
+# Test infrastructure: root docker-compose.yaml + docker-compose.test.yaml, project
+# hbc-test-env (db on :5433, MinIO on :9000, data in tmpfs; ports via
+# TEST_POSTGRES_PORT / TEST_MINIO_PORT).
+TEST_POSTGRES_PORT ?= 5433
+TEST_MINIO_PORT    ?= 9000
+export TEST_POSTGRES_PORT TEST_MINIO_PORT
+COMPOSE_TEST      := docker compose -f ../docker-compose.yaml -f ../docker-compose.test.yaml -p hbc-test-env
+TEST_POSTGRES_DSN ?= postgres://hbc:hbc@localhost:$(TEST_POSTGRES_PORT)/hbc?sslmode=disable
+TEST_S3_ENDPOINT  ?= localhost:$(TEST_MINIO_PORT)
+# TEST_ENV=external: use already running infrastructure (TEST_POSTGRES_DSN,
+# TEST_S3_ENDPOINT) instead of starting and stopping the compose test env.
+TEST_ENV          ?= compose
+
+TEST_INTEGRATION_CMD = TEST_POSTGRES_DSN="$(TEST_POSTGRES_DSN)" TEST_S3_ENDPOINT="$(TEST_S3_ENDPOINT)" \
+	go test -race -count=1 -tags=integration ./...
+# -race makes e2e ~10x slower (bcrypt under the race detector): ~60 s instead of ~6 s.
+# E2E_FLAGS= make test-e2e runs without it.
+E2E_FLAGS ?= -race
+TEST_E2E_CMD = TEST_POSTGRES_DSN="$(TEST_POSTGRES_DSN)" go test $(E2E_FLAGS) -count=1 -tags=e2e ./tests/e2e/...
+
+# with_test_env runs $(2) with the compose services $(1) up (waiting for their
+# healthchecks: pg_isready for Postgres) and always stops them afterwards,
+# keeping the exit code of $(2).
+ifeq ($(TEST_ENV),external)
+with_test_env = $(2)
+else
+with_test_env = $(COMPOSE_TEST) up -d --wait $(1) && \
+	{ status=0; ( $(2) ) || status=$$?; $(COMPOSE_TEST) down -v; exit $$status; }
+endif
+
 .PHONY: test
-## runs unit tests
+## runs unit tests (no infrastructure)
 test:
 	go test -race -count=1 ./...
 
 .PHONY: test-integration
-## runs integration tests (needs docker-compose.test.yaml: make test-env-up)
+## runs integration tests (repositories, blob/s3, db) on Postgres + MinIO from the compose test env
 test-integration:
-	TEST_POSTGRES_DSN="$${TEST_POSTGRES_DSN:-postgres://hbc:hbc@localhost:5433/hbc?sslmode=disable}" \
-	TEST_S3_ENDPOINT="$${TEST_S3_ENDPOINT:-localhost:9000}" \
-	go test -race -count=1 -tags=integration ./...
+	@$(call with_test_env,db minio,$(TEST_INTEGRATION_CMD))
 
 .PHONY: test-e2e
-## runs HTTP end-to-end tests (implemented in B5)
+## runs HTTP end-to-end tests (tests/e2e, app in-process) on Postgres from the compose test env
 test-e2e:
-	@if [ -d tests/e2e ]; then go test -count=1 -tags=e2e ./tests/e2e/...; \
-	else echo "tests/e2e is not implemented yet (B5)"; fi
+	@$(call with_test_env,db,$(TEST_E2E_CMD))
+
+.PHONY: test-all
+## runs unit, integration and e2e tests (one Postgres + MinIO for both)
+test-all: test
+	@$(call with_test_env,db minio,$(TEST_INTEGRATION_CMD) && $(TEST_E2E_CMD))
 
 .PHONY: test-env-up
-## starts postgres and minio for integration tests
+## starts postgres and minio for tests and `make run`
 test-env-up:
-	docker compose -f ../docker-compose.yaml -f ../docker-compose.test.yaml up -d --wait db minio
+	$(COMPOSE_TEST) up -d --wait db minio
 
 .PHONY: test-env-down
-## stops postgres and minio for integration tests
+## stops postgres and minio
 test-env-down:
-	docker compose -f ../docker-compose.yaml -f ../docker-compose.test.yaml down -v
+	$(COMPOSE_TEST) down -v
 
 .PHONY: run
 ## runs the app locally (reads .env when APP_ENV=local)

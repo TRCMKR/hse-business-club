@@ -10,17 +10,17 @@
 | B2 | merged | task/B2 | opus | 01:32 | 01:46 | tasks/reports/B2.md | принять (5 не блокирующих) |
 | B3 | merged | task/B3 | opus | 01:32 | 01:44 | tasks/reports/B3.md | принять (7 не блокирующих) |
 | B4 | merged | task/B4 | opus | 01:32 | 01:48 | tasks/reports/B4.md | принять (4 не блокирующих, покрытие 94,7%) |
-| B5 | running | task/B5 | opus | 01:58 | | | |
+| B5 | merged | task/B5 | opus | 01:58 | 02:28 | tasks/reports/B5.md | принять (4 не блокирующих → I1) |
 | F0 | merged | task/F0 | opus | 00:52 | 01:47 | tasks/reports/F0.md | итерация 1: вернуть (обход /v1/auth/* в прокси) → итерация 2: принять |
-| F1 | rework | task/F1 | opus | 01:47 | 02:06 | tasks/reports/F1.md | итерация 1: вернуть (нет скелетонов при смене фильтра, гонка с «Показать ещё») |
-| F2 | running | task/F2 | opus | 01:47 | | | |
-| F3 | review | task/F3 | opus | 01:50 | 02:13 | tasks/reports/F3.md | в работе |
-| F4 | review | task/F4 | opus | 01:50 | 02:10 | tasks/reports/F4.md | в работе |
+| F1 | merged | task/F1 | opus | 01:47 | 02:16 | tasks/reports/F1.md | итерация 1: вернуть (скелетоны при смене фильтра) → итерация 2: принять |
+| F2 | merged | task/F2 | opus | 01:47 | 02:14 | tasks/reports/F2.md | принять (7 не блокирующих → F8/F6) |
+| F3 | merged | task/F3 | opus | 01:50 | 02:13 | tasks/reports/F3.md | принять (5 не блокирующих → F6) |
+| F4 | merged | task/F4 | opus | 01:50 | 02:10 | tasks/reports/F4.md | принять (6 не блокирующих → F6) |
 | F5 | merged | task/F5 | opus | 01:50 | 02:08 | tasks/reports/F5.md | принять (5 не блокирующих → F6) |
 | F6 | queued | task/F6 | | | | | |
 | F7 | merged | task/F7 | opus | 00:52 / 01:12 | 01:04 / 01:24 | tasks/reports/F7.md | итер. 1: вернуть → принять; итер. 2: принять (3 мелких, не блокируют) |
-| F8 | queued | task/F8 | | | | | после merge F1–F5 |
-| I0 | queued | task/I0 | | | | | |
+| F8 | running | task/F8 | opus | 02:24 | | | |
+| I0 | review | task/I0 | opus | 02:14 | 02:30 | tasks/reports/I0.md | в работе |
 | I1 | queued | task/I1 | | | | | |
 | I2 | queued | task/I2 | | | | | |
 
@@ -53,6 +53,15 @@
 - 02:11 — F5: ревью принят; merge в main, worktree удалён.
 - 02:12 — F1: ревью → доработка (1 блокер: при смене фильтра остаются старые карточки без индикации, гонка догрузки). Возвращено исполнителю.
 - 02:13 — F3: исполнитель закончил (183 теста). Запущен ревьюер.
+- 02:14 — F2: исполнитель закончил (184 теста). Запущен ревьюер. Решения по F2 в DECISIONS, сквозные правки → F6. Запущен I0.
+- 02:15 — F4: ревью принят; merge в main, worktree удалён. Замечания → F6.
+- 02:17 — F1: доработка принята; merge в main, worktree удалён.
+- 02:20 — F3: ревью принят; merge в main, worktree удалён.
+- 02:22 — F2: ревью принят; merge в main. Волна 1 (фронт) закрыта: F1–F5 в main.
+- 02:24 — волна 2 (фронт): запущен F8 (визуальный стиль). В main переустановлен front/node_modules (был неполный из-за ENOSPC).
+- 02:28 — B5: исполнитель закончил (12 коммитов, `make test-all` зелёный с нуля за 2:01, контейнер с внешними Postgres/MinIO проверен). Запущен ревьюер. ARCHITECTURE §3 дополнен (enum-имена).
+- 02:30 — I0: исполнитель закончил (холодный старт 19–25 с, образы back 35 МБ / front 169 МБ). Запущен ревьюер; merge после B5 (конфликт Makefile/compose.test поручается I0).
+- 02:34 — B5: ревью принят (test-all 1:28 с нуля, e2e стабильны ×2, docker-прогон с сидом); merge в main. Бэк целиком готов. Замечания → I1.
 
 ## Время по волнам
 
