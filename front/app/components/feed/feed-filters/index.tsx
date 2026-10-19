@@ -90,7 +90,7 @@ export const FeedFilters = defineComponent((props: FeedFiltersProps) => {
           type={'search'}
           inputmode={'search'}
           autocomplete={'off'}
-          placeholder={'Поиск по названию, описанию, тегам'}
+          placeholder={'Поиск по названию и описанию'}
           maxlength={FEED_QUERY_MAX_LENGTH}
           modelValue={search.value}
           onUpdate:modelValue={onInput}
