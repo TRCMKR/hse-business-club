@@ -1,7 +1,5 @@
-import { palette } from "./colors.js";
-import { buildFace } from "./faces.js";
-import { createRng } from "./random.js";
-import { buildBody } from "./shapes.js";
+import { PALETTES } from "./colors.js";
+import { buildShape, FIGURE_RADIUS } from "./shapes.js";
 import { el, d } from "./svg.js";
 function backdrop(background, fill) {
   switch (background) {
@@ -15,11 +13,116 @@ function backdrop(background, fill) {
       return [el("rect", { width: 100, height: 100, fill })];
   }
 }
+const BALANCE = {
+  orbit: 4,
+  ring: 0,
+  arc: 0,
+  inset: 0,
+  overlap: 6,
+  split: 0
+};
+function layout(traits) {
+  const theta = traits.accentAngle * Math.PI * 2;
+  const dx = Math.cos(theta);
+  const dy = Math.sin(theta);
+  const scale = 0.88 + traits.scale * 0.14;
+  const shift = BALANCE[traits.accent];
+  return {
+    x: 50 - dx * shift,
+    y: 50 - dy * shift,
+    angle: traits.rotation * 360,
+    scale,
+    dx,
+    dy,
+    radius: FIGURE_RADIUS * scale
+  };
+}
+function figure(traits, fill, transform) {
+  const node = buildShape(traits.shape, traits.shapeSeed);
+  return { ...node, attrs: { ...node.attrs, fill, transform } };
+}
+function accent(traits, l, colors) {
+  const { x, y, dx, dy, radius } = l;
+  switch (traits.accent) {
+    case "orbit": {
+      const dist = radius * 0.82;
+      return [el("circle", { cx: x + dx * dist, cy: y + dy * dist, r: radius * 0.4, fill: colors.accent })];
+    }
+    case "ring": {
+      const off = radius * 0.3;
+      return [el("circle", {
+        "cx": x + dx * off,
+        "cy": y + dy * off,
+        "r": radius * 0.36,
+        "fill": "none",
+        "stroke": colors.accent,
+        "stroke-width": radius * 0.17
+      })];
+    }
+    case "arc": {
+      const r = radius * 0.52;
+      const px = -dy;
+      const py = dx;
+      return [el("path", {
+        "d": d`M${x + px * r} ${y + py * r}A${r} ${r} 0 0 0 ${x - px * r} ${y - py * r}`,
+        "fill": "none",
+        "stroke": colors.accent,
+        "stroke-width": radius * 0.2,
+        "stroke-linecap": "round",
+        "transform": d`translate(${dx * radius * 0.08} ${dy * radius * 0.08})`
+      })];
+    }
+    case "inset": {
+      const off = radius * 0.24;
+      return [figure(traits, colors.accent, d`translate(${x + dx * off} ${y + dy * off})rotate(${l.angle})scale(${l.scale * 0.42})`)];
+    }
+    case "overlap": {
+      const dist = radius * 0.62;
+      return [el("circle", {
+        cx: x + dx * dist,
+        cy: y + dy * dist,
+        r: radius * 0.72,
+        fill: colors.accent,
+        opacity: 0.5
+      })];
+    }
+    case "split": {
+      const r = radius * 0.5;
+      const px = -dy;
+      const py = dx;
+      return [el("path", {
+        d: d`M${x + px * r} ${y + py * r}A${r} ${r} 0 0 0 ${x - px * r} ${y - py * r}Z`,
+        fill: colors.accent
+      })];
+    }
+  }
+}
+function detail(traits, l, colors) {
+  switch (traits.detail) {
+    case "none":
+      return [];
+    case "satellite": {
+      const theta = traits.accentAngle * Math.PI * 2 + Math.PI * 0.8;
+      return [el("circle", { cx: 50 + Math.cos(theta) * 43, cy: 50 + Math.sin(theta) * 43, r: 3.6, fill: colors.accent })];
+    }
+    case "trail": {
+      const theta = traits.accentAngle * Math.PI * 2 + Math.PI;
+      const r = l.radius * 1.08 + 5;
+      const from = theta - Math.PI * 0.3;
+      const to = theta + Math.PI * 0.3;
+      return [el("path", {
+        "d": d`M${l.x + Math.cos(from) * r} ${l.y + Math.sin(from) * r}A${r} ${r} 0 0 1 ${l.x + Math.cos(to) * r} ${l.y + Math.sin(to) * r}`,
+        "fill": "none",
+        "stroke": colors.accent,
+        "stroke-width": 3,
+        "stroke-linecap": "round"
+      })];
+    }
+  }
+}
 function buildTree(traits, options = {}) {
-  const colors = palette(traits.hue, traits.tone);
-  const body = buildBody(traits.shape, traits.shapeSeed);
-  const lean = createRng(traits.shapeSeed).range(-5, 5);
-  const { face, shine } = body;
+  const colors = PALETTES[traits.palette] ?? PALETTES[0];
+  const l = layout(traits);
   const rootAttrs = {
     xmlns: "http://www.w3.org/2000/svg",
     viewBox: "0 0 100 100"
@@ -30,20 +133,11 @@ function buildTree(traits, options = {}) {
   }
   rootAttrs.role = "img";
   rootAttrs["aria-label"] = options.aria ?? "avatar";
-  const bodyNode = { ...body.node, attrs: { ...body.node.attrs, fill: colors.body } };
   return el("svg", rootAttrs, [
     ...backdrop(options.background ?? "circle", colors.background),
-    el("g", { transform: d`rotate(${lean} 50 56)` }, [
-      bodyNode,
-      el("ellipse", {
-        transform: d`translate(${shine.x} ${shine.y})rotate(${shine.angle})`,
-        rx: shine.rx,
-        ry: shine.ry,
-        fill: "#fff",
-        opacity: 0.35
-      }),
-      el("g", { transform: d`translate(${face.x} ${face.y})scale(${face.scale})` }, buildFace(traits, colors))
-    ])
+    figure(traits, colors.figure, d`translate(${l.x} ${l.y})rotate(${l.angle})scale(${l.scale})`),
+    ...accent(traits, l, colors),
+    ...detail(traits, l, colors)
   ]);
 }
 export {

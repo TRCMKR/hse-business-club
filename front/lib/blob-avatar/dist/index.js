@@ -4,7 +4,8 @@ import { formatAttr } from "./svg.js";
 import { normalizeSeed } from "./random.js";
 import { createRng, hashString } from "./random.js";
 import { deriveTraits } from "./traits.js";
-import { EXPRESSIONS, EXTRAS, EYE_SHAPES, HUES, SHAPES, TONES } from "./traits.js";
+import { ACCENTS, DETAILS, SHAPES } from "./traits.js";
+import { PALETTES } from "./colors.js";
 const MAX_LABEL_LENGTH = 64;
 function defaultLabel(seed) {
   return normalizeSeed(seed).slice(0, MAX_LABEL_LENGTH) || "avatar";
@@ -18,13 +19,11 @@ function blobAvatar(seed, options = {}) {
   return toSvgString(blobAvatarTree(seed, options));
 }
 export {
-  EXPRESSIONS,
-  EXTRAS,
-  EYE_SHAPES,
-  HUES,
+  ACCENTS,
+  DETAILS,
   MAX_LABEL_LENGTH,
+  PALETTES,
   SHAPES,
-  TONES,
   blobAvatar,
   blobAvatarTree,
   buildTree,

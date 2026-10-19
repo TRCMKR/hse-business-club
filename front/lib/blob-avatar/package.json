@@ -1,7 +1,7 @@
 {
   "name": "@fe/blob-avatar",
   "version": "1.0.0",
-  "description": "Deterministic SVG blob avatars with faces, generated from any string",
+  "description": "Deterministic pastel abstract SVG avatars generated from any string",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

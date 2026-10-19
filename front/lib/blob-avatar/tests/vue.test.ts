@@ -30,7 +30,7 @@ describe('BlobAvatar', () => {
   });
 
   it('server-renders the same markup as blobAvatar()', async () => {
-    const options = { size: 64, background: 'squircle' as const, traits: { expression: 'cheeky' as const } };
+    const options = { size: 64, background: 'squircle' as const, traits: { accent: 'overlap' as const, palette: 5 } };
     const ssr = await renderToString(h(BlobAvatar, { seed: 'vera', ...options }));
     expect(ssr).not.toContain('innerHTML');
     expect(canonical(ssr)).toBe(canonical(blobAvatar('vera', options)));

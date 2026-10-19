@@ -6,7 +6,7 @@ export interface BlobAvatarProps {
     /** Width and height in pixels; without it the SVG fills its container. */
     size?: number;
     background?: Background;
-    /** Pins trait axes, e.g. `{ expression: 'happy' }`. */
+    /** Pins trait axes, e.g. `{ palette: 3 }`. */
     traits?: Partial<Traits>;
     /** aria-label, defaults to the seed. */
     label?: string;

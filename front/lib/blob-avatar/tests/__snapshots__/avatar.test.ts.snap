@@ -1,73 +1,61 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`blobAvatar > keeps the face of demo user anna > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="anna"><circle cx="50" cy="50" r="50" fill="#3c2b5f"/><g transform="rotate(-3.2 50 56)"><rect x="24" y="14" width="52" height="76" rx="26" fill="#6333c1"/><ellipse transform="translate(36 28)rotate(-50)" rx="4.5" ry="3" fill="#fff" opacity="0.35"/><g transform="translate(50 48)scale(1)"><circle cx="-14.52" cy="5.4" r="0.95" fill="#3e2277"/><circle cx="-11.12" cy="5" r="0.95" fill="#3e2277"/><circle cx="-12.72" cy="7.6" r="0.95" fill="#3e2277"/><circle cx="10.92" cy="5.4" r="0.95" fill="#3e2277"/><circle cx="14.32" cy="5" r="0.95" fill="#3e2277"/><circle cx="12.72" cy="7.6" r="0.95" fill="#3e2277"/><g transform="translate(-9.72 -4)rotate(-1.37)"><ellipse rx="5" ry="6.4" fill="#fff"/><circle cx="-1.25" cy="0.73" r="2.81" fill="#130b22"/><circle cx="-0.19" cy="-0.39" r="1.01" fill="#fff"/></g><g transform="translate(9.72 -4)rotate(1.37)"><ellipse rx="5" ry="6.4" fill="#fff"/><circle cx="-1.25" cy="0.73" r="2.81" fill="#130b22"/><circle cx="-0.19" cy="-0.39" r="1.01" fill="#fff"/></g><path d="M-5 12H5" fill="none" stroke="#130b22" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g></g></svg>"`;
+exports[`blobAvatar > keeps the avatar of demo user anna > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="anna"><circle cx="50" cy="50" r="50" fill="#e4e7f0"/><path d="M26.85 7.5Q26.85 15.5 19.92 19.5L6.93 27Q0 31 -6.93 27L-19.92 19.5Q-26.85 15.5 -26.85 7.5L-26.85 -7.5Q-26.85 -15.5 -19.92 -19.5L-6.93 -27Q0 -31 6.93 -27L19.92 -19.5Q26.85 -15.5 26.85 -7.5Z" fill="#a0aac9" transform="translate(44.18 48.54)rotate(262.96)scale(0.94)"/><circle cx="61.17" cy="52.81" r="20.35" fill="#5c688f" opacity="0.5"/></svg>"`;
 
-exports[`blobAvatar > keeps the face of demo user anna > traits 1`] = `
+exports[`blobAvatar > keeps the avatar of demo user anna > traits 1`] = `
 {
-  "expression": "neutral",
-  "extras": "freckles",
-  "eyeShape": "oval",
-  "eyeSize": 0.7304458548314869,
-  "eyeSpacing": 0.03923479653894901,
-  "eyeTilt": 0.44280852447263896,
-  "hue": 260,
-  "pupilShift": 0.17892232676967978,
-  "shape": "capsule",
+  "accent": "overlap",
+  "accentAngle": 0.03923479653894901,
+  "detail": "none",
+  "palette": 10,
+  "rotation": 0.7304458548314869,
+  "scale": 0.44280852447263896,
+  "shape": "hexagon",
   "shapeSeed": 2456560364,
-  "tone": "dark",
 }
 `;
 
-exports[`blobAvatar > keeps the face of demo user boris > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="boris"><circle cx="50" cy="50" r="50" fill="#2b455f"/><g transform="rotate(2.54 50 56)"><rect x="17" y="21" width="66" height="66" rx="24" fill="#337ac1"/><ellipse transform="translate(32 32)rotate(-40)" rx="6" ry="3.5" fill="#fff" opacity="0.35"/><g transform="translate(50 54)scale(1.2)"><ellipse cx="-16.83" cy="6" rx="4.6" ry="2.6" fill="#f3687b" opacity="0.7"/><ellipse cx="16.83" cy="6" rx="4.6" ry="2.6" fill="#f3687b" opacity="0.7"/><circle cx="-18.63" cy="5.4" r="0.95" fill="#224d77"/><circle cx="-15.23" cy="5" r="0.95" fill="#224d77"/><circle cx="-16.83" cy="7.6" r="0.95" fill="#224d77"/><circle cx="15.03" cy="5.4" r="0.95" fill="#224d77"/><circle cx="18.43" cy="5" r="0.95" fill="#224d77"/><circle cx="16.83" cy="7.6" r="0.95" fill="#224d77"/><g transform="translate(-13.83 -4)rotate(-6.46)"><ellipse cx="-0.33" cy="0" rx="3.19" ry="4.07" fill="#0b1722"/><circle cx="0.77" cy="-1.54" r="1.1" fill="#fff"/></g><g transform="translate(13.83 -4)rotate(6.46)"><ellipse cx="-0.33" cy="0" rx="3.19" ry="4.07" fill="#0b1722"/><circle cx="0.77" cy="-1.54" r="1.1" fill="#fff"/></g><path d="M-18.23 -13.02Q-13.83 -15.22 -9.44 -15.02" fill="none" stroke="#0b1722" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.23 -13.02Q13.83 -15.22 9.44 -15.02" fill="none" stroke="#0b1722" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-3.5 12Q0 14.5 3.5 12" fill="none" stroke="#0b1722" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g></svg>"`;
+exports[`blobAvatar > keeps the avatar of demo user boris > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="boris"><circle cx="50" cy="50" r="50" fill="#f5efda"/><rect x="-27" y="-27" width="54" height="54" rx="17" fill="#dfcd8c" transform="translate(50 50)rotate(179.16)scale(0.91)"/><path d="M63.3 53.23A13.68 13.68 0 0 0 36.7 46.77Z" fill="#9a8644"/></svg>"`;
 
-exports[`blobAvatar > keeps the face of demo user boris > traits 1`] = `
+exports[`blobAvatar > keeps the avatar of demo user boris > traits 1`] = `
 {
-  "expression": "shy",
-  "extras": "freckles",
-  "eyeShape": "dot",
-  "eyeSize": 0.4976654485799372,
-  "eyeSpacing": 0.7879511986393481,
-  "eyeTilt": 0.2308382596820593,
-  "hue": 210,
-  "pupilShift": 0.3128696265630424,
+  "accent": "split",
+  "accentAngle": 0.7879511986393481,
+  "detail": "none",
+  "palette": 8,
+  "rotation": 0.4976654485799372,
+  "scale": 0.2308382596820593,
   "shape": "squircle",
   "shapeSeed": 3756015807,
-  "tone": "dark",
 }
 `;
 
-exports[`blobAvatar > keeps the face of demo user dmitry > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="dmitry"><circle cx="50" cy="50" r="50" fill="#e2d6fa"/><g transform="rotate(3.74 50 56)"><circle cx="50" cy="54" r="33" fill="#976ee7"/><ellipse transform="translate(36 35)rotate(-35)" rx="7" ry="4" fill="#fff" opacity="0.35"/><g transform="translate(50 53)scale(1.2)"><ellipse cx="-13.66" cy="6" rx="4.6" ry="2.6" fill="#f87788" opacity="0.7"/><ellipse cx="13.66" cy="6" rx="4.6" ry="2.6" fill="#f87788" opacity="0.7"/><g transform="translate(-10.66 -4)rotate(0.35)"><circle r="4.99" fill="#fff"/><circle cx="-1.37" cy="0.54" r="1.87" fill="#211537"/><circle cx="-0.66" cy="-0.21" r="0.67" fill="#fff"/></g><g transform="translate(10.66 -4)rotate(-0.35)"><circle r="4.99" fill="#fff"/><circle cx="-1.37" cy="0.54" r="1.87" fill="#211537"/><circle cx="-0.66" cy="-0.21" r="0.67" fill="#fff"/></g><path d="M-14.26 -11.83Q-10.66 -14.03 -7.06 -13.83" fill="none" stroke="#211537" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.26 -11.83Q10.66 -14.03 7.06 -13.83" fill="none" stroke="#211537" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-3.5 12Q0 14.5 3.5 12" fill="none" stroke="#211537" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g></svg>"`;
+exports[`blobAvatar > keeps the avatar of demo user dmitry > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="dmitry"><circle cx="50" cy="50" r="50" fill="#e4e7f0"/><circle r="30" fill="#a0aac9" transform="translate(50 50)rotate(35.84)scale(0.95)"/><circle cx="52.1" cy="58.31" r="10.28" fill="none" stroke="#5c688f" stroke-width="4.86"/><circle cx="16.96" cy="22.48" r="3.6" fill="#5c688f"/></svg>"`;
 
-exports[`blobAvatar > keeps the face of demo user dmitry > traits 1`] = `
+exports[`blobAvatar > keeps the avatar of demo user dmitry > traits 1`] = `
 {
-  "expression": "shy",
-  "extras": "blush",
-  "eyeShape": "wide",
-  "eyeSize": 0.09955046116374433,
-  "eyeSpacing": 0.2105100138578564,
-  "eyeTilt": 0.5145842626225203,
-  "hue": 260,
-  "pupilShift": 0.01985584362410009,
+  "accent": "ring",
+  "accentAngle": 0.2105100138578564,
+  "detail": "satellite",
+  "palette": 10,
+  "rotation": 0.09955046116374433,
+  "scale": 0.5145842626225203,
   "shape": "round",
   "shapeSeed": 70529627,
-  "tone": "light",
 }
 `;
 
-exports[`blobAvatar > keeps the face of demo user vera > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="vera"><circle cx="50" cy="50" r="50" fill="#5f452b"/><g transform="rotate(0.34 50 56)"><path d="M73.59 70.43C66.94 77.01 49.67 85.72 41.43 85.83C33.18 85.93 26.95 78.55 24.14 71.06C21.33 63.57 18.95 48.78 24.55 40.87C30.16 32.96 48.32 22.68 57.78 23.6C67.24 24.51 78.67 38.53 81.31 46.34C83.94 54.14 80.24 63.85 73.59 70.43Z" fill="#c17a33"/><ellipse transform="translate(37 38)rotate(-35)" rx="6" ry="3.5" fill="#fff" opacity="0.35"/><g transform="translate(50 54)scale(1.12)"><ellipse cx="-17.04" cy="6" rx="4.6" ry="2.6" fill="#f3687b" opacity="0.7"/><ellipse cx="17.04" cy="6" rx="4.6" ry="2.6" fill="#f3687b" opacity="0.7"/><g transform="translate(-14.04 -4)rotate(-6.51)"><circle r="4.74" fill="#fff"/><circle cx="0.41" cy="0.51" r="1.78" fill="#22170b"/><circle cx="1.08" cy="-0.2" r="0.64" fill="#fff"/></g><g transform="translate(14.04 -4)rotate(6.51)"><circle r="4.74" fill="#fff"/><circle cx="0.41" cy="0.51" r="1.78" fill="#22170b"/><circle cx="1.08" cy="-0.2" r="0.64" fill="#fff"/></g><path d="M-17.64 -13.97Q-14.04 -13.07 -10.44 -9.77" fill="none" stroke="#22170b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.64 -13.97Q14.04 -13.07 10.44 -9.77" fill="none" stroke="#22170b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-7 13.5Q-3.5 10 0 13.5T7 13.5" fill="none" stroke="#22170b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g></g></svg>"`;
+exports[`blobAvatar > keeps the avatar of demo user vera > svg 1`] = `"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="vera"><circle cx="50" cy="50" r="50" fill="#e7eee3"/><rect x="-27" y="-27" width="54" height="54" rx="17" fill="#a9c1a0" transform="translate(47.26 55.34)rotate(4.68)scale(0.91)"/><circle cx="55.01" cy="40.25" r="19.7" fill="#647f62" opacity="0.5"/><path d="M62.83 86.18A34.55 34.55 0 0 1 13.11 60.61" fill="none" stroke="#647f62" stroke-width="3" stroke-linecap="round"/></svg>"`;
 
-exports[`blobAvatar > keeps the face of demo user vera > traits 1`] = `
+exports[`blobAvatar > keeps the avatar of demo user vera > traits 1`] = `
 {
-  "expression": "mad",
-  "extras": "blush",
-  "eyeShape": "wide",
-  "eyeSize": 0.013001484796404839,
-  "eyeSpacing": 0.8255899623036385,
-  "eyeTilt": 0.22891424945555627,
-  "hue": 30,
-  "pupilShift": 0.649837426841259,
-  "shape": "blob",
+  "accent": "overlap",
+  "accentAngle": 0.8255899623036385,
+  "detail": "trail",
+  "palette": 1,
+  "rotation": 0.013001484796404839,
+  "scale": 0.22891424945555627,
+  "shape": "squircle",
   "shapeSeed": 2245586479,
-  "tone": "dark",
 }
 `;

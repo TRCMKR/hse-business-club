@@ -1,40 +1,30 @@
-export declare const SHAPES: readonly ["round", "squircle", "blob", "droplet", "hexagon", "cloud", "capsule", "triangle"];
-export declare const HUES: readonly [12, 30, 50, 140, 175, 210, 260, 320];
-export declare const TONES: readonly ["light", "dark"];
-export declare const EYE_SHAPES: readonly ["dot", "oval", "wide", "wink"];
-export declare const EXPRESSIONS: readonly ["happy", "neutral", "surprised", "smirk", "sleepy", "mad", "thinking", "cheeky", "sad", "shy"];
-export declare const EXTRAS: readonly ["blush", "freckles", "none"];
+export declare const SHAPES: readonly ["round", "squircle", "blob", "droplet", "hexagon", "capsule"];
+export declare const ACCENTS: readonly ["orbit", "ring", "arc", "inset", "overlap", "split"];
+export declare const DETAILS: readonly ["none", "satellite", "trail"];
 export type Shape = (typeof SHAPES)[number];
-export type Hue = (typeof HUES)[number];
-export type Tone = (typeof TONES)[number];
-export type EyeShape = (typeof EYE_SHAPES)[number];
-export type Expression = (typeof EXPRESSIONS)[number];
-export type Extras = (typeof EXTRAS)[number];
+export type Accent = (typeof ACCENTS)[number];
+export type Detail = (typeof DETAILS)[number];
 /**
  * Everything that defines how an avatar looks. Continuous axes are normalized to
  * [0, 1); the renderer maps them to geometry. Two equal Traits render the same SVG.
  */
 export interface Traits {
-    /** Body silhouette. */
+    /** Base figure. */
     shape: Shape;
-    /** Seed for silhouette details (blob outline, slight body tilt), uint32. */
+    /** Seed for silhouette details (the `blob` outline), uint32. */
     shapeSeed: number;
-    /** Base hue in degrees, one of HUES. */
-    hue: Hue;
-    /** Lightness family of body and background. */
-    tone: Tone;
-    eyeShape: EyeShape;
-    /** Eye size, 0 = small, 1 = big. */
-    eyeSize: number;
-    /** Distance between eyes, 0 = close, 1 = far. */
-    eyeSpacing: number;
-    /** Eye rotation, 0 = tilted outward-down, 0.5 = straight, 1 = tilted inward-down. */
-    eyeTilt: number;
-    /** Horizontal gaze, 0 = left, 0.5 = center, 1 = right. */
-    pupilShift: number;
-    /** Mouth and brows. */
-    expression: Expression;
-    extras: Extras;
+    /** Index into PALETTES: background, figure and accent colors. */
+    palette: number;
+    /** Main accent element drawn over or next to the base figure. */
+    accent: Accent;
+    /** Optional small secondary element. */
+    detail: Detail;
+    /** Rotation of the base figure, 0..1 of a full turn. */
+    rotation: number;
+    /** Direction of the accent from the center, 0..1 of a full turn. */
+    accentAngle: number;
+    /** Size of the base figure, 0 = smaller, 1 = larger. */
+    scale: number;
 }
 /**
  * Derives traits from a seed. Every axis consumes exactly one rng draw in a fixed
