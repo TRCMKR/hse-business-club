@@ -49,9 +49,9 @@ export const AppHeader = defineComponent(() => {
         </nav>
 
         <div class={styles.actions}>
-          <Button to={'/listings/new'} size={'sm'}>
+          <Button to={'/listings/new'} size={'sm'} aria-label={'Создать публикацию'}>
             <Icon name={'plus'} size={18} />
-            {'Создать публикацию'}
+            <span class={styles.createLabel}>{'Создать публикацию'}</span>
           </Button>
           {user.value && (
             <NuxtLink to={'/me'} class={styles.me} aria-label={'Профиль'} title={user.value.displayName}>

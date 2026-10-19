@@ -7,12 +7,13 @@ export default defineComponent({
   setup(_, { slots }) {
     return () => (
       <div class={styles.shell}>
-        <div class={styles.hero} aria-hidden={'true'} />
-        <header class={styles.brand}>
-          <span class={styles.mark} aria-hidden={'true'}>{'БК'}</span>
-          <div>
-            <div class={styles.title}>{'Бизнес-клуб'}</div>
-            <div class={styles.subtitle}>{'Стартапы и вакансии'}</div>
+        <header class={styles.hero}>
+          <div class={styles.brand}>
+            <span class={styles.mark} aria-hidden={'true'}>{'БК'}</span>
+            <div>
+              <div class={styles.title}>{'Бизнес-клуб'}</div>
+              <div class={styles.subtitle}>{'Стартапы и вакансии'}</div>
+            </div>
           </div>
         </header>
         <main class={styles.card}>{slots.default?.()}</main>

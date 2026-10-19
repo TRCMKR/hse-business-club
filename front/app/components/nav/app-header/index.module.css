@@ -170,3 +170,25 @@
 .logout:focus-visible {
   outline-color: var(--color-nav-text-active);
 }
+
+/* 768–1023px: compact header (mark only, icon-only create button) so nav items fit. */
+@media (width < 1024px) {
+  .inner {
+    gap: var(--space-4);
+  }
+
+  .logoText,
+  .createLabel {
+    display: none;
+  }
+
+  .link {
+    font-size: 14px;
+    padding: 0 8px;
+  }
+
+  .link::after {
+    left: 8px;
+    right: 8px;
+  }
+}

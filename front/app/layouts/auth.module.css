@@ -3,34 +3,28 @@
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  isolation: isolate;
   min-height: 100dvh;
-  padding: calc(env(safe-area-inset-top) + 40px) 16px calc(env(safe-area-inset-bottom) + 24px);
-  position: relative;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
 }
 
-/* Navy band behind the brand and the top of the card. */
+/* Navy band with the club name; the form card overlaps its bottom edge. */
 .hero {
   --glow-1: radial-gradient(520px 260px at 85% 0%, rgb(97 148 255 / 35%), transparent 70%);
   --glow-2: radial-gradient(420px 220px at 0% 100%, rgb(31 62 140 / 45%), transparent 70%);
 
   background: var(--glow-1), var(--glow-2), var(--color-navy-deep);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-  height: 240px;
-  inset: 0 0 auto;
-  position: absolute;
-  z-index: -1;
+  display: flex;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 40px) 16px 96px;
+  width: 100%;
 }
 
 @media (width >= 768px) {
-  .shell {
-    padding-top: 72px;
-  }
-
   .hero {
     border-radius: 0 0 32px 32px;
-    height: 320px;
+    padding-bottom: 120px;
+    padding-top: 72px;
   }
 }
 
@@ -72,13 +66,15 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
+  margin-top: -64px;
   max-width: 420px;
   padding: 24px 20px;
-  width: 100%;
+  width: calc(100% - 32px);
 }
 
 @media (width >= 768px) {
   .card {
+    margin-top: -88px;
     padding: 32px;
   }
 }
