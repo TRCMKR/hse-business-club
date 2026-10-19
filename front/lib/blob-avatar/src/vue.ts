@@ -14,19 +14,31 @@ function toVNode(node: SvgNode): VNode {
   return h(node.tag, attrs, node.children.map(toVNode));
 }
 
+export interface BlobAvatarProps {
+  /** Any string; the app uses `username`. */
+  seed: string;
+  /** Width and height in pixels; without it the SVG fills its container. */
+  size?: number;
+  background?: Background;
+  /** Pins trait axes, e.g. `{ expression: 'happy' }`. */
+  traits?: Partial<Traits>;
+  /** aria-label, defaults to the seed. */
+  label?: string;
+}
+
 const props = {
   seed: { type: String, required: true },
   size: { type: Number, required: false },
   background: { type: String as PropType<Background>, required: false },
   traits: { type: Object as PropType<Partial<Traits>>, required: false },
   label: { type: String, required: false },
-} as const;
+};
 
 /**
  * Deterministic blob avatar. Renders the SVG through vnodes (no innerHTML),
  * so it is SSR-safe and hydrates to the same markup as `blobAvatar()`.
  */
-export const BlobAvatar = defineComponent((props) => {
+export const BlobAvatar = defineComponent((props: BlobAvatarProps) => {
   const tree = computed(() =>
     blobAvatarTree(props.seed, {
       size: props.size,
