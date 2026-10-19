@@ -1,0 +1,131 @@
+# Full stack: `make up` (or `docker compose up -d --build`).
+# Front: http://localhost:3000, API: http://localhost:8080,
+# debug (Swagger UI /docs/, /metrics, pprof): http://localhost:8081 — dev only, never published in production.
+# Observability (`make obs`): Jaeger UI :16686, Prometheus :9090, MinIO console :9001.
+name: hbc
+
+x-s3-credentials: &s3-credentials
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hbc
+      POSTGRES_PASSWORD: hbc
+      POSTGRES_DB: hbc
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hbc -d hbc"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # minio/minio is no longer published on Docker Hub; the Chainguard build ships the
+  # upstream MinIO server binary (no mc/curl inside, hence the bash /dev/tcp healthcheck).
+  minio:
+    image: cgr.dev/chainguard/minio:latest@sha256:2915cb406f38ed6ff9634de0a3e4a9423e2dda06a6f1aca18f8c968aa37a01f6
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    # The image runs as uid 65532 and has no /data, so a fresh named volume is root-owned.
+    user: root
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /minio/health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && read -r l <&3 && [[ $$l == *200* ]]"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  back:
+    build: ./back
+    image: hbc-back:local
+    environment:
+      <<: *s3-credentials
+      APP_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      POSTGRES_DSN: postgres://hbc:hbc@db:5432/hbc?sslmode=disable
+      S3_ENDPOINT: minio:9000
+      S3_BUCKET: hbc-avatars
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      CORS_ORIGINS: http://localhost:3000
+      # `make obs` sets it to jaeger:4317; empty = spans are not exported.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8080:8080" # public API
+      - "8081:8081" # debug: /docs/, /metrics, /debug/pprof — local only
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/readyz"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+    restart: unless-stopped
+
+  front:
+    build: ./front
+    image: hbc-front:local
+    environment:
+      NUXT_API_BASE_URL: http://back:8080
+      NUXT_MOCK_API: "false"
+      # Served over plain HTTP on localhost; set true behind an HTTPS proxy.
+      NUXT_COOKIE_SECURE: "false"
+    depends_on:
+      back:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/login"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    profiles: [observability]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+      - "4317:4317" # OTLP gRPC: back in compose uses jaeger:4317, `make run` on the host — localhost:4317
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [observability]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=1d
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  # Publishes the MinIO console (http://localhost:9001) only with the observability profile.
+  minio-console:
+    image: alpine/socat:1.8.0.3
+    profiles: [observability]
+    command: ["TCP-LISTEN:9001,fork,reuseaddr", "TCP:minio:9001"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    ports:
+      - "9001:9001"
+
+volumes:
+  db_data:
+  minio_data:

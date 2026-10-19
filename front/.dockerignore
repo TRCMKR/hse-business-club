@@ -17,3 +17,7 @@ coverage/
 docs/
 tests/
 lib/*/node_modules/
+
+# Changes to these do not affect the build output
+Dockerfile
+.dockerignore

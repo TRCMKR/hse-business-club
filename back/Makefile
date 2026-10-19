@@ -38,13 +38,17 @@ lint:
 	buf lint
 	$(GOLANGCI_LINT) run ./...
 
-# Test infrastructure: back/docker-compose.test.yaml (Postgres on :5433, MinIO on
-# :9000, data in tmpfs). I0 replaces it with the root compose file.
-COMPOSE_TEST      := docker compose -f docker-compose.test.yaml
-TEST_POSTGRES_DSN ?= postgres://hbc:hbc@localhost:5433/hbc?sslmode=disable
-TEST_S3_ENDPOINT  ?= localhost:9000
+# Test infrastructure: root docker-compose.yaml + docker-compose.test.yaml, project
+# hbc-test-env (db on :5433, MinIO on :9000, data in tmpfs; ports via
+# TEST_POSTGRES_PORT / TEST_MINIO_PORT).
+TEST_POSTGRES_PORT ?= 5433
+TEST_MINIO_PORT    ?= 9000
+export TEST_POSTGRES_PORT TEST_MINIO_PORT
+COMPOSE_TEST      := docker compose -f ../docker-compose.yaml -f ../docker-compose.test.yaml -p hbc-test-env
+TEST_POSTGRES_DSN ?= postgres://hbc:hbc@localhost:$(TEST_POSTGRES_PORT)/hbc?sslmode=disable
+TEST_S3_ENDPOINT  ?= localhost:$(TEST_MINIO_PORT)
 # TEST_ENV=external: use already running infrastructure (TEST_POSTGRES_DSN,
-# TEST_S3_ENDPOINT) instead of starting and stopping docker-compose.test.yaml.
+# TEST_S3_ENDPOINT) instead of starting and stopping the compose test env.
 TEST_ENV          ?= compose
 
 TEST_INTEGRATION_CMD = TEST_POSTGRES_DSN="$(TEST_POSTGRES_DSN)" TEST_S3_ENDPOINT="$(TEST_S3_ENDPOINT)" \
@@ -70,24 +74,24 @@ test:
 	go test -race -count=1 ./...
 
 .PHONY: test-integration
-## runs integration tests (repositories, blob/s3, db) on Postgres + MinIO from docker-compose.test.yaml
+## runs integration tests (repositories, blob/s3, db) on Postgres + MinIO from the compose test env
 test-integration:
-	@$(call with_test_env,postgres minio,$(TEST_INTEGRATION_CMD))
+	@$(call with_test_env,db minio,$(TEST_INTEGRATION_CMD))
 
 .PHONY: test-e2e
-## runs HTTP end-to-end tests (tests/e2e, app in-process) on Postgres from docker-compose.test.yaml
+## runs HTTP end-to-end tests (tests/e2e, app in-process) on Postgres from the compose test env
 test-e2e:
-	@$(call with_test_env,postgres,$(TEST_E2E_CMD))
+	@$(call with_test_env,db,$(TEST_E2E_CMD))
 
 .PHONY: test-all
 ## runs unit, integration and e2e tests (one Postgres + MinIO for both)
 test-all: test
-	@$(call with_test_env,postgres minio,$(TEST_INTEGRATION_CMD) && $(TEST_E2E_CMD))
+	@$(call with_test_env,db minio,$(TEST_INTEGRATION_CMD) && $(TEST_E2E_CMD))
 
 .PHONY: test-env-up
 ## starts postgres and minio for tests and `make run`
 test-env-up:
-	$(COMPOSE_TEST) up -d --wait
+	$(COMPOSE_TEST) up -d --wait db minio
 
 .PHONY: test-env-down
 ## stops postgres and minio

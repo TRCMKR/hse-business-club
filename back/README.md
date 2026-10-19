@@ -16,7 +16,7 @@ bounded-context'а (`users`, `listings`, `applications`) в своих схем�
 ## Быстрый старт
 
 ```sh
-make test-env-up          # postgres:17 на :5433 и MinIO на :9000 (docker-compose.test.yaml)
+make test-env-up          # postgres:17 на :5433 и MinIO на :9000 (../docker-compose.yaml + ../docker-compose.test.yaml)
 cp .env.example .env      # .env читается только при APP_ENV=local
 SEED_DEMO_DATA=true make run   # :8080 — API, :8081 — debug, gRPC — 127.0.0.1:8082
 ```
@@ -24,7 +24,7 @@ SEED_DEMO_DATA=true make run   # :8080 — API, :8081 — debug, gRPC — 127.0.
 При старте: миграции схем `users` → `listings` → `applications`, проверка/создание бакета,
 демо-данные (если `SEED_DEMO_DATA=true` и таблица `users.users` пуста), затем сервер. До
 окончания миграций порты не отвечают, поэтому `/readyz` = 200 означает «миграции применены,
-БД и хранилище доступны». Данные в `docker-compose.test.yaml` живут в tmpfs и пропадают при
+БД и хранилище доступны». Данные тестового окружения (корневой `docker-compose.test.yaml`, проект `hbc-test-env`) живут в tmpfs и пропадают при
 `make test-env-down`.
 
 Демо-аккаунты (SPEC §6), пароль у всех `demo1234`: `anna`, `boris`, `vera`, `dmitry`.
@@ -53,7 +53,7 @@ curl localhost:8081/metrics      # Prometheus
 | `make generate` | `buf generate`: `pkg/api/hbc/v1/*` (pb, grpc, gateway, swagger). Результат коммитится |
 | `make lint` | `buf lint` + golangci-lint (собирается локальным Go, версия зафиксирована в Makefile) |
 | `make test` | unit-тесты (`-race`), без инфраструктуры |
-| `make test-integration` | поднимает postgres + MinIO из `docker-compose.test.yaml` (ждёт healthcheck: `pg_isready`), гоняет тесты с тегом `integration` (репозитории, `db`, `blob/s3`), гасит контейнеры |
+| `make test-integration` | поднимает `db` + `minio` из корневого compose с override `docker-compose.test.yaml` (ждёт healthcheck: `pg_isready`), гоняет тесты с тегом `integration` (репозитории, `db`, `blob/s3`), гасит контейнеры |
 | `make test-e2e` | то же только с postgres, гоняет HTTP e2e-тесты `tests/e2e` (тег `e2e`) |
 | `make test-all` | `test` + `test-integration` + `test-e2e` на одном поднятии инфраструктуры |
 | `make run` / `make build` | запуск / сборка `./build/hbc` с версией из git |
@@ -61,7 +61,7 @@ curl localhost:8081/metrics      # Prometheus
 | `make test-env-up` / `make test-env-down` | поднять / удалить тестовую инфраструктуру |
 
 Переменные целей: `TEST_ENV=external` — не поднимать compose, а использовать уже запущенные
-`TEST_POSTGRES_DSN` / `TEST_S3_ENDPOINT`; `E2E_FLAGS=` — e2e без `-race` (≈ 6 с вместо ≈ 60 с:
+`TEST_POSTGRES_DSN` / `TEST_S3_ENDPOINT`; `TEST_POSTGRES_PORT` / `TEST_MINIO_PORT` — порты тестового окружения на хосте (по умолчанию 5433 / 9000); `E2E_FLAGS=` — e2e без `-race` (≈ 6 с вместо ≈ 60 с:
 bcrypt под race-детектором медленный). Цели с compose гасят контейнеры (`down -v`) и после
 падения тестов, код возврата сохраняется; уже поднятую `make test-env-up` инфраструктуру
 они тоже погасят.
@@ -118,12 +118,12 @@ docker build -t hbc-back .
 ходит на `127.0.0.1:<порт>` — если API слушает только конкретный не-loopback адрес,
 healthcheck надо переопределить в compose.
 
-Запуск с внешними Postgres и MinIO (сеть `docker-compose.test.yaml`):
+Запуск с внешними Postgres и MinIO (сеть тестового окружения `hbc-test-env`; весь стек целиком — `make up` в корне):
 
 ```sh
 make test-env-up
-docker run --rm --network hbc-test_default -p 8080:8080 -p 8081:8081 \
-  -e POSTGRES_DSN='postgres://hbc:hbc@postgres:5432/hbc?sslmode=disable' \
+docker run --rm --network hbc-test-env_default -p 8080:8080 -p 8081:8081 \
+  -e POSTGRES_DSN='postgres://hbc:hbc@db:5432/hbc?sslmode=disable' \
   -e JWT_SECRET=change-me -e SEED_DEMO_DATA=true \
   -e S3_ENDPOINT=minio:9000 -e S3_ACCESS_KEY=minioadmin -e S3_SECRET_KEY=minioadmin hbc-back
 ```
