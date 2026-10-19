@@ -17,7 +17,7 @@ func gradient(w, h int) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	for y := range h {
 		for x := range w {
-			img.SetNRGBA(x, y, color.NRGBA{R: uint8(x * 255 / max(w-1, 1)), G: uint8(y * 255 / max(h-1, 1)), B: 128, A: 255})
+			img.SetNRGBA(x, y, color.NRGBA{R: uint8(x * 255 / max(w-1, 1)), G: uint8(y * 255 / max(h-1, 1)), B: 128, A: 255}) //nolint:gosec // in range by construction
 		}
 	}
 	return img
@@ -57,7 +57,7 @@ func pngHeaderOnly(w, h uint32) []byte {
 }
 
 func writeChunk(buf *bytes.Buffer, typ string, data []byte) {
-	_ = binary.Write(buf, binary.BigEndian, uint32(len(data)))
+	_ = binary.Write(buf, binary.BigEndian, uint32(len(data))) //nolint:gosec // small test chunk
 	crc := crc32.NewIEEE()
 	_, _ = crc.Write([]byte(typ))
 	_, _ = crc.Write(data)
@@ -71,14 +71,14 @@ func writeChunk(buf *bytes.Buffer, typ string, data []byte) {
 // any size. The standard library has no WebP encoder; this keeps tests fixture-free.
 func solidWebP(w, h int, c color.NRGBA) []byte {
 	var bw bitWriter
-	bw.write(0x2f, 8) // VP8L signature
-	bw.write(uint32(w-1), 14)
-	bw.write(uint32(h-1), 14)
-	bw.write(0, 1) // alpha is used
-	bw.write(0, 3) // version
-	bw.write(0, 1) // no transforms
-	bw.write(0, 1) // no color cache
-	bw.write(0, 1) // no meta prefix codes
+	bw.write(0x2f, 8)         // VP8L signature
+	bw.write(uint32(w-1), 14) //nolint:gosec // test sizes fit 14 bits
+	bw.write(uint32(h-1), 14) //nolint:gosec // test sizes fit 14 bits
+	bw.write(0, 1)            // alpha is used
+	bw.write(0, 3)            // version
+	bw.write(0, 1)            // no transforms
+	bw.write(0, 1)            // no color cache
+	bw.write(0, 1)            // no meta prefix codes
 	for _, sym := range []uint8{c.G, c.R, c.B, c.A} {
 		bw.write(1, 1) // simple code
 		bw.write(0, 1) // one symbol
@@ -95,9 +95,9 @@ func solidWebP(w, h int, c color.NRGBA) []byte {
 	chunk := len(data)
 	padded := chunk + chunk%2
 	buf.WriteString("RIFF")
-	_ = binary.Write(&buf, binary.LittleEndian, uint32(4+8+padded))
+	_ = binary.Write(&buf, binary.LittleEndian, uint32(4+8+padded)) //nolint:gosec // small test chunk
 	buf.WriteString("WEBPVP8L")
-	_ = binary.Write(&buf, binary.LittleEndian, uint32(chunk))
+	_ = binary.Write(&buf, binary.LittleEndian, uint32(chunk)) //nolint:gosec // small test chunk
 	buf.Write(data)
 	if chunk%2 == 1 {
 		buf.WriteByte(0)
@@ -116,7 +116,7 @@ func (b *bitWriter) write(v uint32, n uint) {
 	b.acc |= uint64(v) << b.nbits
 	b.nbits += n
 	for b.nbits >= 8 {
-		b.buf = append(b.buf, byte(b.acc))
+		b.buf = append(b.buf, byte(b.acc)) //nolint:gosec // low byte intended
 		b.acc >>= 8
 		b.nbits -= 8
 	}
@@ -124,7 +124,7 @@ func (b *bitWriter) write(v uint32, n uint) {
 
 func (b *bitWriter) bytes() []byte {
 	if b.nbits > 0 {
-		return append(b.buf, byte(b.acc))
+		return append(b.buf, byte(b.acc)) //nolint:gosec // low byte intended
 	}
 	return b.buf
 }

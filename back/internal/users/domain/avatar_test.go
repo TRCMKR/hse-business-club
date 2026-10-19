@@ -135,7 +135,7 @@ func TestNormalizeAvatar_HugeRejectedBeforeDecode(t *testing.T) {
 	if alloc := after.TotalAlloc - before.TotalAlloc; alloc > 1<<20 {
 		t.Fatalf("allocated %d bytes, want < 1 MiB", alloc)
 	}
-	if elapsed > 100*time.Millisecond {
+	if elapsed > 100*time.Millisecond && !raceEnabled {
 		t.Fatalf("took %v", elapsed)
 	}
 	t.Logf("rejected in %v", elapsed)
@@ -143,8 +143,8 @@ func TestNormalizeAvatar_HugeRejectedBeforeDecode(t *testing.T) {
 
 // A ~5 MB 4000×4000 PNG is normalized in under 2 s.
 func TestNormalizeAvatar_LargePNGFast(t *testing.T) {
-	if testing.Short() {
-		t.Skip("short")
+	if testing.Short() || raceEnabled {
+		t.Skip("timing test: run without -race and -short")
 	}
 	data := largePNG(t)
 	if len(data) > domain.AvatarMaxBytes || len(data) < 4<<20 {
@@ -171,14 +171,14 @@ func largePNG(t *testing.T) []byte {
 	t.Helper()
 	const side = 4000
 	img := gradient(side, side)
-	rng := rand.New(rand.NewPCG(1, 2))
+	rng := rand.New(rand.NewPCG(1, 2)) //nolint:gosec // deterministic test noise
 	// ~1.2 bytes per noisy pixel after deflate of 3 random channels at ~ 3 bytes;
 	// 400 rows × 4000 px × 3 B ≈ 4.8 MB.
 	for y := range 400 {
 		row := img.Pix[y*img.Stride : y*img.Stride+side*4]
 		for i := 0; i < len(row); i += 4 {
 			v := rng.Uint32()
-			row[i], row[i+1], row[i+2] = byte(v), byte(v>>8), byte(v>>16)
+			row[i], row[i+1], row[i+2] = byte(v), byte(v>>8), byte(v>>16) //nolint:gosec // low bytes intended
 		}
 	}
 	return encodePNG(t, img)

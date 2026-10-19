@@ -40,7 +40,7 @@ const (
 // User-facing validation messages (labels from the SPEC §2.4 table).
 const (
 	MsgUsername    = "Логин: от 3 до 32 символов, латиница, цифры и _"
-	MsgPassword    = "Пароль: от 8 до 72 символов"
+	MsgPassword    = "Пароль: от 8 до 72 символов" //nolint:gosec // user-facing message, not a credential
 	MsgDisplayName = "Имя: от 1 до 80 символов"
 	MsgHeadline    = "Кратко о себе: не больше 120 символов"
 	MsgAbout       = "О себе: не больше 2000 символов"
