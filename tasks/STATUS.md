@@ -16,7 +16,7 @@
 | F2 | running | task/F2 | opus | 01:47 | | | |
 | F3 | running | task/F3 | opus | 01:50 | | | |
 | F4 | running | task/F4 | opus | 01:50 | | | |
-| F5 | running | task/F5 | opus | 01:50 | | | |
+| F5 | review | task/F5 | opus | 01:50 | 02:08 | tasks/reports/F5.md | в работе |
 | F6 | queued | task/F6 | | | | | |
 | F7 | merged | task/F7 | opus | 00:52 / 01:12 | 01:04 / 01:24 | tasks/reports/F7.md | итер. 1: вернуть → принять; итер. 2: принять (3 мелких, не блокируют) |
 | F8 | queued | task/F8 | | | | | после merge F1–F5 |
@@ -48,6 +48,7 @@
 - 01:58 — B1: доработка проверена (lint 0 issues, тесты users зелёные), merge в main. Бэк целиком: `make lint`, `go test -race ./...` на main зелёные. Волна 2 (бэк): запущен B5.
 - 02:05 — по запросу пользователя добавлена задача F8 (визуальный стиль в духе hsebusinessclub.ru, не копия); PLAN/SPEC/DECISIONS обновлены. Старт — после merge F1–F5, до F6.
 - 02:06 — F1: исполнитель закончил (183 теста). Пример в критерии приёмки заменён на `q=FinTrack` (поиск по SPEC — только title/description). Запущен ревьюер. Диск Mac: 2,8 ГБ свободно — worktree фронта по 630 МБ node_modules; удаляются по мере merge.
+- 02:08 — F5: исполнитель закончил (178 тестов). Запущен ревьюер. npm-кэш очищен (−3,1 ГБ) из-за нехватки места на диске Mac.
 
 ## Время по волнам
 
