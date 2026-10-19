@@ -16,7 +16,7 @@ F0 ──┬── F1 feed ─────────┐                       
      ├── F2 details ──────┤                               │
      ├── F3 listing form ─┼── F6 polish ──────────────────┘
      ├── F4 applications ─┤
-     └── F5 profile ──────┘
+     └── F5 profile ──────┘  (F1–F5 → F8 design theme → F6)
 F7 blob-avatar (без зависимостей; F0/F6 подключают) ──────┘
 B0 + F0 (Dockerfile'ы) ── I0 compose + observability stack ──────────────────────┘
 ```
@@ -27,7 +27,7 @@ B0 + F0 (Dockerfile'ы) ── I0 compose + observability stack ─────�
 |---|---|---|
 | 0 | **B0**, **F0**, **F7** | сразу (контракт `back/api/hbc/v1/hbc.proto` готов); F7 — чистая библиотека, ничего не ждёт |
 | 1 | **B1 B2 B3 B4**, **F1 F2 F3 F4 F5**, **I0** | B* — после отчёта B0; F* — после отчёта F0; I0 — после обоих |
-| 2 | **B5**, затем **F6** | B5 — после B1–B4; F6 — после F1–F5 и B5 (проверка на живом бэке) |
+| 2 | **B5**, **F8**, затем **F6** | B5 — после B1–B4; F8 (визуальный стиль) — после F1–F5; F6 — после F8 и B5 (проверка на живом бэке) |
 | 3 | **I1** → **I2** | после B5, F6, I0 |
 
 Критический путь: B0 → B4 → B5 → I1 → I2. B4 стартует сразу после B0 на фейках портов,
@@ -50,6 +50,7 @@ B0 + F0 (Dockerfile'ы) ── I0 compose + observability stack ─────�
 | F4 | `tasks/F4-applications.md` | отклики автора и мои отклики, бейдж | `/listings/:id/applications`, `/me/applications` |
 | F5 | `tasks/F5-profile.md` | профиль с загрузкой фото, публичный профиль, 404 | `/me`, `/users/:id`, error page |
 | F6 | `tasks/F6-polish.md` | a11y, тёмная тема, адаптив-QA на живом бэке, покрытие | отчёт QA + фиксы |
+| F8 | `tasks/F8-design-theme.md` | визуальный стиль в духе сайта Бизнес-клуба: палитра navy/синий/жёлтый, Montserrat, навигация, компоненты | токены + UI-кит + скриншоты |
 | F7 | `tasks/F7-blob-avatar.md` | своя библиотека `@fe/blob-avatar`: детерминированный SVG-аватар с лицом из строки, TS + Vue, без зависимостей | пакет `front/lib/blob-avatar` с тестами и галереей |
 | I0 | `tasks/I0-compose.md` | docker-compose (db, minio, back, front), env, профиль observability, корневой Makefile | `docker compose up` |
 | I1 | `tasks/I1-smoke-and-qa.md` | smoke-скрипт, сквозная ручная проверка, фиксы на стыке | `make smoke` зелёный |
