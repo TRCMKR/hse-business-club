@@ -12,7 +12,7 @@
 | B4 | merged | task/B4 | opus | 01:32 | 01:48 | tasks/reports/B4.md | принять (4 не блокирующих, покрытие 94,7%) |
 | B5 | running | task/B5 | opus | 01:58 | | | |
 | F0 | merged | task/F0 | opus | 00:52 | 01:47 | tasks/reports/F0.md | итерация 1: вернуть (обход /v1/auth/* в прокси) → итерация 2: принять |
-| F1 | running | task/F1 | opus | 01:47 | | | |
+| F1 | review | task/F1 | opus | 01:47 | 02:06 | tasks/reports/F1.md | в работе |
 | F2 | running | task/F2 | opus | 01:47 | | | |
 | F3 | running | task/F3 | opus | 01:50 | | | |
 | F4 | running | task/F4 | opus | 01:50 | | | |
@@ -47,6 +47,7 @@
 - 01:53 — B4: ревью принят; merge в main. Ждём B1 для старта B5.
 - 01:58 — B1: доработка проверена (lint 0 issues, тесты users зелёные), merge в main. Бэк целиком: `make lint`, `go test -race ./...` на main зелёные. Волна 2 (бэк): запущен B5.
 - 02:05 — по запросу пользователя добавлена задача F8 (визуальный стиль в духе hsebusinessclub.ru, не копия); PLAN/SPEC/DECISIONS обновлены. Старт — после merge F1–F5, до F6.
+- 02:06 — F1: исполнитель закончил (183 теста). Пример в критерии приёмки заменён на `q=FinTrack` (поиск по SPEC — только title/description). Запущен ревьюер. Диск Mac: 2,8 ГБ свободно — worktree фронта по 630 МБ node_modules; удаляются по мере merge.
 
 ## Время по волнам
 
