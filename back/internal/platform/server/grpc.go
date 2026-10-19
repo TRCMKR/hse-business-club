@@ -27,8 +27,10 @@ const (
 )
 
 // newGRPCServer builds the server with the otelgrpc stats handler and
-// ChainUnaryInterceptor(recovery, prometheus, logging, auth). otelgrpc tracing is a
-// stats handler (otelgrpc has no interceptors any more); it wraps the whole chain.
+// ChainUnaryInterceptor(recovery, prometheus, logging, auth, callUser). otelgrpc
+// tracing is a stats handler (otelgrpc has no interceptors any more); it wraps the
+// whole chain. Logging stays before auth, so rejected calls are logged too;
+// callUser reports the authenticated user back to the logging interceptor.
 func (s *Server) newGRPCServer(verifier auth.Verifier, publicMethods map[string]bool) *grpc.Server {
 	opts := append(s.tel.GRPCServerOptions(),
 		grpc.MaxRecvMsgSize(MaxMessageSize),
@@ -38,6 +40,7 @@ func (s *Server) newGRPCServer(verifier auth.Verifier, publicMethods map[string]
 			s.tel.GRPCUnaryInterceptor(),
 			loggingInterceptor(s.baseLog),
 			auth.UnaryInterceptor(verifier, publicMethods),
+			callUserInterceptor,
 		),
 	)
 	return grpc.NewServer(opts...)
@@ -51,9 +54,27 @@ func recoveryHandler(ctx context.Context, p any) error {
 	return status.Error(codes.Internal, MsgInternal)
 }
 
+// callInfo is filled by interceptors further down the chain for the call log line.
+type callInfo struct {
+	userID string
+}
+
+type callInfoKey struct{}
+
+// callUserInterceptor runs after auth and records the authenticated user id in
+// the callInfo of the logging interceptor.
+func callUserInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	if ci, ok := ctx.Value(callInfoKey{}).(*callInfo); ok {
+		if id, ok := auth.UserIDFromContext(ctx); ok {
+			ci.userID = id.String()
+		}
+	}
+	return handler(ctx, req)
+}
+
 // loggingInterceptor puts the base logger and the request id (from x-request-id
 // metadata set by the gateway) into the context and logs every call with method,
-// code, duration and peer.
+// code, duration, peer and user_id (when the call is authenticated).
 func loggingInterceptor(base *zap.Logger) grpc.UnaryServerInterceptor {
 	base = base.With(zap.String("component", "grpc"))
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
@@ -68,8 +89,9 @@ func loggingInterceptor(base *zap.Logger) grpc.UnaryServerInterceptor {
 			}
 		}
 		ctx = logger.WithContext(ctx, base)
+		ci := &callInfo{}
 
-		resp, err := handler(ctx, req)
+		resp, err := handler(context.WithValue(ctx, callInfoKey{}, ci), req)
 
 		code := status.Code(err)
 		fields := []zap.Field{
@@ -84,6 +106,9 @@ func loggingInterceptor(base *zap.Logger) grpc.UnaryServerInterceptor {
 			fields = append(fields, zap.String("client_ip", clientIP))
 		}
 		l := logger.FromContext(ctx)
+		if ci.userID != "" {
+			l = l.With(zap.String(logger.KeyUserID, ci.userID))
+		}
 		if isServerError(code) {
 			l.Error("grpc call", append(fields, zap.Error(err))...)
 		} else {

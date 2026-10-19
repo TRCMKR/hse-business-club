@@ -39,7 +39,9 @@ USER hbc:hbc
 # gRPC listens on 127.0.0.1:8082 inside the container only.
 EXPOSE 8080 8081
 
+# The port is taken from HTTP_ADDR (":8080", "0.0.0.0:9090", …), default 8080.
+ENV HTTP_ADDR=:8080
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
+    CMD port="${HTTP_ADDR##*:}"; wget -q -O /dev/null "http://127.0.0.1:${port:-8080}/healthz" || exit 1
 
 ENTRYPOINT ["/usr/local/bin/hbc"]

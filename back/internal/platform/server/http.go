@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -54,12 +55,29 @@ func (s *Server) newPublicRouter() (chi.Router, error) {
 	if err != nil {
 		return nil, err
 	}
+	gw := rejectBadQuery(s.gateway)
 	for _, rt := range routes {
-		r.Method(rt.method, rt.path, s.gateway)
+		r.Method(rt.method, rt.path, gw)
 	}
-	r.NotFound(s.gateway.ServeHTTP)
-	r.MethodNotAllowed(s.gateway.ServeHTTP)
+	r.NotFound(gw.ServeHTTP)
+	r.MethodNotAllowed(gw.ServeHTTP)
 	return r, nil
+}
+
+// badQueryBody is the gateway-format error for an unparsable query string.
+var badQueryBody, _ = json.Marshal(map[string]any{"code": 3, "message": MsgBadRequest, "details": []any{}})
+
+// rejectBadQuery answers 400 «Некорректный формат запроса» for a query string with
+// invalid escapes: the generated gateway code would return the English text of
+// url.ParseQuery (the query parser is not reached).
+func rejectBadQuery(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := url.ParseQuery(r.URL.RawQuery); err != nil {
+			writeJSON(w, http.StatusBadRequest, badQueryBody)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) newDebugRouter() chi.Router {
@@ -76,8 +94,12 @@ func (s *Server) newDebugRouter() chi.Router {
 	r.Get("/docs/", serveSwaggerUI)
 	r.Get("/docs/swagger.json", s.serveSwaggerJSON)
 
-	// "Try it out" in Swagger UI calls the API on the same origin.
-	r.Handle("/v1/*", s.public)
+	// "Try it out" in Swagger UI calls the API on the same origin. The public router
+	// gets a fresh chi route context: otherwise it appends its pattern to "/v1/*" and
+	// metrics/spans are labelled "/v1/v1/ping" instead of "/v1/ping".
+	r.Handle("/v1/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		s.public.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, nil)))
+	}))
 	return r
 }
 
