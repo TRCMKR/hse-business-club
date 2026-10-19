@@ -24,7 +24,7 @@ NUXT_MOCK_API=true npm run dev   # без бэкенда: in-memory mock API с 
 |---|---|---|
 | `NUXT_API_BASE_URL` | `http://localhost:8080` | адрес бэкенда для Nitro-прокси и SSR |
 | `NUXT_MOCK_API` | `false` | `true` — mock API вместо бэкенда |
-| `NUXT_COOKIE_SECURE` | — | `false` отключает флаг `Secure` у cookie в production (HTTP не на localhost) |
+| `NUXT_COOKIE_SECURE` | `false` | `true` ставит флаг `Secure` у cookie `hbc_token`. Включать, когда фронт отдаётся через HTTPS-прокси; по умолчанию выключено, потому что compose открывает фронт по `http://localhost:3000`, а Safari не сохраняет Secure-cookie на HTTP |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` в Docker | порт Nitro |
 
 ## Как устроено общение с API
@@ -35,8 +35,10 @@ NUXT_MOCK_API=true npm run dev   # без бэкенда: in-memory mock API с 
 SSR ──────────────────────────────────────────── Authorization из cookie запроса ──► бэкенд /v1/**
 ```
 
-- JWT никогда не попадает в JS: `/api/auth/*` возвращают только `{ user }`, а
-  `/api/v1/auth/*` через прокси закрыты (404).
+- JWT никогда не попадает в JS: `/api/auth/*` возвращают только `{ user }`. Прокси
+  канонизирует путь (percent-decode сегментов, схлопывание `//`, без завершающего `/`,
+  `.`/`..` и битый `%` → 404) и закрывает всё поддерево `/v1/auth/**` (404) —
+  `server/utils/proxy-path.ts`.
 - Ошибки бэкенда приходят как есть: HTTP-статус + `{ code, message, details }`;
   `message` готов к показу (`getErrorMessage(error)` из `~/utils/errors`).
 - Фото: `avatarSrc(user)` = `'/api' + user.avatarUrl` — файл отдаётся прокси с исходными
@@ -108,5 +110,8 @@ tests/                    — vitest
 - Мутации: `try { await api.applications.accept(id) } catch (e) { toast.error(getErrorMessage(e)) }`.
 - Нет объекта → `throw createError({ statusCode: 404 })` — покажет `app/error.tsx`.
 - Текущий пользователь — `useAuthStore().user`; после изменения профиля — `setUser(user)`.
+- `login`/`register`/`logout` и истёкшая сессия вызывают `clearNuxtData()`: кэш
+  `useAsyncData` не переживает смену пользователя. Не храните пользовательские данные в
+  других глобальных местах (модульные переменные, `useState`) — иначе их тоже нужно чистить.
 - Новые маршруты по умолчанию требуют входа (`middleware/auth.global.ts`), публичные —
   только `/login` и `/register`.

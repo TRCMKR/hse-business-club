@@ -3,6 +3,7 @@ import { BlobAvatar } from '@fe/blob-avatar/vue';
 import { prop } from '@fe/prop-types';
 import type { ExtractProps } from '@fe/prop-types';
 import type { User } from '~~/api/types';
+import { avatarSrc } from '~/utils/avatar';
 import styles from './index.module.css';
 
 export type AvatarUser = Pick<User, 'username' | 'avatarUrl' | 'displayName'>;
@@ -19,6 +20,8 @@ export type AvatarProps = ExtractProps<typeof props>;
  * User avatar: the uploaded photo when `avatarUrl` is set (served via the `/api`
  * proxy), otherwise — and if the photo fails to load — a deterministic blob avatar
  * seeded by `username`, identical in SSR, on the client and in mock mode.
+ * Known limitation: if an SSR-rendered `<img>` fails before hydration, `error` is missed
+ * and the fallback isn't shown (photos are served by our own proxy, so this is rare).
  */
 export const Avatar = defineComponent((props: AvatarProps) => {
   const failed = ref(false);
@@ -31,12 +34,13 @@ export const Avatar = defineComponent((props: AvatarProps) => {
 
   return () => {
     const style = { height: `${size.value}px`, width: `${size.value}px` };
-    if (props.user.avatarUrl && !failed.value) {
+    const src = avatarSrc(props.user);
+    if (src && !failed.value) {
       return (
         <img
           class={styles.avatar}
           style={style}
-          src={`/api${props.user.avatarUrl}`}
+          src={src}
           alt={label.value}
           width={size.value}
           height={size.value}

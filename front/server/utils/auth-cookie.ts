@@ -10,7 +10,9 @@ export const writeAuthToken = (event: H3Event, token: string) => {
     sameSite: 'lax',
     path: '/',
     maxAge: AUTH_COOKIE_MAX_AGE,
-    secure: !import.meta.dev && process.env.NODE_ENV === 'production' && process.env.NUXT_COOKIE_SECURE !== 'false',
+    // Off by default: compose serves the app over plain http://localhost:3000 and Safari
+    // drops Secure cookies there. Set NUXT_COOKIE_SECURE=true behind an HTTPS proxy.
+    secure: process.env.NUXT_COOKIE_SECURE === 'true',
   });
 };
 

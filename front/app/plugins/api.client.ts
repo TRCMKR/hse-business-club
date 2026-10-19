@@ -14,6 +14,7 @@ export default defineNuxtPlugin({
         return;
       }
       auth.setUser(null);
+      clearNuxtData();
       toast.error('Сессия истекла, войдите снова');
       const redirect = router.currentRoute.value.fullPath;
       nuxtApp.runWithContext(() => navigateTo({ path: '/login', query: { redirect } }));

@@ -30,22 +30,30 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Client-only. Throws on wrong credentials (401) — show `getErrorMessage(error)`. */
   const login = async (input: LoginInput): Promise<User> => {
-    user.value = await getApi().auth.login(input);
+    const next = await getApi().auth.login(input);
+    clearNuxtData();
+    user.value = next;
     return user.value;
   };
 
   /** Client-only. Throws on validation errors (400) / taken username (409). */
   const register = async (input: RegisterInput): Promise<User> => {
-    user.value = await getApi().auth.register(input);
+    const next = await getApi().auth.register(input);
+    clearNuxtData();
+    user.value = next;
     return user.value;
   };
 
-  /** Clears the httpOnly cookie on the Nitro side and the local state. */
+  /**
+   * Clears the httpOnly cookie on the Nitro side, the local state and all cached
+   * `useAsyncData` results, so the next account never sees the previous user's data.
+   */
   const logout = async () => {
     try {
       await getApi().auth.logout();
     } finally {
       user.value = null;
+      clearNuxtData();
     }
   };
 
