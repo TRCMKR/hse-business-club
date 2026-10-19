@@ -78,9 +78,35 @@ export function deriveTraits(seed: string, overrides: Partial<Traits> = {}): Tra
   const result: Traits = { ...derived };
   for (const key of Object.keys(overrides) as (keyof Traits)[]) {
     const value = overrides[key];
-    if (value !== undefined) {
+    if (value !== undefined && isValid(key, value)) {
       (result as unknown as Record<string, unknown>)[key] = value;
     }
   }
   return result;
+}
+
+const VARIANTS: Partial<Record<keyof Traits, readonly unknown[]>> = {
+  shape: SHAPES,
+  hue: HUES,
+  tone: TONES,
+  eyeShape: EYE_SHAPES,
+  expression: EXPRESSIONS,
+  extras: EXTRAS,
+};
+
+const UNIT_AXES: readonly (keyof Traits)[] = ['eyeSize', 'eyeSpacing', 'eyeTilt', 'pupilShift'];
+
+/** Overrides outside the known variants or ranges are ignored (the seed-derived value wins). */
+function isValid(key: keyof Traits, value: unknown): boolean {
+  const variants = VARIANTS[key];
+  if (variants) {
+    return variants.includes(value);
+  }
+  if (UNIT_AXES.includes(key)) {
+    return typeof value === 'number' && value >= 0 && value <= 1;
+  }
+  if (key === 'shapeSeed') {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
+  }
+  return false;
 }

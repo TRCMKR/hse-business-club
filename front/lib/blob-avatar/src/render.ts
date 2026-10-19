@@ -2,7 +2,7 @@ import { palette } from './colors';
 import { buildFace } from './faces';
 import { createRng } from './random';
 import { buildBody } from './shapes';
-import { d, el, toSvgString } from './svg';
+import { d, el } from './svg';
 import type { SvgNode } from './svg';
 import type { Traits } from './traits';
 
@@ -64,8 +64,4 @@ export function buildTree(traits: Traits, options: RenderOptions = {}): SvgNode 
       el('g', { transform: d`translate(${face.x} ${face.y})scale(${face.scale})` }, buildFace(traits, colors)),
     ]),
   ]);
-}
-
-export function renderSvg(traits: Traits, options: RenderOptions = {}): string {
-  return toSvgString(buildTree(traits, options));
 }

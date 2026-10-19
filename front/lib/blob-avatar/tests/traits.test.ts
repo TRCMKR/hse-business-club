@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { blobAvatar } from '../src/index';
 import { deriveTraits, EXPRESSIONS, EXTRAS, EYE_SHAPES, HUES, SHAPES, TONES } from '../src/traits';
+import type { Traits } from '../src/traits';
 
 describe('deriveTraits', () => {
   it('quantizes every axis into its variant set', () => {
@@ -34,6 +36,12 @@ describe('deriveTraits', () => {
     const base = deriveTraits('vera');
     const pinned = deriveTraits('vera', { expression: 'happy', hue: 210 });
     expect(pinned).toEqual({ ...base, expression: 'happy', hue: 210 });
+  });
+
+  it('ignores overrides outside the known variants', () => {
+    const bogus = { shape: 'bogus', eyeShape: 'laser', expression: 'angry', hue: 13, tone: 'grey', extras: 'hat', eyeSize: 5, pupilShift: Number.NaN, shapeSeed: -1 } as unknown as Partial<Traits>;
+    expect(deriveTraits('anna', bogus)).toEqual(deriveTraits('anna'));
+    expect(blobAvatar('anna', { traits: bogus })).toBe(blobAvatar('anna'));
   });
 
   it('ignores undefined overrides', () => {

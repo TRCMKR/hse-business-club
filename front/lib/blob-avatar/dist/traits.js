@@ -37,11 +37,33 @@ function deriveTraits(seed, overrides = {}) {
   const result = { ...derived };
   for (const key of Object.keys(overrides)) {
     const value = overrides[key];
-    if (value !== void 0) {
+    if (value !== void 0 && isValid(key, value)) {
       result[key] = value;
     }
   }
   return result;
+}
+const VARIANTS = {
+  shape: SHAPES,
+  hue: HUES,
+  tone: TONES,
+  eyeShape: EYE_SHAPES,
+  expression: EXPRESSIONS,
+  extras: EXTRAS
+};
+const UNIT_AXES = ["eyeSize", "eyeSpacing", "eyeTilt", "pupilShift"];
+function isValid(key, value) {
+  const variants = VARIANTS[key];
+  if (variants) {
+    return variants.includes(value);
+  }
+  if (UNIT_AXES.includes(key)) {
+    return typeof value === "number" && value >= 0 && value <= 1;
+  }
+  if (key === "shapeSeed") {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 4294967295;
+  }
+  return false;
 }
 export {
   EXPRESSIONS,

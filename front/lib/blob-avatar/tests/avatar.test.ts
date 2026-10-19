@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blobAvatar, blobAvatarTree, deriveTraits, EXPRESSIONS, EXTRAS, EYE_SHAPES, SHAPES, TONES } from '../src/index';
+import { blobAvatar, blobAvatarTree, deriveTraits, EXPRESSIONS, MAX_LABEL_LENGTH, EXTRAS, EYE_SHAPES, SHAPES, TONES } from '../src/index';
 import type { SvgNode } from '../src/index';
 
 const DEMO_USERS = ['anna', 'boris', 'vera', 'dmitry'];
@@ -19,8 +19,8 @@ function assertValid(svg: string): void {
 
 describe('blobAvatar', () => {
   it('is deterministic and normalizes the seed', () => {
-    expect(blobAvatar('Anna ')).toBe(blobAvatar('anna').replace('aria-label="anna"', 'aria-label="Anna"'));
-    expect(blobAvatar('Anna ', { aria: 'x' })).toBe(blobAvatar('anna', { aria: 'x' }));
+    expect(blobAvatar('Anna ')).toBe(blobAvatar('anna'));
+    expect(blobAvatar('  ANNA')).toBe(blobAvatar('anna'));
     expect(blobAvatar('anna')).toBe(blobAvatar('anna'));
   });
 
@@ -84,6 +84,16 @@ describe('blobAvatar', () => {
 
     const backgrounds = (['none', 'circle', 'squircle', 'square'] as const).map((background) => blobAvatar('anna', { background }));
     expect(new Set(backgrounds).size).toBe(4);
+  });
+
+  it('falls back to "avatar" for an empty label and truncates long ones', () => {
+    expect(parse(blobAvatar('   ')).documentElement.getAttribute('aria-label')).toBe('avatar');
+    expect(parse(blobAvatar('x', { aria: '' })).documentElement.getAttribute('aria-label')).toBe('avatar');
+    const long = 'a'.repeat(100_000);
+    const svg = blobAvatar(long);
+    expect(parse(svg).documentElement.getAttribute('aria-label')).toBe('a'.repeat(MAX_LABEL_LENGTH));
+    expect(svg.length).toBeLessThan(4096);
+    expect(blobAvatar('x', { aria: long }).length).toBeLessThan(4096);
   });
 
   it('exposes the tree used for rendering', () => {

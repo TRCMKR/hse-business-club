@@ -11,4 +11,3 @@ export interface RenderOptions {
 }
 /** Builds the SVG element tree for the given traits. */
 export declare function buildTree(traits: Traits, options?: RenderOptions): SvgNode;
-export declare function renderSvg(traits: Traits, options?: RenderOptions): string;

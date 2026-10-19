@@ -5,6 +5,8 @@ export interface BlobAvatarOptions extends RenderOptions {
     /** Pins any trait axis, e.g. `{ expression: 'happy', hue: 210 }`. */
     traits?: Partial<Traits>;
 }
+/** Longest default aria-label; longer seeds are cut so the SVG stays small. */
+export declare const MAX_LABEL_LENGTH = 64;
 /** Element tree of the avatar for `seed`; render it with any view layer. */
 export declare function blobAvatarTree(seed: string, options?: BlobAvatarOptions): SvgNode;
 /** SVG markup of the avatar for `seed`. Same seed, same string, in Node and in the browser. */
