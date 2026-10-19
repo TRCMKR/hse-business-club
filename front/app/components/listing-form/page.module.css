@@ -1,0 +1,15 @@
+/* Layout of the create / edit pages around ListingForm. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0 auto;
+  max-width: 720px;
+  width: 100%;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
