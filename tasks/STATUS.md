@@ -11,7 +11,7 @@
 | B3 | running | task/B3 | opus | 01:32 | | | |
 | B4 | running | task/B4 | opus | 01:32 | | | |
 | B5 | queued | task/B5 | | | | | |
-| F0 | review | task/F0 | opus | 00:52 | 01:25 | tasks/reports/F0.md | в работе |
+| F0 | rework | task/F0 | opus | 00:52 | 01:25 | tasks/reports/F0.md | итерация 1: вернуть (обход запрета /v1/auth/* в прокси — JWT в JS) |
 | F1 | queued | task/F1 | | | | | |
 | F2 | queued | task/F2 | | | | | |
 | F3 | queued | task/F3 | | | | | |
@@ -36,6 +36,7 @@
 - 01:27 — B0: исполнитель закончил (6 коммитов, lint/test/integration/docker build зелёные). Запущен ревьюер. Docker: кэш сборки очищен (−0,7 ГБ).
 - 01:35 — решения по дырам SPEC/ARCHITECTURE из отчётов B0/F0 записаны в DECISIONS (`93b9b4a`).
 - 01:32 — B0: ревью принят (все проверки воспроизведены; 12 не блокирующих — переданы в B5, ARCHITECTURE §5 дополнен про debug-порт). Merge в main. Волна 1 (бэк): запущены B1, B2, B3, B4.
+- 01:36 — F0: ревью → доработка (блокер безопасности: прокси пропускает `/api/v1/auth/login/` и `/v1//auth/login` → токен в теле ответа; + 5 мелких + решения DECISIONS 01:35). Возвращено исполнителю. Записано в DECISIONS: дефолт cookie `Secure=false` в compose (HTTP на localhost), включается `NUXT_COOKIE_SECURE=true` за HTTPS.
 
 ## Время по волнам
 
