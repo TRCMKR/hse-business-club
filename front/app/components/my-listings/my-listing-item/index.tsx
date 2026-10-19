@@ -25,7 +25,7 @@ export const MyListingItem = defineComponent((props: MyListingItemProps, { emit 
     const l = props.listing;
     const active = l.status === ListingStatus.LISTING_STATUS_ACTIVE;
     return (
-      <ListingCard listing={l} showAuthor={false} data-testid={'my-listing'}>
+      <ListingCard listing={l} showAuthor={false}>
         {{
           actions: () => (
             <div class={styles.actions}>

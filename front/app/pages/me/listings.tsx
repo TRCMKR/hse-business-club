@@ -50,7 +50,7 @@ export default defineComponent({
 
     const setTab = (next: string) => {
       const status = myListingsTabQuery(next as MyListingsTab);
-      void navigateTo({ query: { ...route.query, status } }, { replace: true });
+      void navigateTo({ path: route.path, query: { ...route.query, status } }, { replace: true });
     };
 
     // Close with confirmation.
