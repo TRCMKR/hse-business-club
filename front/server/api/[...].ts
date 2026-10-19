@@ -71,8 +71,14 @@ export default defineEventHandler(async (event) => {
     headers.authorization = `Bearer ${token}`;
   }
 
-  return proxyRequest(event, `${config.apiBaseUrl}${path}${url.search}`, {
-    headers,
-    fetchOptions: { redirect: 'manual' },
-  });
+  try {
+    return await proxyRequest(event, `${config.apiBaseUrl}${path}${url.search}`, {
+      headers,
+      fetchOptions: { redirect: 'manual' },
+    });
+  } catch (error) {
+    console.error('[proxy] backend unreachable', error);
+    setResponseStatus(event, 502);
+    return { code: 14, message: 'Сервер недоступен, попробуйте позже', details: [] };
+  }
 });
