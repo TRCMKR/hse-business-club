@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blobAvatar, blobAvatarTree, deriveTraits, EXPRESSIONS, MAX_LABEL_LENGTH, EXTRAS, EYE_SHAPES, SHAPES, TONES } from '../src/index';
+import { ACCENTS, blobAvatar, blobAvatarTree, deriveTraits, DETAILS, MAX_LABEL_LENGTH, PALETTES, SHAPES } from '../src/index';
 import type { SvgNode } from '../src/index';
 
 const DEMO_USERS = ['anna', 'boris', 'vera', 'dmitry'];
@@ -33,20 +33,19 @@ describe('blobAvatar', () => {
     expect(svgs.size).toBeGreaterThanOrEqual(195);
   });
 
-  it('renders every shape x expression x eyeShape x tone combination', () => {
+  it('renders every shape x accent x detail x palette combination', () => {
     let count = 0;
     for (const shape of SHAPES) {
-      for (const expression of EXPRESSIONS) {
-        for (const eyeShape of EYE_SHAPES) {
-          for (const tone of TONES) {
-            const extras = EXTRAS[count % EXTRAS.length];
-            assertValid(blobAvatar(`combo-${count}`, { traits: { shape, expression, eyeShape, tone, extras } }));
+      for (const accent of ACCENTS) {
+        for (const detail of DETAILS) {
+          for (let palette = 0; palette < PALETTES.length; palette++) {
+            assertValid(blobAvatar(`combo-${count}`, { traits: { shape, accent, detail, palette } }));
             count++;
           }
         }
       }
     }
-    expect(count).toBe(8 * 10 * 4 * 2);
+    expect(count).toBe(6 * 6 * 3 * 12);
   });
 
   it('stays under 4 KB in the heaviest configuration', () => {
@@ -55,17 +54,39 @@ describe('blobAvatar', () => {
         size: 128,
         background: 'squircle',
         aria: 'Очень длинное имя пользователя для подписи',
-        traits: { shape: 'blob', expression: 'cheeky', eyeShape: 'wide', extras: 'freckles' },
+        traits: { shape: 'blob', accent: 'inset', detail: 'trail' },
       });
       assertValid(svg);
     }
   });
 
   it('keeps continuous extremes valid', () => {
-    for (const value of [0, 0.999999]) {
-      assertValid(blobAvatar('edge', {
-        traits: { eyeSize: value, eyeSpacing: value, eyeTilt: value, pupilShift: value, expression: 'sleepy' },
-      }));
+    for (const value of [0, 0.999999, 1]) {
+      for (const accent of ACCENTS) {
+        assertValid(blobAvatar('edge', {
+          traits: { rotation: value, accentAngle: value, scale: value, accent, detail: 'trail' },
+        }));
+      }
+    }
+  });
+
+  it('draws no face: no eyes, mouths or white highlights', () => {
+    for (let i = 0; i < 200; i++) {
+      const svg = blobAvatar(`faceless-${i}`);
+      expect(svg).not.toMatch(/#fff\b|#ffffff|#000\b|#000000/i);
+      // Base figure, one accent and at most one detail.
+      expect(parse(svg).documentElement.children.length).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('uses the palette colors only', () => {
+    const allowed = new Set(PALETTES.flatMap((p) => [p.background, p.figure, p.accent]));
+    for (let i = 0; i < 100; i++) {
+      const colors = blobAvatar(`colors-${i}`).match(/#[0-9a-f]{3,6}\b/gi) ?? [];
+      expect(colors.length).toBeGreaterThan(0);
+      for (const color of colors) {
+        expect(allowed).toContain(color);
+      }
     }
   });
 
@@ -103,7 +124,7 @@ describe('blobAvatar', () => {
     expect(tree.children.length).toBeGreaterThan(0);
   });
 
-  it.each(DEMO_USERS)('keeps the face of demo user %s', (username) => {
+  it.each(DEMO_USERS)('keeps the avatar of demo user %s', (username) => {
     expect(deriveTraits(username)).toMatchSnapshot('traits');
     expect(blobAvatar(username)).toMatchSnapshot('svg');
   });

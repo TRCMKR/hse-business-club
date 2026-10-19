@@ -7,7 +7,7 @@ import { deriveTraits } from './traits';
 import type { Traits } from './traits';
 
 export interface BlobAvatarOptions extends RenderOptions {
-  /** Pins any trait axis, e.g. `{ expression: 'happy', hue: 210 }`. */
+  /** Pins any trait axis, e.g. `{ shape: 'round', palette: 3 }`. */
   traits?: Partial<Traits>;
 }
 
@@ -31,8 +31,10 @@ export function blobAvatar(seed: string, options: BlobAvatarOptions = {}): strin
   return toSvgString(blobAvatarTree(seed, options));
 }
 
-export { deriveTraits, EXPRESSIONS, EXTRAS, EYE_SHAPES, HUES, SHAPES, TONES } from './traits';
-export type { Expression, Extras, EyeShape, Hue, Shape, Tone, Traits } from './traits';
+export { ACCENTS, deriveTraits, DETAILS, SHAPES } from './traits';
+export type { Accent, Detail, Shape, Traits } from './traits';
+export { PALETTES } from './colors';
+export type { Palette } from './colors';
 export { buildTree } from './render';
 export type { Background, RenderOptions } from './render';
 export { toSvgString, formatAttr } from './svg';

@@ -1,13 +1,12 @@
-import type { Tone } from './traits';
+/**
+ * Hand-picked pastel palettes: low saturation, high lightness, no pure white or black.
+ * `figure` is the large base shape, `accent` the smaller element; both stay readable
+ * on `background` at 24 px.
+ */
 export interface Palette {
+    name: string;
     background: string;
-    body: string;
-    /** Darker body color: freckles, outlines. */
-    shade: string;
-    /** Eyes, mouth, brows. */
-    ink: string;
-    sclera: string;
-    cheek: string;
-    tongue: string;
+    figure: string;
+    accent: string;
 }
-export declare function palette(hue: number, tone: Tone): Palette;
+export declare const PALETTES: readonly Palette[];

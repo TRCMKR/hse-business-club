@@ -1,6 +1,6 @@
 /**
- * Builds gallery.html: a 10x10 grid (demo accounts, every expression, every shape,
- * random seeds) plus an 8 hue x 2 tone readability matrix. The page also renders
+ * Builds gallery.html: a 10x10 grid (demo accounts, every shape, every accent,
+ * random seeds) plus a palette readability block at 96 and 24 px. The page also renders
  * every avatar again in the browser and reports whether it matches the Node output.
  *
  *   npm run gallery               # writes gallery.html
@@ -11,7 +11,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'vite';
-import { blobAvatar, createRng, EXPRESSIONS, HUES, SHAPES, TONES } from '../src/index';
+import { ACCENTS, blobAvatar, createRng, DETAILS, PALETTES, SHAPES } from '../src/index';
 import type { BlobAvatarOptions } from '../src/index';
 
 const root = resolve(import.meta.dirname, '..');
@@ -44,23 +44,24 @@ function randomSeeds(count: number): string[] {
 
 const mainGrid: Cell[] = [
   ...['anna', 'boris', 'vera', 'dmitry'].map((seed) => ({ seed, label: seed, options: {} })),
-  ...EXPRESSIONS.map((expression) => ({ seed: `expr-${expression}`, label: expression, options: { traits: { expression } } })),
   ...SHAPES.map((shape) => ({ seed: `shape-${shape}`, label: shape, options: { traits: { shape } } })),
+  ...ACCENTS.map((accent) => ({ seed: `accent-${accent}`, label: accent, options: { traits: { accent } } })),
+  ...DETAILS.map((detail) => ({ seed: `detail-${detail}`, label: detail, options: { traits: { detail } } })),
 ];
 for (const seed of randomSeeds(100 - mainGrid.length)) {
   mainGrid.push({ seed, label: seed, options: {} });
 }
 
-const matrixExpressions = ['happy', 'surprised', 'sleepy', 'mad', 'cheeky'] as const;
-const matrix: Cell[][] = HUES.map((hue) =>
-  TONES.flatMap((tone) =>
-    matrixExpressions.map((expression, index) => ({
-      seed: `matrix-${hue}-${tone}-${index}`,
-      label: `${hue} ${tone}`,
-      options: { traits: { hue, tone, expression, shape: SHAPES[(index * 3 + HUES.indexOf(hue)) % SHAPES.length] } },
-    })),
-  ),
-);
+/** Every palette once large and with every shape small, to check contrast at both sizes. */
+const paletteRows: { name: string; large: Cell; small: Cell[] }[] = PALETTES.map((palette, index) => ({
+  name: palette.name,
+  large: { seed: `palette-${index}`, label: palette.name, options: { traits: { palette: index } } },
+  small: SHAPES.map((shape, i) => ({
+    seed: `palette-${index}-${i}`,
+    label: '',
+    options: { traits: { palette: index, shape, accent: ACCENTS[(index + i) % ACCENTS.length] } },
+  })),
+}));
 
 async function browserBundle(): Promise<string> {
   const result = await build({
@@ -87,17 +88,26 @@ function escapeHtml(value: string): string {
 /** Node-rendered SVGs, embedded as JSON so the browser can compare strings byte for byte. */
 const expected: { seed: string; options: BlobAvatarOptions; svg: string }[] = [];
 
-function cellHtml(cell: Cell, background: BlobAvatarOptions['background'] = 'circle'): string {
-  const options = { ...cell.options, size: 72, background };
+function avatarHtml(cell: Cell, size: number, background: BlobAvatarOptions['background'] = 'circle'): string {
+  const options = { ...cell.options, size, background };
   const svg = blobAvatar(cell.seed, options);
   expected.push({ seed: cell.seed, options, svg });
-  return `<figure class="cell" data-index="${expected.length - 1}">${svg}<figcaption>${escapeHtml(cell.label)}</figcaption></figure>`;
+  return `<span class="avatar" data-index="${expected.length - 1}">${svg}</span>`;
+}
+
+function cellHtml(cell: Cell, background: BlobAvatarOptions['background'] = 'circle'): string {
+  return `<figure class="cell">${avatarHtml(cell, 72, background)}<figcaption>${escapeHtml(cell.label)}</figcaption></figure>`;
+}
+
+function paletteHtml(row: (typeof paletteRows)[number]): string {
+  const small = row.small.map((cell) => avatarHtml(cell, 24)).join('');
+  return `<figure class="palette">${avatarHtml(row.large, 96)}<div class="small">${small}</div><figcaption>${escapeHtml(row.name)}</figcaption></figure>`;
 }
 
 const bundle = await browserBundle();
 const sections = {
   main: mainGrid.map((cell) => cellHtml(cell)).join(''),
-  matrix: matrix.flat().map((cell) => cellHtml(cell)).join(''),
+  palettes: paletteRows.map(paletteHtml).join(''),
   backgrounds: (['none', 'circle', 'squircle', 'square'] as const)
     .flatMap((bg) => ['anna', 'boris'].map((seed) => cellHtml({ seed, label: `${seed} ${bg}`, options: {} }, bg)))
     .join(''),
@@ -116,20 +126,24 @@ const html = `<!doctype html>
   .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px 8px; }
   .cell { margin: 0; display: flex; flex-direction: column; align-items: center; }
   .cell figcaption { font-size: 11px; color: #777; margin-top: 2px; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row-label { font-size: 11px; color: #777; }
+  .avatar { display: inline-flex; }
+  .palettes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px 8px; }
+  .palette { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .palette .small { display: flex; gap: 4px; }
+  .palette figcaption { font-size: 11px; color: #777; }
   #check { margin-top: 6px; font-weight: 600; }
   #check.ok { color: #1a7f37; } #check.fail { color: #c62828; }
-  .fail svg { outline: 2px solid #c62828; }
+  .fail svg, .avatar.fail svg { outline: 2px solid #c62828; }
 </style>
 </head>
 <body>
 <h1>@fe/blob-avatar</h1>
-<p>Детерминированные аватары из строки. Демо-аккаунты, все выражения, все силуэты и случайные seed'ы.</p>
+<p>Детерминированные аватары из строки: пастельная фигура и акцент. Демо-аккаунты, все фигуры, акценты, детали и случайные seed'ы.</p>
 <p id="check">Проверка в браузере…</p>
-<h2>10 × 10: anna, boris, vera, dmitry · 10 выражений · 8 силуэтов · случайные</h2>
+<h2>10 × 10: anna, boris, vera, dmitry · 6 фигур · 6 акцентов · 3 детали · случайные</h2>
 <div class="grid">${sections.main}</div>
-<h2>Читаемость: 8 hue × 2 tone (слева light, справа dark)</h2>
-<div class="grid">${sections.matrix}</div>
+<h2>Палитры: 96 px и 24 px (все фигуры)</h2>
+<div class="palettes">${sections.palettes}</div>
 <h2>Фоны: none · circle · squircle · square</h2>
 <div class="grid">${sections.backgrounds}</div>
 <script>${bundle}</script>
@@ -166,7 +180,7 @@ if (process.argv.includes('--screenshot')) {
     '--hide-scrollbars',
     '--force-device-scale-factor=1',
     `--screenshot=${screenshot}`,
-    '--window-size=1064,2200',
+    '--window-size=1064,1720',
     '--virtual-time-budget=2000',
     pathToFileURL(output).href,
   ], { stdio: 'inherit' });
