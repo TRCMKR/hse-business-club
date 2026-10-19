@@ -23,7 +23,7 @@
    1. основной сценарий целиком (register ×2 → create → feed → apply → received → accept → sent ACCEPTED → `myApplication` в деталях);
    2. повторный отклик 409; withdraw → повторный 200 с новым id;
    3. свой/закрытый → 400 с текстами из SPEC;
-   4. чужой accept → 404; чужой update → 403; без токена → 401; невалидный токен → 401;
+   4. accept посторонним → 404 «Отклик не найден»; accept откликнувшимся → 403 «Недостаточно прав»; withdraw автором → 403; чужой update → 403; без токена → 401; невалидный токен → 401;
    5. accept×2 → 200/200; decline после accept → 400;
    6. closed не в ленте, доступен по id, close×2 → 200;
    7. фильтры kind/query, пагинация, limit=51 → 400;
@@ -91,3 +91,6 @@
 6. Тесты auth: добавить кейсы `alg=none` и RS256 (защита есть, покрытия нет).
 7. `s3.WithRegisterer` и `PoolCollector` молча игнорируют `AlreadyRegistered` — для e2e с
    несколькими `app.New` на один реестр использовать отдельный `prometheus.NewRegistry` на тест.
+9. Синхронизировать doc-комментарии к `Accept`/`Decline`/`Withdraw` в
+   `back/internal/applications/applications.go` с ARCHITECTURE §2 (403 для другой стороны,
+   404 для постороннего) — правка порта только в комментариях, в отчёт.

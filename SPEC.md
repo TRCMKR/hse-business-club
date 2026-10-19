@@ -93,10 +93,10 @@
 | Редактировать/закрывать публикацию может только автор | `PermissionDenied` (403) |
 | Редактировать можно только активную публикацию; `kind` не меняется | `FailedPrecondition` (400) |
 | Смотреть отклики на публикацию может только автор | `PermissionDenied` (403) |
-| accept/decline — только автор публикации; withdraw — только откликнувшийся | `PermissionDenied` (403) |
+| accept/decline — только автор публикации; withdraw — только откликнувшийся (другая сторона отклика → 403 «Недостаточно прав»; проверяется до перехода статуса) | `PermissionDenied` (403) |
 | accept/decline/withdraw из финального статуса в другой финальный | `FailedPrecondition` (400) «Решение по отклику уже принято» |
 | Повтор того же перехода (accept→accept, close→close, withdraw→withdraw) | 200, возвращается текущее состояние (идемпотентность) |
-| Чужой/несуществующий id | `NotFound` (404) — не раскрываем существование чужих объектов там, где это уместно: для откликов отдаём 404 вместо 403, если пользователь ни автор публикации, ни откликнувшийся |
+| Чужой/несуществующий id | `NotFound` (404) — не раскрываем существование чужих объектов там, где это уместно: для откликов отдаём 404 «Отклик не найден» вместо 403, если пользователь ни автор публикации, ни откликнувшийся; публикация — «Публикация не найдена»; участник — «Участник не найден» |
 | Регистрация с занятым username | `AlreadyExists` (409) «Логин уже занят» |
 | Загрузка фото: не изображение / не JPEG, PNG, WebP | `InvalidArgument` (400) «Фото: поддерживаются JPEG, PNG и WebP» |
 | Загрузка фото: больше 5 МБ или больше 8000×8000 px | `InvalidArgument` (400) «Фото: не больше 5 МБ» / «Фото: не больше 8000×8000» |
@@ -182,7 +182,7 @@ CREATE TABLE users (
 
 CREATE TABLE listings (
     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    author_id    uuid NOT NULL REFERENCES users(id),
+    author_id    uuid NOT NULL,                 -- ссылка на users без FK (разные схемы)
     kind         text NOT NULL CHECK (kind IN ('startup', 'vacancy')),
     title        text NOT NULL,
     description  text NOT NULL,
@@ -199,9 +199,10 @@ CREATE INDEX listings_feed_idx   ON listings (status, created_at DESC);
 CREATE INDEX listings_author_idx ON listings (author_id, created_at DESC);
 
 CREATE TABLE applications (
-    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    listing_id   uuid NOT NULL REFERENCES listings(id),
-    applicant_id uuid NOT NULL REFERENCES users(id),
+    id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id        uuid NOT NULL,            -- без FK (разные схемы)
+    listing_author_id uuid NOT NULL,            -- денормализовано при создании (ARCHITECTURE §1 п.3)
+    applicant_id      uuid NOT NULL,
     message      text NOT NULL,
     status       text NOT NULL DEFAULT 'pending'
                  CHECK (status IN ('pending', 'accepted', 'declined', 'withdrawn')),
@@ -214,9 +215,11 @@ CREATE UNIQUE INDEX applications_active_uniq
     ON applications (listing_id, applicant_id) WHERE status <> 'withdrawn';
 CREATE INDEX applications_applicant_idx ON applications (applicant_id, created_at DESC);
 CREATE INDEX applications_listing_idx   ON applications (listing_id, status, created_at DESC);
+CREATE INDEX applications_author_idx    ON applications (listing_author_id, status, created_at DESC);
 ```
 
-Статусы и виды хранятся как `text` с `CHECK` (проще мигрировать, чем native enum).
+Таблицы лежат в схемах `users`, `listings`, `applications` (по контексту, ARCHITECTURE §1);
+FK между схемами нет. Статусы и виды хранятся как `text` с `CHECK` (проще мигрировать, чем native enum).
 Маппинг на proto-enum: `startup ↔ LISTING_KIND_STARTUP` и т. д.
 
 ---
