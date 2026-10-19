@@ -1,0 +1,23 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.main {
+  flex: 1;
+  padding: calc(env(safe-area-inset-top) + 16px) 0 calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
+}
+
+@media (width >= 768px) {
+  .main {
+    padding: 32px 0 64px;
+  }
+}
+
+.container {
+  margin: 0 auto;
+  max-width: var(--container);
+  padding: 0 max(16px, env(safe-area-inset-left));
+  width: 100%;
+}

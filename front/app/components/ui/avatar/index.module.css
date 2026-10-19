@@ -1,0 +1,8 @@
+.avatar {
+  background: var(--color-surface-2);
+  border-radius: 50%;
+  display: block;
+  flex-shrink: 0;
+  object-fit: cover;
+  overflow: hidden;
+}

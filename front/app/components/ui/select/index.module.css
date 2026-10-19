@@ -1,0 +1,22 @@
+.wrap {
+  position: relative;
+}
+
+.select {
+  cursor: pointer;
+  padding-right: var(--space-10);
+}
+
+.empty {
+  color: var(--color-text-muted);
+}
+
+.chevron {
+  color: var(--color-text-muted);
+  display: flex;
+  pointer-events: none;
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+}

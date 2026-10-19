@@ -1,0 +1,16 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "checkJs": false,
+    "types": ["vitest", "vitest/globals"],
+    "strictPropertyInitialization": false
+  },
+  "include": [
+    "./.nuxt/nuxt.d.ts",
+    "./.nuxt/nuxt.node.d.ts",
+    "./app/**/*",
+    "./api/**/*",
+    "./tests/**/*",
+    "./*.d.ts"
+  ]
+}

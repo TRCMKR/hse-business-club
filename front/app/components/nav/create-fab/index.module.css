@@ -1,0 +1,32 @@
+.fab {
+  align-items: center;
+  background: var(--color-accent);
+  border-radius: 999px;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
+  box-shadow: 0 8px 24px rgb(31 94 255 / 35%);
+  color: #fff;
+  display: inline-flex;
+  font-size: 15px;
+  font-weight: 600;
+  gap: 6px;
+  height: 52px;
+  padding: 0 20px 0 16px;
+  position: fixed;
+  right: 16px;
+  text-decoration: none;
+  z-index: 39;
+}
+
+.fab:active {
+  transform: scale(0.97);
+}
+
+@media (width >= 768px) {
+  .fab {
+    display: none;
+  }
+}
+
+.label {
+  line-height: 1;
+}
