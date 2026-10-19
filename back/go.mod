@@ -32,6 +32,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.55.0
+	golang.org/x/image v0.45.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
