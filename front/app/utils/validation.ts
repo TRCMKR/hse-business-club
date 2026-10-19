@@ -66,7 +66,9 @@ function stringListSchema(label: string, limit: ListLimit) {
     .of(yup.string().defined())
     .default([])
     .transform((value: unknown) => Array.isArray(value)
-      ? value.map(item => (typeof item === 'string' ? item.trim() : item))
+      ? value
+        .map(item => (typeof item === 'string' ? item.trim() : item))
+        .filter(item => item !== '')
       : value)
     .max(limit.maxItems, `${label}: не больше ${limit.maxItems}`)
     .test(
@@ -79,7 +81,7 @@ function stringListSchema(label: string, limit: ListLimit) {
     )
     .test('unique', `${label}: без повторов`, (list) => {
       const items = list ?? [];
-      return new Set(items).size === items.length;
+      return new Set(items.map(item => item.toLowerCase())).size === items.length;
     });
 }
 
@@ -107,7 +109,7 @@ export const passwordSchema = yup
 
 export const displayNameSchema = textSchema('Имя', LIMITS.displayName);
 
-export const headlineSchema = textSchema('Коротко о себе', LIMITS.headline);
+export const headlineSchema = textSchema('Кратко о себе', LIMITS.headline);
 
 export const aboutSchema = textSchema('О себе', LIMITS.about);
 
@@ -126,7 +128,7 @@ export const titleSchema = textSchema('Название', LIMITS.title);
 
 export const descriptionSchema = textSchema('Описание', LIMITS.description);
 
-export const lookingForSchema = textSchema('Кого ищем', LIMITS.lookingFor);
+export const lookingForSchema = textSchema('Кого ищете', LIMITS.lookingFor);
 
 export const tagsSchema = stringListSchema('Теги', LIMITS.tags);
 
@@ -138,13 +140,13 @@ const STAGE_VALUES = Object.values(StartupStage);
 export const stageSchema = yup
   .mixed<StartupStage>()
   .transform((value: unknown) => (value === '' || value === null ? StartupStage.STARTUP_STAGE_UNSPECIFIED : value))
-  .oneOf(STAGE_VALUES, 'Стадия: выберите стадию стартапа')
+  .oneOf(STAGE_VALUES, 'Стадия: укажите стадию')
   .default(StartupStage.STARTUP_STAGE_UNSPECIFIED);
 
 export const kindSchema = yup
   .mixed<ListingKind>()
-  .oneOf([ListingKind.LISTING_KIND_STARTUP, ListingKind.LISTING_KIND_VACANCY], 'Тип: выберите стартап или вакансию')
-  .required('Тип: выберите стартап или вакансию');
+  .oneOf([ListingKind.LISTING_KIND_STARTUP, ListingKind.LISTING_KIND_VACANCY], 'Вид публикации: выберите стартап или вакансию')
+  .required('Вид публикации: выберите стартап или вакансию');
 
 export const querySchema = textSchema('Поиск', LIMITS.query);
 
@@ -200,7 +202,7 @@ export const listingFormSchema = yup.object({
       is: isStartup,
       then: schema => schema.test(
         'startup-stage',
-        'Стадия: выберите стадию стартапа',
+        'Стадия: укажите стадию',
         value => value !== undefined && value !== StartupStage.STARTUP_STAGE_UNSPECIFIED,
       ),
     })
@@ -208,7 +210,7 @@ export const listingFormSchema = yup.object({
       is: isVacancy,
       then: schema => schema.test(
         'vacancy-stage',
-        'Стадия: только для стартапов',
+        'Стадия: только для стартапа',
         value => value === undefined || value === StartupStage.STARTUP_STAGE_UNSPECIFIED,
       ),
     }),

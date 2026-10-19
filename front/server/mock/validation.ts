@@ -16,17 +16,17 @@ export const LABELS = {
   skills: 'Навыки',
   telegram: 'Telegram',
   avatar: 'Фото',
-  kind: 'Тип',
+  kind: 'Вид публикации',
   title: 'Название',
   description: 'Описание',
-  lookingFor: 'Кого ищем',
+  lookingFor: 'Кого ищете',
   tags: 'Теги',
   stage: 'Стадия',
   compensation: 'Условия',
   message: 'Сообщение',
   query: 'Поиск',
   page: 'Страница',
-  limit: 'Количество',
+  limit: 'Размер страницы',
   status: 'Статус',
 } as const;
 
@@ -38,12 +38,13 @@ export const MESSAGES = {
   length: (field: Field, min: number, max: number) =>
     min > 0 ? `${LABELS[field]}: от ${min} до ${max} символов` : `${LABELS[field]}: не больше ${max} символов`,
   listCount: (field: Field, max: number) => `${LABELS[field]}: не больше ${max}`,
+  listDuplicates: (field: Field) => `${LABELS[field]}: без повторов`,
   listItem: (field: Field, max: number) => `${LABELS[field]}: каждый элемент — до ${max} символов`,
   badEnum: (field: Field) => `${LABELS[field]}: недопустимое значение`,
   usernameChars: `${LABELS.username}: только латинские буквы, цифры и _`,
   kindRequired: `${LABELS.kind}: выберите стартап или вакансию`,
-  stageRequired: `${LABELS.stage}: выберите стадию стартапа`,
-  stageStartupOnly: `${LABELS.stage}: только для стартапов`,
+  stageRequired: `${LABELS.stage}: укажите стадию`,
+  stageStartupOnly: `${LABELS.stage}: только для стартапа`,
   compensationVacancyOnly: `${LABELS.compensation}: только для вакансий`,
   pageMin: `${LABELS.page}: не меньше 1`,
   pageNumber: `${LABELS.page}: должна быть числом`,
@@ -122,15 +123,18 @@ function checkLength(field: Field, value: string, min: number, max: number): str
   return value;
 }
 
-/** Trim, drop empty items and duplicates (case-insensitive, first wins), then check limits. */
+/** Trim, drop empty items; case-insensitive duplicates are an error (SPEC §2.4); then check limits. */
 export function normalizeList(field: Field, items: string[], maxCount: number, maxItem: number): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of items) {
     const item = raw.trim();
     const key = item.toLowerCase();
-    if (!item || seen.has(key)) {
+    if (!item) {
       continue;
+    }
+    if (seen.has(key)) {
+      throw invalidArgument(MESSAGES.listDuplicates(field));
     }
     seen.add(key);
     out.push(item);

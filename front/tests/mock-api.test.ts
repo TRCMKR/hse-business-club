@@ -47,7 +47,7 @@ const NEW_STARTUP = {
   title: '  StudyBuddy — поиск напарников по учёбе  ',
   description: 'Сервис, который подбирает студентам напарников для совместной подготовки к экзаменам.',
   lookingFor: 'Мобильный разработчик',
-  tags: ['Flutter', ' Mobile ', 'flutter', ''],
+  tags: ['Flutter', ' Mobile ', ''],
   stage: 'STARTUP_STAGE_IDEA',
   compensation: '',
 };
@@ -272,9 +272,17 @@ describe('mock API', () => {
 
     const me = ok<User>(call('PUT', '/v1/me', {
       token: anna,
-      body: { displayName: ' Анна ', headline: '', about: '', skills: ['Go', 'go', ' '], telegram: '@anna' },
+      body: { displayName: ' Анна ', headline: '', about: '', skills: ['Go', ' '], telegram: '@anna' },
     }));
     expect(me).toMatchObject({ displayName: 'Анна', skills: ['Go'], telegram: 'anna' });
+
+    const dupSkills = call('PUT', '/v1/me', {
+      token: anna,
+      body: { displayName: 'Анна', headline: '', about: '', skills: ['Go', ' go '], telegram: '' },
+    });
+    expect(dupSkills).toEqual({ status: 400, body: { code: 3, message: 'Навыки: без повторов', details: [] } });
+    const dupTags = call('POST', '/v1/listings', { token: anna, body: { ...NEW_STARTUP, tags: ['Flutter', 'FLUTTER'] } });
+    expect(dupTags).toEqual({ status: 400, body: { code: 3, message: 'Теги: без повторов', details: [] } });
   });
 
   it('routes unknown paths and methods', () => {

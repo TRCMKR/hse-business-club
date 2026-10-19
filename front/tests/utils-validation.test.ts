@@ -95,7 +95,7 @@ describe('simple text fields', () => {
 
   it('optional fields accept empty', async () => {
     expect(await errorOf(headlineSchema, '')).toBeNull();
-    expect(await errorOf(headlineSchema, 'a'.repeat(121))).toBe('Коротко о себе: не больше 120 символов');
+    expect(await errorOf(headlineSchema, 'a'.repeat(121))).toBe('Кратко о себе: не больше 120 символов');
     expect(await errorOf(querySchema, '')).toBeNull();
     expect(await errorOf(querySchema, 'a'.repeat(101))).not.toBeNull();
   });
@@ -117,10 +117,11 @@ describe('tags / skills', () => {
 
   it('rejects duplicates after trim', async () => {
     expect(await errorOf(tagsSchema, ['Go', ' Go '])).toBe('Теги: без повторов');
+    expect(await errorOf(tagsSchema, ['Go', 'GO'])).toBe('Теги: без повторов');
   });
 
   it('item length 1–40', async () => {
-    expect(await errorOf(tagsSchema, ['  '])).toBe('Теги: каждый от 1 до 40 символов');
+    expect(await tagsSchema.validate(['  ', 'Go'])).toEqual(['Go']);
     expect(await errorOf(tagsSchema, ['a'.repeat(41)])).toBe('Теги: каждый от 1 до 40 символов');
     expect(await tagsSchema.validate([' Go ', 'Vue'])).toEqual(['Go', 'Vue']);
   });
@@ -154,7 +155,7 @@ describe('forms', () => {
   it('startup requires stage and forbids compensation', async () => {
     const base = { ...listing, kind: ListingKind.LISTING_KIND_STARTUP };
     expect(await errorsOf(listingFormSchema, { ...base, stage: StartupStage.STARTUP_STAGE_UNSPECIFIED, compensation: '' }))
-      .toHaveProperty('stage', 'Стадия: выберите стадию стартапа');
+      .toHaveProperty('stage', 'Стадия: укажите стадию');
     expect(await errorsOf(listingFormSchema, { ...base, stage: StartupStage.STARTUP_STAGE_MVP, compensation: 'Доля' }))
       .toEqual({ compensation: 'Условия: только для вакансий' });
     expect(await errorsOf(listingFormSchema, { ...base, stage: StartupStage.STARTUP_STAGE_MVP, compensation: '' }))
@@ -164,7 +165,7 @@ describe('forms', () => {
   it('vacancy forbids stage', async () => {
     const base = { ...listing, kind: ListingKind.LISTING_KIND_VACANCY, compensation: '50 000 ₽' };
     expect(await errorsOf(listingFormSchema, { ...base, stage: StartupStage.STARTUP_STAGE_IDEA }))
-      .toEqual({ stage: 'Стадия: только для стартапов' });
+      .toEqual({ stage: 'Стадия: только для стартапа' });
     expect(await errorsOf(listingFormSchema, { ...base, stage: StartupStage.STARTUP_STAGE_UNSPECIFIED }))
       .toEqual({});
     expect(await errorsOf(listingFormSchema, { ...base, stage: '' })).toEqual({});
