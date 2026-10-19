@@ -19,7 +19,7 @@
   -webkit-box-orient: vertical;
   display: -webkit-box;
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   -webkit-line-clamp: 2;
   line-height: var(--line-height-tight);
   overflow: hidden;

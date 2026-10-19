@@ -71,6 +71,10 @@
   --color-nav-hover: rgb(255 255 255 / 8%);
   --color-nav-active-bg: rgb(97 148 255 / 18%);
 
+  /* Selected item in segmented controls */
+  --color-selected-bg: #0b1030;
+  --color-selected-text: #fff;
+
   /* Typography */
   --font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
   --font-size-xs: 12px;
@@ -180,6 +184,7 @@
     --color-skeleton-highlight: #222a5a;
     --color-nav-bg: #0b1030;
     --color-nav-border: rgb(255 255 255 / 10%);
+    --color-selected-bg: #3d6fe0;
     --shadow-xs: 0 1px 2px rgb(0 0 0 / 30%);
     --shadow-sm: 0 2px 6px rgb(0 0 0 / 30%);
     --shadow-md: 0 8px 24px rgb(0 0 0 / 40%);

@@ -63,6 +63,34 @@ const stack: symbol[] = [];
 let savedOverflow = '';
 
 /**
+ * Last focusable element the user pressed. Safari/iOS WebViews (Telegram) do not focus
+ * buttons on click, so `document.activeElement` is `body` when a modal opens; this is
+ * the fallback element to return focus to.
+ */
+let lastPressed: HTMLElement | null = null;
+let pressTracking = false;
+
+const trackPresses = () => {
+  if (pressTracking) {
+    return;
+  }
+  pressTracking = true;
+  document.addEventListener('pointerdown', (e) => {
+    const target = e.target instanceof Element ? e.target.closest<HTMLElement>(FOCUSABLE) : null;
+    lastPressed = target;
+  }, true);
+};
+
+/** Element to return focus to after the modal closes. */
+const openerElement = (): HTMLElement | null => {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body) {
+    return active;
+  }
+  return lastPressed?.isConnected ? lastPressed : null;
+};
+
+/**
  * Accessible modal base: Teleport to body (client only), Esc / overlay click close,
  * focus trap, focus restore, body scroll lock, role=dialog + aria-modal.
  * Slots: default (body), footer, header (replaces the title).
@@ -108,7 +136,7 @@ export const Modal = defineComponent((props: ModalProps, { slots, emit }) => {
     if (stack.includes(token)) {
       return;
     }
-    prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    prevFocus = openerElement();
     if (stack.length === 0) {
       savedOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
@@ -160,6 +188,7 @@ export const Modal = defineComponent((props: ModalProps, { slots, emit }) => {
   };
 
   onMounted(() => {
+    trackPresses();
     mounted.value = true;
   });
 

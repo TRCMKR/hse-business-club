@@ -10,6 +10,8 @@ const props = {
   /** Makes the whole card a link. */
   to: prop<string>().optional(),
   padding: prop<'md' | 'sm' | 'none'>().optional('md'),
+  /** Vertical flex layout with this gap between children (sm 8, md 16, lg 20px). */
+  gap: prop<'sm' | 'md' | 'lg'>().optional(),
   /** Hover/press feedback (implied by `to`). */
   interactive: prop<boolean>().optional(false),
 };
@@ -21,6 +23,7 @@ export const Card = defineComponent((props: CardProps, { slots }) => {
     const cls = [
       styles.card,
       styles[`pad-${props.padding}`],
+      props.gap && styles[`gap-${props.gap}`],
       (props.interactive || props.to) && styles.interactive,
     ];
     if (props.to) {

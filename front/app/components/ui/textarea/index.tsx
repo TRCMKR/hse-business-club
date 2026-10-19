@@ -18,8 +18,8 @@ const props = {
   rows: prop<number>().optional(4),
   /** Shows a "N / max" counter; the counter turns red when exceeded. */
   maxlength: prop<number>().optional(),
-  /** Also set the native maxlength attribute (hard limit). Off by default so validation shows the error. */
-  hardLimit: prop<boolean>().optional(false),
+  /** Also set the native maxlength attribute (hard limit). Set false to let validation show the error instead. */
+  hardLimit: prop<boolean>().optional(true),
   /** Grow with content (up to `maxRows`). */
   autoresize: prop<boolean>().optional(true),
   maxRows: prop<number>().optional(12),

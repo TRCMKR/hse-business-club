@@ -34,7 +34,7 @@
 
 .dialog .panel {
   animation: dialog-in var(--duration) var(--ease);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   max-height: 100%;
 }
 

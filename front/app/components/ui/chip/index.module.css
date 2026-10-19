@@ -69,6 +69,6 @@
 }
 
 .remove:hover {
-  background: rgb(0 0 0 / 8%);
+  background: rgb(127 127 127 / 20%);
   opacity: 1;
 }

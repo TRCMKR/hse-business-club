@@ -1,10 +1,29 @@
+/* No `display` here: a consumer class (e.g. flex layout) must win regardless of CSS order. */
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xs);
-  display: block;
+  box-shadow: var(--shadow-sm);
   min-width: 0;
+}
+
+.gap-sm,
+.gap-md,
+.gap-lg {
+  display: flex;
+  flex-direction: column;
+}
+
+.gap-sm {
+  gap: var(--space-2);
+}
+
+.gap-md {
+  gap: var(--space-4);
+}
+
+.gap-lg {
+  gap: var(--space-5);
 }
 
 .pad-md {
@@ -30,6 +49,10 @@
   text-decoration: none;
 }
 
+.link:not(.gap-sm, .gap-md, .gap-lg) {
+  display: block;
+}
+
 .interactive {
   cursor: pointer;
   transition:
@@ -38,9 +61,12 @@
     transform var(--duration-fast) var(--ease);
 }
 
-.interactive:hover {
-  border-color: var(--color-border-strong);
-  box-shadow: var(--shadow-md);
+@media (hover: hover) {
+  .interactive:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
 }
 
 .interactive:active {
