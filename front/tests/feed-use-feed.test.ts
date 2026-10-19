@@ -93,6 +93,40 @@ describe('useFeed', () => {
     expect(feed.hasMore.value).toBe(false);
   });
 
+  it('while the new filters are pending: loading, no stale items, load more is a no-op', async () => {
+    const base = makeFetcher();
+    let release: (() => void) | undefined;
+    const fetcher = vi.fn<FeedFetcher>(async (p) => {
+      if (p.kind === ListingKind.LISTING_KIND_VACANCY && p.page === 1) {
+        await new Promise<void>(r => (release = r));
+      }
+      return base(p);
+    });
+    const { feed, filters } = await mountFeed(fetcher);
+    await feed.loadMore();
+    expect(ids(feed)).toHaveLength(4);
+
+    // Unique key: Nuxt may reuse an entry of the same key from another test.
+    filters.value = { kind: ListingKind.LISTING_KIND_VACANCY, q: 'Vacancy' };
+    await vi.waitFor(() => expect(feed.status.value).toBe('pending'));
+    expect(feed.loading.value).toBe(true);
+    expect(feed.items.value).toEqual([]);
+    expect(feed.total.value).toBe(0);
+    expect(feed.hasMore.value).toBe(false);
+
+    const calls = fetcher.mock.calls.length;
+    await feed.loadMore();
+    expect(fetcher.mock.calls.length).toBe(calls);
+    expect(feed.loadingMore.value).toBe(false);
+
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    release!();
+    await vi.waitFor(() => expect(feed.loading.value).toBe(false));
+    expect(ids(feed)).toEqual(['v0', 'v1']);
+    expect(feed.page.value).toBe(1);
+    expect(feed.hasMore.value).toBe(false);
+  });
+
   it('drops a «load more» response that arrives after the filters changed', async () => {
     const base = makeFetcher();
     let release!: () => void;

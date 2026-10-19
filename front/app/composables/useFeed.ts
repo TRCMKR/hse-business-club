@@ -23,7 +23,8 @@ export interface UseFeedOptions {
  * The first page goes through `useAsyncData` keyed by the filters (SSR + hydration
  * without a second request; a new key refetches). Further pages («Показать ещё») are
  * client-only and appended to the first one. Changing filters drops the extra pages and
- * starts over from page 1; responses that arrive for stale filters are ignored.
+ * starts over from page 1: until the new first page arrives the feed is empty and
+ * `loading` (no stale cards, no «load more»); responses for stale filters are ignored.
  *
  * Call synchronously at the start of `setup()` (uses `getApi()` and `useAsyncData`).
  */
@@ -71,8 +72,15 @@ export const useFeed = (filters: MaybeRefOrGetter<FeedFilters>, options: UseFeed
 
   watch(key, reset);
 
+  /**
+   * First page of the *current* key. Nuxt keeps the previous key's `data` while the new
+   * key is pending, so stale data must not leak into items/total/hasMore.
+   */
+  const headPage = computed<ListingsPage | null>(() =>
+    first.status.value === 'success' ? first.data.value ?? null : null);
+
   const items = computed<Listing[]>(() => {
-    const head = first.data.value?.items ?? [];
+    const head = headPage.value?.items ?? [];
     if (!extra.value.length) {
       return head;
     }
@@ -81,10 +89,10 @@ export const useFeed = (filters: MaybeRefOrGetter<FeedFilters>, options: UseFeed
     return [...head, ...extra.value.filter(l => !seen.has(l.id) && seen.add(l.id))];
   });
 
-  const total = computed(() => moreTotal.value ?? first.data.value?.total ?? 0);
-  const hasMore = computed(() => !!first.data.value && !exhausted.value && items.value.length < total.value);
-  /** First page is loading (no data for the current filters yet). */
-  const loading = computed(() => !first.data.value && (first.status.value === 'pending' || first.status.value === 'idle'));
+  const total = computed(() => moreTotal.value ?? headPage.value?.total ?? 0);
+  const hasMore = computed(() => !!headPage.value && !exhausted.value && items.value.length < total.value);
+  /** First page of the current filters is loading (initial load, filter change, retry). */
+  const loading = computed(() => first.status.value === 'pending' || first.status.value === 'idle');
 
   const loadMore = async (): Promise<void> => {
     if (loadingMore.value || !hasMore.value) {
