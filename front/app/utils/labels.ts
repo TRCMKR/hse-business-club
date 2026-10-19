@@ -84,7 +84,7 @@ export const listingStatusTone: Record<ListingStatus, BadgeTone> = {
 /** Status of an application as seen by the listing author or in lists. */
 export const applicationStatusLabel: Record<ApplicationStatus, string> = {
   [ApplicationStatus.APPLICATION_STATUS_UNSPECIFIED]: 'Неизвестно',
-  [ApplicationStatus.APPLICATION_STATUS_PENDING]: 'На рассмотрении',
+  [ApplicationStatus.APPLICATION_STATUS_PENDING]: 'Ожидает',
   [ApplicationStatus.APPLICATION_STATUS_ACCEPTED]: 'Принят',
   [ApplicationStatus.APPLICATION_STATUS_DECLINED]: 'Отклонён',
   [ApplicationStatus.APPLICATION_STATUS_WITHDRAWN]: 'Отозван',
