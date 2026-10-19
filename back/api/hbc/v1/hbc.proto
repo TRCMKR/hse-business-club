@@ -1,0 +1,447 @@
+syntax = "proto3";
+
+package hbc.v1;
+
+option go_package = "github.com/trcmkr/hse-business-club/back/pkg/api/hbc/v1;hbcv1";
+
+import "google/api/annotations.proto";
+import "google/api/httpbody.proto";
+import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "hbc-back"
+    version: "1.0"
+    description: "API модуля стартапов и вакансий Бизнес-клуба НИУ ВШЭ"
+  }
+  security_definitions: {
+    security: {
+      key: "Bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Формат: Bearer <jwt>"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "Bearer"
+      value: {}
+    }
+  }
+};
+
+// Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login и
+// V1GetAvatar, требуют заголовок Authorization: Bearer <jwt>.
+service HseBusinessClub {
+  // ---------- Служебное ----------
+
+  rpc V1Ping(V1PingRequest) returns (V1PingResponse) {
+    option (google.api.http) = {
+      get: "/v1/ping"
+    };
+  }
+
+  // ---------- Аутентификация и профиль ----------
+
+  rpc V1Register(V1RegisterRequest) returns (V1AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+  }
+
+  rpc V1Login(V1LoginRequest) returns (V1AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  rpc V1GetMe(V1GetMeRequest) returns (User) {
+    option (google.api.http) = {
+      get: "/v1/me"
+    };
+  }
+
+  // Полная замена редактируемых полей профиля.
+  rpc V1UpdateMe(V1UpdateMeRequest) returns (User) {
+    option (google.api.http) = {
+      put: "/v1/me"
+      body: "*"
+    };
+  }
+
+  rpc V1GetUser(V1GetUserRequest) returns (User) {
+    option (google.api.http) = {
+      get: "/v1/users/{id}"
+    };
+  }
+
+  // ---------- Фото профиля ----------
+
+  // Загрузить или заменить фото. Тело — JSON с изображением в base64 (JPEG/PNG/WebP,
+  // до 5 МБ). Сервер обрезает до квадрата, уменьшает до 512×512 и сохраняет как JPEG.
+  rpc V1UploadAvatar(V1UploadAvatarRequest) returns (User) {
+    option (google.api.http) = {
+      post: "/v1/me/avatar"
+      body: "*"
+    };
+  }
+
+  // Удалить фото. Идемпотентно: без фото — 200 с текущим профилем.
+  rpc V1DeleteAvatar(V1DeleteAvatarRequest) returns (User) {
+    option (google.api.http) = {
+      delete: "/v1/me/avatar"
+    };
+  }
+
+  // Отдать файл фото (image/jpeg) по пути из User.avatar_url. Без авторизации:
+  // имя файла — непредсказуемый uuid. Ответ кэшируется (immutable).
+  rpc V1GetAvatar(V1GetAvatarRequest) returns (google.api.HttpBody) {
+    option (google.api.http) = {
+      get: "/v1/avatars/{file}"
+    };
+  }
+
+  // ---------- Публикации (стартапы и вакансии) ----------
+
+  // Лента: только активные публикации всех участников, новые первыми.
+  rpc V1ListListings(V1ListListingsRequest) returns (V1ListListingsResponse) {
+    option (google.api.http) = {
+      get: "/v1/listings"
+    };
+  }
+
+  rpc V1CreateListing(V1CreateListingRequest) returns (Listing) {
+    option (google.api.http) = {
+      post: "/v1/listings"
+      body: "*"
+    };
+  }
+
+  rpc V1GetListing(V1GetListingRequest) returns (Listing) {
+    option (google.api.http) = {
+      get: "/v1/listings/{id}"
+    };
+  }
+
+  // Только автор, только пока публикация активна. Поле kind менять нельзя.
+  rpc V1UpdateListing(V1UpdateListingRequest) returns (Listing) {
+    option (google.api.http) = {
+      put: "/v1/listings/{id}"
+      body: "*"
+    };
+  }
+
+  // Только автор. Идемпотентно: повторное закрытие возвращает 200.
+  rpc V1CloseListing(V1CloseListingRequest) returns (Listing) {
+    option (google.api.http) = {
+      post: "/v1/listings/{id}/close"
+      body: "*"
+    };
+  }
+
+  // Публикации текущего пользователя (активные и закрытые) со статистикой откликов.
+  rpc V1ListMyListings(V1ListMyListingsRequest) returns (V1ListMyListingsResponse) {
+    option (google.api.http) = {
+      get: "/v1/me/listings"
+    };
+  }
+
+  // ---------- Отклики ----------
+
+  // Откликнуться на публикацию. Нельзя на свою, нельзя на закрытую,
+  // нельзя повторно, пока есть не отозванный отклик (409).
+  rpc V1CreateApplication(V1CreateApplicationRequest) returns (Application) {
+    option (google.api.http) = {
+      post: "/v1/listings/{listing_id}/applications"
+      body: "*"
+    };
+  }
+
+  // Отклики на конкретную публикацию. Только автор публикации.
+  rpc V1ListListingApplications(V1ListListingApplicationsRequest) returns (V1ApplicationsResponse) {
+    option (google.api.http) = {
+      get: "/v1/listings/{listing_id}/applications"
+    };
+  }
+
+  // Автор публикации принимает отклик. pending -> accepted. Идемпотентно для accepted.
+  rpc V1AcceptApplication(V1ApplicationIDRequest) returns (Application) {
+    option (google.api.http) = {
+      post: "/v1/applications/{id}/accept"
+      body: "*"
+    };
+  }
+
+  // Автор публикации отклоняет отклик. pending -> declined. Идемпотентно для declined.
+  rpc V1DeclineApplication(V1ApplicationIDRequest) returns (Application) {
+    option (google.api.http) = {
+      post: "/v1/applications/{id}/decline"
+      body: "*"
+    };
+  }
+
+  // Откликнувшийся отзывает свой отклик. pending -> withdrawn. Идемпотентно для withdrawn.
+  rpc V1WithdrawApplication(V1ApplicationIDRequest) returns (Application) {
+    option (google.api.http) = {
+      post: "/v1/applications/{id}/withdraw"
+      body: "*"
+    };
+  }
+
+  // Отклики, отправленные текущим пользователем.
+  rpc V1ListSentApplications(V1ListSentApplicationsRequest) returns (V1ApplicationsResponse) {
+    option (google.api.http) = {
+      get: "/v1/me/applications/sent"
+    };
+  }
+
+  // Отклики, полученные на все публикации текущего пользователя.
+  rpc V1ListReceivedApplications(V1ListReceivedApplicationsRequest) returns (V1ApplicationsResponse) {
+    option (google.api.http) = {
+      get: "/v1/me/applications/received"
+    };
+  }
+}
+
+// ---------- Перечисления ----------
+
+enum ListingKind {
+  LISTING_KIND_UNSPECIFIED = 0;
+  LISTING_KIND_STARTUP = 1;
+  LISTING_KIND_VACANCY = 2;
+}
+
+enum ListingStatus {
+  LISTING_STATUS_UNSPECIFIED = 0;
+  LISTING_STATUS_ACTIVE = 1;
+  LISTING_STATUS_CLOSED = 2;
+}
+
+// Стадия стартапа. Заполняется только для kind = STARTUP.
+enum StartupStage {
+  STARTUP_STAGE_UNSPECIFIED = 0;
+  STARTUP_STAGE_IDEA = 1;
+  STARTUP_STAGE_PROTOTYPE = 2;
+  STARTUP_STAGE_MVP = 3;
+  STARTUP_STAGE_LAUNCHED = 4;
+}
+
+enum ApplicationStatus {
+  APPLICATION_STATUS_UNSPECIFIED = 0;
+  APPLICATION_STATUS_PENDING = 1;
+  APPLICATION_STATUS_ACCEPTED = 2;
+  APPLICATION_STATUS_DECLINED = 3;
+  APPLICATION_STATUS_WITHDRAWN = 4;
+}
+
+// ---------- Сущности ----------
+
+message User {
+  string id = 1;
+  string username = 2;
+  string display_name = 3;
+  string headline = 4;
+  string about = 5;
+  repeated string skills = 6;
+  string telegram = 7;
+  google.protobuf.Timestamp created_at = 8;
+  // Путь к фото относительно корня API: "/v1/avatars/<uuid>.jpg". Пусто — фото нет,
+  // клиент рисует сгенерированный аватар по username.
+  string avatar_url = 9;
+}
+
+// Статистика откликов по публикации. Отдаётся только автору.
+message ListingStats {
+  int32 pending = 1;
+  int32 accepted = 2;
+  int32 declined = 3;
+  int32 total = 4;
+}
+
+message Listing {
+  string id = 1;
+  ListingKind kind = 2;
+  string title = 3;
+  string description = 4;
+  // Кого ищет автор (свободный текст).
+  string looking_for = 5;
+  // Роли и навыки, которые ищет автор. Используются как теги в карточке.
+  repeated string tags = 6;
+  // Только для STARTUP, иначе UNSPECIFIED.
+  StartupStage stage = 7;
+  // Только для VACANCY (условия: доля, оплата, формат), иначе пусто.
+  string compensation = 8;
+  ListingStatus status = 9;
+  User author = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  // null, пока публикация активна.
+  google.protobuf.Timestamp closed_at = 13;
+  // true, если текущий пользователь — автор.
+  bool is_mine = 14;
+  // Не отозванный отклик текущего пользователя на эту публикацию. null, если нет.
+  Application my_application = 15;
+  // Только для is_mine = true, иначе null.
+  ListingStats stats = 16;
+}
+
+// Краткая публикация для вложения в отклик.
+message ListingSummary {
+  string id = 1;
+  ListingKind kind = 2;
+  string title = 3;
+  ListingStatus status = 4;
+  User author = 5;
+}
+
+message Application {
+  string id = 1;
+  ListingSummary listing = 2;
+  User applicant = 3;
+  string message = 4;
+  ApplicationStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  // Момент accept/decline. null для pending и withdrawn.
+  google.protobuf.Timestamp decided_at = 8;
+}
+
+// ---------- Запросы и ответы ----------
+
+message V1PingRequest {}
+
+message V1PingResponse {
+  bool ok = 1;
+}
+
+message V1RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string display_name = 3;
+}
+
+message V1LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message V1AuthResponse {
+  string token = 1;
+  User user = 2;
+}
+
+message V1GetMeRequest {}
+
+message V1UpdateMeRequest {
+  string display_name = 1;
+  string headline = 2;
+  string about = 3;
+  repeated string skills = 4;
+  string telegram = 5;
+}
+
+message V1GetUserRequest {
+  string id = 1;
+}
+
+message V1UploadAvatarRequest {
+  // Исходное изображение (в JSON — base64). JPEG, PNG или WebP, до 5 МБ.
+  bytes data = 1;
+}
+
+message V1DeleteAvatarRequest {}
+
+message V1GetAvatarRequest {
+  // Имя файла из User.avatar_url: "<uuid>.jpg".
+  string file = 1;
+}
+
+message V1ListListingsRequest {
+  // UNSPECIFIED = все типы.
+  ListingKind kind = 1;
+  // Поиск по title и description без учёта регистра. Пусто = без фильтра.
+  string query = 2;
+  // С 1. По умолчанию 1.
+  int32 page = 3;
+  // 1..50. По умолчанию 20.
+  int32 limit = 4;
+}
+
+message V1ListListingsResponse {
+  repeated Listing items = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message V1CreateListingRequest {
+  ListingKind kind = 1;
+  string title = 2;
+  string description = 3;
+  string looking_for = 4;
+  repeated string tags = 5;
+  StartupStage stage = 6;
+  string compensation = 7;
+}
+
+message V1GetListingRequest {
+  string id = 1;
+}
+
+message V1UpdateListingRequest {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string looking_for = 4;
+  repeated string tags = 5;
+  StartupStage stage = 6;
+  string compensation = 7;
+}
+
+message V1CloseListingRequest {
+  string id = 1;
+}
+
+message V1ListMyListingsRequest {
+  // UNSPECIFIED = все.
+  ListingStatus status = 1;
+}
+
+message V1ListMyListingsResponse {
+  repeated Listing items = 1;
+}
+
+message V1CreateApplicationRequest {
+  string listing_id = 1;
+  string message = 2;
+}
+
+message V1ListListingApplicationsRequest {
+  string listing_id = 1;
+  // UNSPECIFIED = все.
+  ApplicationStatus status = 2;
+}
+
+message V1ApplicationsResponse {
+  repeated Application items = 1;
+}
+
+message V1ApplicationIDRequest {
+  string id = 1;
+}
+
+message V1ListSentApplicationsRequest {
+  // UNSPECIFIED = все.
+  ApplicationStatus status = 1;
+}
+
+message V1ListReceivedApplicationsRequest {
+  // UNSPECIFIED = все.
+  ApplicationStatus status = 1;
+}
