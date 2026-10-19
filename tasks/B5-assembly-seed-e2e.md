@@ -74,3 +74,20 @@
 
 Команды, время прогона e2e, правки в чужих зонах, замечания для фронта (точные тексты
 ошибок, формы ответов).
+
+## Доработки по ревью B0 (не блокирующие, закрыть в B5 — зона `platform/server`, `Dockerfile`, с записью в отчёт)
+
+1. `internal/platform/server/http.go` (`r.Handle("/v1/*", s.public)` на debug-порту): метка
+   `route` в `http_requests_total` и имя спана получаются `/v1/v1/ping` — ожидается `/v1/ping`,
+   как на публичном порту.
+2. 401 от gateway ставит заголовок `Www-Authenticate: Требуется вход` (не-ASCII) — заменить на
+   `Bearer` или убрать заголовок.
+3. Logging-интерцептор стоит до auth → в строке `grpc call` нет `user_id`. Переставить auth
+   перед logging (или обогащать после), чтобы `user_id` попадал в лог вызова.
+4. `Dockerfile` HEALTHCHECK зашит на `:8080` — при другом `HTTP_ADDR` контейнер unhealthy;
+   допустимо оставить, но задокументировать в README бэка.
+5. `docker-compose.test.yaml`: `cgr.dev/chainguard/minio:latest` — зафиксировать тег/digest
+   (I0 заменит файл на корневой compose — согласовать один и тот же образ).
+6. Тесты auth: добавить кейсы `alg=none` и RS256 (защита есть, покрытия нет).
+7. `s3.WithRegisterer` и `PoolCollector` молча игнорируют `AlreadyRegistered` — для e2e с
+   несколькими `app.New` на один реестр использовать отдельный `prometheus.NewRegistry` на тест.

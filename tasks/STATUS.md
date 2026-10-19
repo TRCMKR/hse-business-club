@@ -5,11 +5,11 @@
 
 | ID | Статус | Ветка | Агент | Старт | Финиш | Отчёт | Ревью |
 |---|---|---|---|---|---|---|---|
-| B0 | review | task/B0 | opus | 00:52 | 01:27 | tasks/reports/B0.md | в работе |
-| B1 | queued | task/B1 | | | | | |
-| B2 | queued | task/B2 | | | | | |
-| B3 | queued | task/B3 | | | | | |
-| B4 | queued | task/B4 | | | | | |
+| B0 | merged | task/B0 | opus | 00:52 | 01:27 | tasks/reports/B0.md | принять (12 не блокирующих → B5) |
+| B1 | running | task/B1 | opus | 01:48 | | | |
+| B2 | running | task/B2 | opus | 01:48 | | | |
+| B3 | running | task/B3 | opus | 01:48 | | | |
+| B4 | running | task/B4 | opus | 01:48 | | | |
 | B5 | queued | task/B5 | | | | | |
 | F0 | review | task/F0 | opus | 00:52 | 01:25 | tasks/reports/F0.md | в работе |
 | F1 | queued | task/F1 | | | | | |
@@ -35,6 +35,7 @@
 - 01:25 — F0: исполнитель закончил (126 тестов, lint/build зелёные; `docker build` не проверен — нет места в Docker VM). Запущен ревьюер.
 - 01:27 — B0: исполнитель закончил (6 коммитов, lint/test/integration/docker build зелёные). Запущен ревьюер. Docker: кэш сборки очищен (−0,7 ГБ).
 - 01:35 — решения по дырам SPEC/ARCHITECTURE из отчётов B0/F0 записаны в DECISIONS (`93b9b4a`).
+- 01:48 — B0: ревью принят (все проверки воспроизведены; 12 не блокирующих — переданы в B5, ARCHITECTURE §5 дополнен про debug-порт). Merge в main. Волна 1 (бэк): запущены B1, B2, B3, B4.
 
 ## Время по волнам
 
