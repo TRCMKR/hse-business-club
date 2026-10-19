@@ -6,17 +6,17 @@
 | ID | Статус | Ветка | Агент | Старт | Финиш | Отчёт | Ревью |
 |---|---|---|---|---|---|---|---|
 | B0 | merged | task/B0 | opus | 00:52 | 01:27 | tasks/reports/B0.md | принять (12 не блокирующих → B5) |
-| B1 | running | task/B1 | opus | 01:32 | | | |
-| B2 | running | task/B2 | opus | 01:32 | | | |
-| B3 | review | task/B3 | opus | 01:32 | 01:44 | tasks/reports/B3.md | в работе |
-| B4 | running | task/B4 | opus | 01:32 | | | |
+| B1 | review | task/B1 | opus | 01:32 | 01:48 | tasks/reports/B1.md | в работе |
+| B2 | review | task/B2 | opus | 01:32 | 01:46 | tasks/reports/B2.md | в работе |
+| B3 | merged | task/B3 | opus | 01:32 | 01:44 | tasks/reports/B3.md | принять (7 не блокирующих) |
+| B4 | review | task/B4 | opus | 01:32 | 01:48 | tasks/reports/B4.md | в работе |
 | B5 | queued | task/B5 | | | | | |
 | F0 | merged | task/F0 | opus | 00:52 | 01:47 | tasks/reports/F0.md | итерация 1: вернуть (обход /v1/auth/* в прокси) → итерация 2: принять |
 | F1 | running | task/F1 | opus | 01:47 | | | |
 | F2 | running | task/F2 | opus | 01:47 | | | |
-| F3 | queued | task/F3 | | | | | |
-| F4 | queued | task/F4 | | | | | |
-| F5 | queued | task/F5 | | | | | |
+| F3 | running | task/F3 | opus | 01:50 | | | |
+| F4 | running | task/F4 | opus | 01:50 | | | |
+| F5 | running | task/F5 | opus | 01:50 | | | |
 | F6 | queued | task/F6 | | | | | |
 | F7 | merged | task/F7 | opus | 00:52 / 01:12 | 01:04 / 01:24 | tasks/reports/F7.md | итер. 1: вернуть → принять; итер. 2: принять (3 мелких, не блокируют) |
 | I0 | queued | task/I0 | | | | | |
@@ -39,6 +39,8 @@
 - 01:36 — F0: ревью → доработка (блокер безопасности: прокси пропускает `/api/v1/auth/login/` и `/v1//auth/login` → токен в теле ответа; + 5 мелких + решения DECISIONS 01:35). Возвращено исполнителю. Записано в DECISIONS: дефолт cookie `Secure=false` в compose (HTTP на localhost), включается `NUXT_COOKIE_SECURE=true` за HTTPS.
 - 01:45 — B3: исполнитель закончил (4 коммита, гонка Apply проверена 30 раз). Противоречие порт↔SPEC по 403/404 решено в пользу SPEC (DECISIONS 01:45, ARCHITECTURE §2, SPEC §2.3/§3 — FK между схемами убраны). B4 уведомлён. Запущен ревьюер B3.
 - 01:47 — F0: доработка принята (156 тестов, обходы auth-прокси закрыты, docker build проходит). Merge в main, worktree удалён. Волна 1 (фронт): запущены F1, F2; F3–F5, I0 — по мере освобождения слотов (лимит 5).
+- 01:48 — B3: ревью принят; merge `81826a8` (конфликт только в STATUS/B5 из-за дубля координаторского коммита в ветках B1–B4 — взята версия main). B1, B2, B4 сданы — запущены три ревьюера. Docker: кэш и анонимные тома очищены; B1/B2 поднимали Postgres на tmpfs из-за ENOSPC.
+- 01:50 — волна 1 (фронт): запущены F3, F4, F5 (всего исполнителей: F1–F5 = 5).
 
 ## Время по волнам
 
