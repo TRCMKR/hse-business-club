@@ -1,0 +1,9 @@
+.skeleton {
+  align-items: center;
+  display: flex;
+  gap: var(--space-5);
+}
+
+.skeletonText {
+  flex: 1;
+}
