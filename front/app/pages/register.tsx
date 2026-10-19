@@ -39,12 +39,21 @@ export default defineComponent({
       }
     });
 
+    // Double click / Enter while the request is in flight is ignored.
+    const onFormSubmit = (e: Event) => {
+      e.preventDefault();
+      if (isSubmitting.value) {
+        return;
+      }
+      void onSubmit(e);
+    };
+
     return () => (
       <div class={styles.page}>
         <h1 class={styles.title}>{'Регистрация'}</h1>
         <p class={styles.lead}>{'Создайте аккаунт участника клуба.'}</p>
 
-        <form class={styles.form} onSubmit={onSubmit} novalidate>
+        <form class={styles.form} onSubmit={onFormSubmit} novalidate>
           <Input
             label={'Логин'}
             name={'username'}

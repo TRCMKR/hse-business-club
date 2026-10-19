@@ -67,9 +67,18 @@ export const ProfileForm = defineComponent((props: ProfileFormProps, { emit }) =
     }
   });
 
+  // Double click / Enter while the request is in flight is ignored.
+  const onFormSubmit = (e: Event) => {
+    e.preventDefault();
+    if (isSubmitting.value) {
+      return;
+    }
+    void onSubmit(e);
+  };
+
   return () => (
     <Card>
-      <form class={styles.form} onSubmit={onSubmit} novalidate data-testid={'profile-form'}>
+      <form class={styles.form} onSubmit={onFormSubmit} novalidate data-testid={'profile-form'}>
         <h2 class={styles.title}>{'Редактирование профиля'}</h2>
         <Input
           label={'Имя'}
