@@ -1,0 +1,74 @@
+.chip {
+  align-items: center;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  font-weight: var(--font-weight-medium);
+  gap: var(--space-1);
+  line-height: 1.2;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.md {
+  font-size: var(--font-size-sm);
+  min-height: 30px;
+  padding: 0 var(--space-3);
+}
+
+.sm {
+  font-size: var(--font-size-xs);
+  min-height: 24px;
+  padding: 0 var(--space-2);
+}
+
+.removable.md {
+  padding-right: var(--space-1);
+}
+
+.removable.sm {
+  padding-right: 2px;
+}
+
+.neutral {
+  background: var(--color-neutral-soft);
+  color: var(--color-neutral-text);
+}
+
+.accent {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 22px;
+  justify-content: center;
+  opacity: 0.7;
+  padding: 0;
+  position: relative;
+  width: 22px;
+}
+
+/* Enlarge the tap target without changing the visual size. */
+.remove::after {
+  content: '';
+  inset: -8px;
+  position: absolute;
+}
+
+.remove:hover {
+  background: rgb(0 0 0 / 8%);
+  opacity: 1;
+}

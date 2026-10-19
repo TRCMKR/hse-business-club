@@ -1,0 +1,18 @@
+.textarea {
+  min-height: calc(var(--control-h-md) * 2);
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
+}
+
+.counter {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.over {
+  color: var(--color-danger-text);
+  font-weight: var(--font-weight-semibold);
+}

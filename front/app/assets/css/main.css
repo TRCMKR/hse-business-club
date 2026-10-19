@@ -1,1 +1,217 @@
-/* Global styles and design tokens. */
+/* Design tokens and base styles. Light theme only. */
+
+:root {
+  /* Colors */
+  --color-bg: #f4f5f8;
+  --color-surface: #fff;
+  --color-surface-2: #f0f2f6;
+  --color-surface-muted: #f0f2f6;
+  --color-surface-hover: #e8ebf1;
+  --color-overlay: rgb(15 20 35 / 48%);
+  --color-text: #0f1523;
+  --color-text-secondary: #4a5468;
+  --color-text-muted: #8a93a6;
+  --color-text-inverse: #fff;
+  --color-border: #e1e5ec;
+  --color-border-strong: #c9cfda;
+  --color-accent: #1f5eff;
+  --color-accent-hover: #1a50db;
+  --color-accent-active: #1644bd;
+  --color-accent-soft: #e8efff;
+  --color-accent-text: #1748c7;
+  --color-success: #12a150;
+  --color-success-soft: #e3f6ea;
+  --color-success-text: #0b7a3b;
+  --color-warning: #e08a00;
+  --color-warning-soft: #fff3dc;
+  --color-warning-text: #9a5b00;
+  --color-danger: #e5383b;
+  --color-danger-hover: #c92c2f;
+  --color-danger-soft: #fde8e8;
+  --color-danger-text: #b42326;
+  --color-info: #0a8fd6;
+  --color-info-soft: #e1f3fc;
+  --color-info-text: #076a9f;
+  --color-neutral-soft: #eceff4;
+  --color-neutral-text: #4a5468;
+  --color-focus: rgb(31 94 255 / 45%);
+  --color-skeleton: #e6e9ef;
+  --color-skeleton-highlight: #f3f5f8;
+
+  /* Typography */
+  --font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 22px;
+  --font-size-2xl: 28px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+
+  /* Spacing (4px scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radii */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgb(15 21 35 / 6%);
+  --shadow-sm: 0 1px 3px rgb(15 21 35 / 8%), 0 1px 2px rgb(15 21 35 / 4%);
+  --shadow-md: 0 4px 16px rgb(15 21 35 / 8%), 0 2px 4px rgb(15 21 35 / 4%);
+  --shadow-lg: 0 16px 48px rgb(15 21 35 / 16%), 0 4px 12px rgb(15 21 35 / 6%);
+  --shadow-focus: 0 0 0 3px var(--color-focus);
+
+  /* Controls */
+  --control-h-md: 44px;
+  --control-h-sm: 34px;
+
+  /* Layout */
+  --container: 1040px;
+  --gutter: 16px;
+  --header-h: 64px;
+  --tabbar-h: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration: 200ms;
+
+  /* Layers */
+  --z-header: 50;
+  --z-tabbar: 50;
+  --z-modal: 100;
+  --z-toast: 200;
+}
+
+@media (width >= 768px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+
+/* Reset / base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: var(--line-height-normal);
+  margin: 0;
+  min-height: 100dvh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  color: inherit;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+}
+
+.visually-hidden {
+  border: 0;
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

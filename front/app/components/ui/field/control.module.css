@@ -1,0 +1,46 @@
+.control {
+  appearance: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+  min-height: var(--control-h-md);
+  outline: none;
+  padding: 0 var(--space-4);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease);
+  width: 100%;
+}
+
+.control::placeholder {
+  color: var(--color-text-muted);
+}
+
+.control:disabled,
+.control.disabled {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.control:focus,
+.control:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.control:hover:not(:disabled, :focus, :focus-within, .disabled, .invalid) {
+  border-color: var(--color-text-muted);
+}
+
+.control.invalid {
+  border-color: var(--color-danger);
+}
+
+.control.invalid:focus,
+.control.invalid:focus-within {
+  box-shadow: 0 0 0 3px rgb(229 56 59 / 25%);
+}
