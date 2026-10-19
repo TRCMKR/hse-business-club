@@ -1,0 +1,133 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  position: relative;
+}
+
+.closed {
+  background: var(--color-surface-muted);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.title {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  -webkit-line-clamp: 2;
+  line-height: var(--line-height-tight);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link::after {
+  border-radius: var(--radius-lg);
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+.link:focus-visible {
+  outline: none;
+}
+
+.link:focus-visible::after {
+  box-shadow: var(--shadow-focus);
+}
+
+.lookingFor {
+  -webkit-box-orient: vertical;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  font-size: var(--font-size-sm);
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.label {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.compensation {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.stats {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.pending {
+  color: var(--color-warning-text);
+}
+
+.footer {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  font-size: var(--font-size-xs);
+  gap: var(--space-2);
+  justify-content: space-between;
+  margin-top: var(--space-1);
+  min-width: 0;
+}
+
+.author {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.authorName {
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time {
+  flex-shrink: 0;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  position: relative;
+  z-index: 1;
+}
+
+.closed .title,
+.closed .lookingFor,
+.closed .compensation,
+.closed .tags {
+  opacity: 0.72;
+}

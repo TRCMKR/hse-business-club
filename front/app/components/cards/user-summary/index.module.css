@@ -1,0 +1,72 @@
+.summary {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.lg {
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lg .body {
+  gap: var(--space-1);
+}
+
+.name {
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.md .name {
+  font-size: var(--font-size-lg);
+}
+
+.lg .name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.nameLink {
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.headline {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.telegram {
+  color: var(--color-accent-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.telegram:hover {
+  text-decoration: underline;
+}
+
+.skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
