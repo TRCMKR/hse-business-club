@@ -282,3 +282,21 @@ describe('mock API', () => {
     expect(call('DELETE', '/v1/listings').status).toBe(405);
   });
 });
+
+describe('strict routing', () => {
+  it.each([
+    '/v1/auth/login/',
+    '/v1//auth/login',
+    '/v1/auth/%6Cogin',
+    'v1/auth/login',
+  ])('POST %s → 404, no token', (path) => {
+    const res = handleMock({ method: 'POST', path, query: {}, token: null, body: { username: 'anna', password: 'demo1234' } });
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(res.body)).not.toContain('token');
+  });
+
+  it('malformed percent-encoding in a param → 404, not 500', () => {
+    const res = handleMock({ method: 'GET', path: '/v1/listings/%E0%A4%A', query: {}, token: 'anna', body: undefined });
+    expect(res.status).toBe(404);
+  });
+});

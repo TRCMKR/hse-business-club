@@ -416,8 +416,15 @@ function matchPattern(pattern: string[], segments: string[]): Record<string, str
   for (let i = 0; i < pattern.length; i++) {
     const p = pattern[i]!;
     const s = segments[i]!;
+    if (s === '') {
+      return null;
+    }
     if (p.startsWith(':')) {
-      params[p.slice(1)] = decodeURIComponent(s);
+      try {
+        params[p.slice(1)] = decodeURIComponent(s);
+      } catch {
+        return null;
+      }
     } else if (p !== s) {
       return null;
     }
@@ -427,7 +434,12 @@ function matchPattern(pattern: string[], segments: string[]): Record<string, str
 
 /** Finds the route; unknown path → 404, known path with another method → 405. */
 export function resolve(method: string, path: string): { route: Route, params: Record<string, string> } {
-  const segments = path.split('?')[0]!.split('/').filter(Boolean);
+  // Strict matching: no collapsing of `//` and no trailing-slash tolerance.
+  const clean = path.split('?')[0]!;
+  if (!clean.startsWith('/')) {
+    throw notFound();
+  }
+  const segments = clean.slice(1).split('/');
   let pathMatched = false;
   for (const r of ROUTES) {
     const params = matchPattern(r.pattern, segments);

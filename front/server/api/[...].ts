@@ -15,9 +15,6 @@ const notFound = (event: H3Event) => {
   return { code: 5, message: 'Не найдено', details: [] };
 };
 
-/** Login/register must go through /api/auth/* so the JWT stays in the httpOnly cookie. */
-const BLOCKED = new Set(['/v1/auth/login', '/v1/auth/register']);
-
 const handleWithMock = async (event: H3Event, path: string, token: string | null) => {
   const raw = event.method === 'GET' || event.method === 'HEAD' ? undefined : await readRawBody(event, 'utf8');
   let body: unknown;
@@ -53,9 +50,11 @@ const handleWithMock = async (event: H3Event, path: string, token: string | null
  */
 export default defineEventHandler(async (event) => {
   const url = getRequestURL(event);
-  const path = url.pathname.replace(/^\/api/, '');
+  // Raw request path (before URL normalization), without the `/api` mount prefix.
+  const rawPath = (event.path.split('?')[0] ?? '').replace(/^\/api(?=\/|$)/, '');
+  const path = canonicalProxyPath(rawPath);
 
-  if (!path.startsWith('/v1/') || BLOCKED.has(path)) {
+  if (!path) {
     return notFound(event);
   }
 
