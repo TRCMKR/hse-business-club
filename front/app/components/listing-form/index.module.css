@@ -30,7 +30,7 @@
 .error {
   background: var(--color-danger-soft);
   border-radius: var(--radius-md);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
   font-size: var(--font-size-sm);
   margin: 0;
   padding: var(--space-3);

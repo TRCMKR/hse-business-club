@@ -13,7 +13,7 @@
   align-items: center;
   background: var(--color-accent-soft);
   border-radius: var(--radius-full);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   display: flex;
   height: 64px;
   justify-content: center;
