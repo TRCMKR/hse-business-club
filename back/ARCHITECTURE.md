@@ -356,7 +356,7 @@ EmitUnpopulated, DiscardUnknown}})` — чтобы `V1GetAvatar` (`google.api.Ht
 |---|---|---|
 | `APP_ENV` | `local` | `local` подхватывает `.env`; в `production` `JWT_SECRET` обязателен и ≥ 32 байт, отладочные дефолты запрещены |
 | `HTTP_ADDR` | `:8080` | публичный: `/v1/*`, `/healthz`, `/readyz` |
-| `DEBUG_ADDR` | `:8081` | `/metrics`, `/debug/pprof`, `/docs/`, `/healthz`, `/readyz` |
+| `DEBUG_ADDR` | `:8081` | `/metrics`, `/debug/pprof`, `/docs/`, `/healthz`, `/readyz`; также проксирует `/v1/*` в публичный роутер, чтобы «Try it out» в Swagger UI работал без CORS. Наружу в проде не публикуется |
 | `GRPC_ADDR` | `127.0.0.1:8082` | внутренний gRPC |
 | `POSTGRES_DSN` | — | обязателен |
 | `POSTGRES_MAX_CONNS` | `10` | |
