@@ -154,7 +154,7 @@ type Store interface {
 var ErrNotFound = errors.New("blob: not found")
 ```
 
-Реализации: `blob/s3` (minio-go/v7, bucket создаётся при старте, если нет; транспорт
+Реализации: `blob/s3` (minio-go/v7; в compose — образ `cgr.dev/chainguard/minio`, т. к. `minio/minio` больше не публикуется; bucket создаётся при старте, если нет; транспорт
 обёрнут `otelhttp`; метрики `blob_operations_total{op,status}`,
 `blob_operation_duration_seconds{op}`) и `blob/memory` (map, для unit/e2e-тестов).
 
@@ -303,8 +303,9 @@ func UnaryInterceptor(v Verifier, publicMethods map[string]bool) grpc.UnaryServe
 
 `HTTP` → chi (`request-id`, `otelhttp`, http-метрики, recoverer, CORS) → grpc-gateway
 (`JSONPb{EmitUnpopulated}`, header matcher `Authorization→authorization`) → gRPC-клиент на
-`GRPC_ADDR` → gRPC-сервер с `ChainUnaryInterceptor(recovery, otelgrpc,
-prometheus, logging, auth)` → `bff` → порты → сервисы контекстов → репозитории (`otelpgx`).
+`GRPC_ADDR` → gRPC-сервер с `ChainUnaryInterceptor(recovery, prometheus, logging, auth)` и
+otel через `StatsHandler` (`otelgrpc.NewServerHandler`; интерцепторов в otelgrpc больше нет)
+→ `bff` → порты → сервисы контекстов → репозитории (`otelpgx`).
 
 Сервис — нативно gRPC: `bff.Implementation` реализует сгенерированный
 `hbcv1.HseBusinessClubServer`, HTTP/JSON — только автогенерённый реверс-прокси
@@ -326,6 +327,9 @@ EmitUnpopulated, DiscardUnknown}})` — чтобы `V1GetAvatar` (`google.api.Ht
 сервере (`MaxRecvMsgSize`) и у клиента gateway (`MaxCallRecvMsgSize`/`MaxCallSendMsgSize`)
 — под base64-загрузку фото до 5 МБ.
 Ручных HTTP-хендлеров для бизнес-методов нет; всё, что есть в HTTP API, есть в proto.
+
+Ошибки разбора тела запроса в gateway (невалидный JSON, неизвестный enum) — `InvalidArgument`
+с текстом «Некорректный формат запроса» (подмена в error handler gateway, SPEC §2.4).
 
 Ошибки: сервис контекста возвращает `*apperr.Error`; BFF в одном месте
 (`internal/bff/errors.go`) переводит `Kind` → `codes.*` и `Msg` → `status.Message`.
@@ -381,7 +385,7 @@ back/
 ├── internal/
 │   ├── platform/
 │   │   ├── config/      ├── logger/     ├── telemetry/   (otel + prometheus)
-│   │   ├── db/          (pgxpool, Migrator{Schema, FS, VersionTable}, tx helper)
+│   │   ├── db/          (pgxpool, Migrator{Schema, FS, Dir}, таблица версий всегда <schema>.goose_db_version, WithTx)
 │   │   ├── server/      (grpc + gateway + chi, health, docs, pprof, metrics)
 │   │   ├── auth/        (bcrypt, jwt, interceptor, ctx)
 │   │   ├── blob/        (Store порт; s3/ на minio-go, memory/ для тестов)

@@ -43,6 +43,12 @@
    `back/docker-compose.test.yaml`, порт 5433; I0 заменит на корневой compose), ждут
    `pg_isready`, запускают тесты, гасят контейнер.
 6. Сверить `hbc.swagger.json` с реальным поведением (пути, методы); README бэка дополнить.
+7. Gateway: ошибки разбора тела (невалидный JSON, неизвестный enum) должны отдаваться как
+   400 с текстом «Некорректный формат запроса» (SPEC §2.4, ARCHITECTURE §3) — проверить в
+   e2e, при необходимости доработать error handler в `internal/platform/server` (правка вне
+   зоны — в отчёт).
+8. `StatsForListings`: `total` без withdrawn (SPEC §4.2) — проверить в e2e на сиде (у
+   публикации №5 withdrawn от Веры → `stats.total = 0`).
 
 ## Выходы
 

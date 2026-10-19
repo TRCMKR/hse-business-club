@@ -8,10 +8,11 @@
 1. `docker-compose.yaml` в корне:
    - `db`: `postgres:17-alpine`, `hbc/hbc/hbc`, volume `db_data`, healthcheck
      `pg_isready -U hbc -d hbc` (5s × 10), порт наружу не публикуется;
-   - `minio`: `minio/minio` (закрепить актуальный тег `RELEASE.*`), `server /data
+   - `minio`: `cgr.dev/chainguard/minio` (образ `minio/minio` больше не публикуется; тот же,
+     что в `back/docker-compose.test.yaml` из B0 — закрепить digest или тег), `server /data
      --console-address :9001`, `MINIO_ROOT_USER/PASSWORD` из `${S3_ACCESS_KEY:-minioadmin}`
-     / `${S3_SECRET_KEY:-minioadmin}`, volume `minio_data`, healthcheck `mc ready local`
-     (5s × 10), порты наружу не публикуются (консоль 9001 — только в профиле
+     / `${S3_SECRET_KEY:-minioadmin}`, volume `minio_data`, healthcheck как в
+     `back/docker-compose.test.yaml` (в образе chainguard нет `mc`; 5s × 10), порты наружу не публикуются (консоль 9001 — только в профиле
      `observability`);
    - `back`: build `./back`; env по ARCHITECTURE §5 (`POSTGRES_DSN` на `db`, `S3_ENDPOINT=minio:9000`,
      `S3_ACCESS_KEY`/`S3_SECRET_KEY` те же, `S3_BUCKET=hbc-avatars`,
@@ -51,3 +52,13 @@
 - [ ] В отчёте — время холодного старта и размеры образов.
 
 ## Отчёт `tasks/reports/I0.md`
+
+## Примечания координатора (2026-10-20)
+
+- Порты 8080–8082 на машине разработчика сейчас заняты посторонним процессом (`go run ./cmd`
+  из blanc-back). Если `make up` падает на публикации портов — сообщить в резюме, не менять
+  порты в compose (контракт README: фронт `:3000`, API `:8080`, debug `:8081`).
+- Диск Docker VM — 7,8 ГБ, свободно мало. Образы держать компактными (alpine/distroless),
+  не тянуть лишнего; при ENOSPC — сообщить в резюме, не делать `docker system prune -a`.
+- Фронт: cookie `Secure` отключается через `NUXT_COOKIE_SECURE=false` (см. отчёт F0) — в
+  compose фронт открывается по `http://localhost:3000`, задать соответствующе.
