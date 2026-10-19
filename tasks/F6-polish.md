@@ -52,3 +52,7 @@
    публикации; `profile-form` — guard от двойного `handleSubmit`.
 10. F8 (визуальный стиль) выполняется до F6 — QA, a11y и тёмная тема проверяются на новом
     стиле; скриншоты в `docs/screenshots/` берутся из F8 и обновляются при необходимости.
+11. Из ревью F4: `components/applications/status.ts` — разбор query `status` через `in`
+    пропускает ключи прототипа (`?status=constructor`) — проверять по Set допустимых значений;
+    `error.tsx` — показывать `statusMessage` из `createError` («Публикация не найдена»),
+    если он задан, вместо общего текста; `tabs` — `aria-controls` на несуществующую панель.
