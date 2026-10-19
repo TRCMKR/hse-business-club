@@ -27,7 +27,7 @@ const (
 	msgKindRequired        = "Вид публикации: выберите стартап или вакансию"
 	msgAvatarEmpty         = "Фото: файл пустой"
 	msgBadRequest          = "Некорректный формат запроса"
-	msgUserNotFound        = "Пользователь не найден"
+	msgUserNotFound        = "Участник не найден"
 	msgListingNotFound     = "Публикация не найдена"
 	msgApplicationNotFound = "Отклик не найден"
 )
