@@ -9,6 +9,9 @@ export default defineNuxtConfig({
 
   ssr: true,
 
+  // Components are imported explicitly (named exports), no auto-registration.
+  components: { dirs: [] },
+
   devtools: {
     enabled: true,
   },
@@ -37,6 +40,13 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: '2025-07-15',
+
+  vite: {
+    resolve: {
+      // Local @fe/* packages must share the app's Vue instance.
+      dedupe: ['vue'],
+    },
+  },
 
   eslint: {
     config: {

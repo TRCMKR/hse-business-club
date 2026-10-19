@@ -20,13 +20,13 @@ export const setUnauthorizedHandler = (handler: UnauthorizedHandler | null) => {
  * SSR in mock mode: there is no backend, so route requests in-process through the
  * Nitro proxy (`/api/v1/**` → mock) with the incoming request's cookies.
  */
-const createLocalAdapter = (fetcher: ReturnType<typeof useRequestFetch>): AxiosAdapter => {
+const createLocalAdapter = (forwarded: Record<string, string>): AxiosAdapter => {
   return async (config: InternalAxiosRequestConfig) => {
     const url = axios.getUri(config);
-    const res = await fetcher.raw(url, {
+    const res = await $fetch.raw(url, {
       method: (config.method ?? 'get').toUpperCase() as 'GET',
       body: config.data,
-      headers: config.data ? { 'content-type': 'application/json' } : undefined,
+      headers: config.data ? { ...forwarded, 'content-type': 'application/json' } : forwarded,
       ignoreResponseError: true,
       responseType: 'json',
     });
@@ -59,7 +59,7 @@ const createServerApi = () => {
     return new Api<null>({
       baseURL: '/api',
       timeout: 10_000,
-      adapter: createLocalAdapter(useRequestFetch()),
+      adapter: createLocalAdapter(useRequestHeaders(['cookie'])),
     });
   }
 

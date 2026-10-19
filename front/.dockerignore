@@ -1,24 +1,19 @@
 node_modules/
+.nuxt/
+.output/
+.data/
 dist/
+!lib/**/dist/
 .DS_Store
-
 .git/
 .gitignore
-
-# Node dependencies
-node_modules
-
-# Logs
 logs
 *.log
-
 .fleet
 .idea
-
-.kamal
-config
-
-# Local env files
 .env
 .env.*
-
+coverage/
+docs/
+tests/
+lib/*/node_modules/

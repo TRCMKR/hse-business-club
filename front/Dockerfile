@@ -1,35 +1,32 @@
-# Build Stage 1
-
+# Build stage
 FROM node:22-alpine AS build
 WORKDIR /app
 
-RUN corepack enable
-
 COPY package.json package-lock.json ./
-
 COPY lib ./lib
 
-# Install dependencies
-RUN npm i
+# postinstall (nuxt prepare) runs later with the full sources
+RUN npm ci --ignore-scripts
 
-# Copy the entire project
 COPY . ./
 
-# Build the project
 RUN npm run build
 
-# Build Stage 2
-
+# Runtime stage: only the self-contained Nitro output is needed
 FROM node:22-alpine
 WORKDIR /app
 
-# Only `.output` folder is needed from the build stage
 COPY --from=build /app/.output/ ./
 
-# Change the port and host
-ENV PORT=8080
+ENV NODE_ENV=production
+ENV PORT=3000
 ENV HOST=0.0.0.0
+# Overridable at runtime:
+# NUXT_API_BASE_URL=http://back:8080
+# NUXT_MOCK_API=false
 
-EXPOSE 8080
+EXPOSE 3000
+
+USER node
 
 CMD ["node", "/app/server/index.mjs"]

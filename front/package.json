@@ -12,7 +12,7 @@
     "eslint:fix": "npm run eslint -- --fix",
     "stylelint": "stylelint '**/*.css'",
     "stylelint:fix": "npm run stylelint -- --fix",
-    "typescript": "tsc",
+    "typescript": "tsc --noEmit -p . && tsc --noEmit -p server",
     "lint": "npm run eslint && npm run stylelint && npm run typescript",
     "lint:fix": "npm run eslint:fix && npm run stylelint:fix && npm run typescript",
     "api": "swagger-typescript-api generate -p ../back/pkg/api/hbc/v1/hbc.swagger.json -o ./api/generated -n hbc.ts --axios --module-name-first-tag",
