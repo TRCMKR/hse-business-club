@@ -13,6 +13,26 @@ import (
 	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
 )
 
+// Field names of validation errors.
+const (
+	fKind         = "kind"
+	fTitle        = "title"
+	fDescription  = "description"
+	fLookingFor   = "looking_for"
+	fTags         = "tags"
+	fStage        = "stage"
+	fCompensation = "compensation"
+	fQuery        = "query"
+	fPage         = "page"
+	fLimit        = "limit"
+)
+
+// Messages repeated across tables.
+const (
+	msgKind  = "Вид публикации: выберите стартап или вакансию"
+	msgTitle = "Название: от 3 до 120 символов"
+)
+
 func validStartup() listings.CreateParams {
 	return listings.CreateParams{
 		AuthorID:    uuid.New(),
@@ -56,28 +76,28 @@ func TestNormalizeCreate(t *testing.T) {
 		{"valid startup", func(*listings.CreateParams) {}, "", ""},
 		{"valid vacancy", func(p *listings.CreateParams) { *p = validVacancy() }, "", ""},
 		{"vacancy without compensation", func(p *listings.CreateParams) { *p = validVacancy(); p.Compensation = "" }, "", ""},
-		{"kind empty", func(p *listings.CreateParams) { p.Kind = "" }, "kind", "Вид публикации: выберите стартап или вакансию"},
-		{"kind unknown", func(p *listings.CreateParams) { p.Kind = "job" }, "kind", "Вид публикации: выберите стартап или вакансию"},
-		{"title short", func(p *listings.CreateParams) { p.Title = "ab" }, "title", "Название: от 3 до 120 символов"},
-		{"title short after trim", func(p *listings.CreateParams) { p.Title = "  ab  " }, "title", "Название: от 3 до 120 символов"},
+		{"kind empty", func(p *listings.CreateParams) { p.Kind = "" }, fKind, msgKind},
+		{"kind unknown", func(p *listings.CreateParams) { p.Kind = "job" }, fKind, msgKind},
+		{"title short", func(p *listings.CreateParams) { p.Title = "ab" }, fTitle, msgTitle},
+		{"title short after trim", func(p *listings.CreateParams) { p.Title = "  ab  " }, fTitle, msgTitle},
 		{"title 3 runes cyrillic", func(p *listings.CreateParams) { p.Title = "абв" }, "", ""},
 		{"title 120 runes", func(p *listings.CreateParams) { p.Title = strings.Repeat("я", 120) }, "", ""},
-		{"title 121 runes", func(p *listings.CreateParams) { p.Title = strings.Repeat("я", 121) }, "title", "Название: от 3 до 120 символов"},
-		{"description short", func(p *listings.CreateParams) { p.Description = "коротко" }, "description", "Описание: от 10 до 5000 символов"},
-		{"description long", func(p *listings.CreateParams) { p.Description = strings.Repeat("a", 5001) }, "description", "Описание: от 10 до 5000 символов"},
-		{"looking_for empty", func(p *listings.CreateParams) { p.LookingFor = "   " }, "looking_for", "Кого ищете: от 1 до 1000 символов"},
-		{"looking_for long", func(p *listings.CreateParams) { p.LookingFor = strings.Repeat("a", 1001) }, "looking_for", "Кого ищете: от 1 до 1000 символов"},
-		{"tags 11", func(p *listings.CreateParams) { p.Tags = manyTags(11) }, "tags", "Теги: не больше 10"},
+		{"title 121 runes", func(p *listings.CreateParams) { p.Title = strings.Repeat("я", 121) }, fTitle, msgTitle},
+		{"description short", func(p *listings.CreateParams) { p.Description = "коротко" }, fDescription, "Описание: от 10 до 5000 символов"},
+		{"description long", func(p *listings.CreateParams) { p.Description = strings.Repeat("a", 5001) }, fDescription, "Описание: от 10 до 5000 символов"},
+		{"looking_for empty", func(p *listings.CreateParams) { p.LookingFor = "   " }, fLookingFor, "Кого ищете: от 1 до 1000 символов"},
+		{"looking_for long", func(p *listings.CreateParams) { p.LookingFor = strings.Repeat("a", 1001) }, fLookingFor, "Кого ищете: от 1 до 1000 символов"},
+		{"tags 11", func(p *listings.CreateParams) { p.Tags = manyTags(11) }, fTags, "Теги: не больше 10"},
 		{"tags 10 plus empties", func(p *listings.CreateParams) { p.Tags = append(manyTags(10), "", "  ") }, "", ""},
-		{"tag too long", func(p *listings.CreateParams) { p.Tags = []string{strings.Repeat("т", 41)} }, "tags", "Теги: каждый не длиннее 40 символов"},
-		{"tags duplicate case-insensitive", func(p *listings.CreateParams) { p.Tags = []string{"Go", " go "} }, "tags", "Теги: без повторов"},
-		{"tags duplicate cyrillic case", func(p *listings.CreateParams) { p.Tags = []string{"Дизайн", "дизайн"} }, "tags", "Теги: без повторов"},
-		{"startup without stage", func(p *listings.CreateParams) { p.Stage = "" }, "stage", "Стадия: укажите стадию"},
-		{"startup bad stage", func(p *listings.CreateParams) { p.Stage = "seed" }, "stage", "Стадия: недопустимое значение"},
-		{"vacancy with stage", func(p *listings.CreateParams) { *p = validVacancy(); p.Stage = listings.StageIdea }, "stage", "Стадия: только для стартапа"},
-		{"startup with compensation", func(p *listings.CreateParams) { p.Compensation = "зарплата" }, "compensation", "Условия: только для вакансии"},
+		{"tag too long", func(p *listings.CreateParams) { p.Tags = []string{strings.Repeat("т", 41)} }, fTags, "Теги: каждый не длиннее 40 символов"},
+		{"tags duplicate case-insensitive", func(p *listings.CreateParams) { p.Tags = []string{"Go", " go "} }, fTags, "Теги: без повторов"},
+		{"tags duplicate cyrillic case", func(p *listings.CreateParams) { p.Tags = []string{"Дизайн", "дизайн"} }, fTags, "Теги: без повторов"},
+		{"startup without stage", func(p *listings.CreateParams) { p.Stage = "" }, fStage, "Стадия: укажите стадию"},
+		{"startup bad stage", func(p *listings.CreateParams) { p.Stage = "seed" }, fStage, "Стадия: недопустимое значение"},
+		{"vacancy with stage", func(p *listings.CreateParams) { *p = validVacancy(); p.Stage = listings.StageIdea }, fStage, "Стадия: только для стартапа"},
+		{"startup with compensation", func(p *listings.CreateParams) { p.Compensation = "зарплата" }, fCompensation, "Условия: только для вакансии"},
 		{"startup with blank compensation", func(p *listings.CreateParams) { p.Compensation = "  " }, "", ""},
-		{"vacancy compensation long", func(p *listings.CreateParams) { *p = validVacancy(); p.Compensation = strings.Repeat("a", 121) }, "compensation", "Условия: не больше 120 символов"},
+		{"vacancy compensation long", func(p *listings.CreateParams) { *p = validVacancy(); p.Compensation = strings.Repeat("a", 121) }, fCompensation, "Условия: не больше 120 символов"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -144,15 +164,15 @@ func TestNormalizeUpdate(t *testing.T) {
 		msg    string
 	}{
 		{"startup ok", listings.KindStartup, func(p *listings.UpdateParams) { p.Stage = listings.StageIdea }, "", ""},
-		{"startup no stage", listings.KindStartup, func(*listings.UpdateParams) {}, "stage", "Стадия: укажите стадию"},
+		{"startup no stage", listings.KindStartup, func(*listings.UpdateParams) {}, fStage, "Стадия: укажите стадию"},
 		{"vacancy ok", listings.KindVacancy, func(p *listings.UpdateParams) { p.Compensation = "Доля" }, "", ""},
-		{"vacancy stage", listings.KindVacancy, func(p *listings.UpdateParams) { p.Stage = listings.StageMVP }, "stage", "Стадия: только для стартапа"},
+		{"vacancy stage", listings.KindVacancy, func(p *listings.UpdateParams) { p.Stage = listings.StageMVP }, fStage, "Стадия: только для стартапа"},
 		{"startup compensation", listings.KindStartup, func(p *listings.UpdateParams) {
 			p.Stage = listings.StageIdea
 			p.Compensation = "x"
-		}, "compensation", "Условия: только для вакансии"},
-		{"title", listings.KindVacancy, func(p *listings.UpdateParams) { p.Title = "" }, "title", "Название: от 3 до 120 символов"},
-		{"bad kind", "", func(*listings.UpdateParams) {}, "kind", "Вид публикации: выберите стартап или вакансию"},
+		}, fCompensation, "Условия: только для вакансии"},
+		{"title", listings.KindVacancy, func(p *listings.UpdateParams) { p.Title = "" }, fTitle, msgTitle},
+		{"bad kind", "", func(*listings.UpdateParams) {}, fKind, msgKind},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -187,13 +207,13 @@ func TestNormalizeFilter(t *testing.T) {
 		{"explicit", listings.ListFilter{Kind: listings.KindVacancy, Query: " go ", Page: 3, Limit: 50},
 			listings.ListFilter{Kind: listings.KindVacancy, Query: "go", Page: 3, Limit: 50}, "", ""},
 		{"limit 1", listings.ListFilter{Limit: 1}, listings.ListFilter{Page: 1, Limit: 1}, "", ""},
-		{"page negative", listings.ListFilter{Page: -1}, listings.ListFilter{}, "page", "Страница: не меньше 1"},
-		{"limit 51", listings.ListFilter{Limit: 51}, listings.ListFilter{}, "limit", "Размер страницы: от 1 до 50"},
-		{"limit negative", listings.ListFilter{Limit: -5}, listings.ListFilter{}, "limit", "Размер страницы: от 1 до 50"},
+		{"page negative", listings.ListFilter{Page: -1}, listings.ListFilter{}, fPage, "Страница: не меньше 1"},
+		{"limit 51", listings.ListFilter{Limit: 51}, listings.ListFilter{}, fLimit, "Размер страницы: от 1 до 50"},
+		{"limit negative", listings.ListFilter{Limit: -5}, listings.ListFilter{}, fLimit, "Размер страницы: от 1 до 50"},
 		{"query 100", listings.ListFilter{Query: strings.Repeat("я", 100)},
 			listings.ListFilter{Query: strings.Repeat("я", 100), Page: 1, Limit: 20}, "", ""},
-		{"query 101", listings.ListFilter{Query: strings.Repeat("я", 101)}, listings.ListFilter{}, "query", "Поиск: не больше 100 символов"},
-		{"bad kind", listings.ListFilter{Kind: "job"}, listings.ListFilter{}, "kind", "Вид публикации: выберите стартап или вакансию"},
+		{"query 101", listings.ListFilter{Query: strings.Repeat("я", 101)}, listings.ListFilter{}, fQuery, "Поиск: не больше 100 символов"},
+		{"bad kind", listings.ListFilter{Kind: "job"}, listings.ListFilter{}, fKind, msgKind},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
