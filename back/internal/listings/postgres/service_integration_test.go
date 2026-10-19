@@ -24,10 +24,7 @@ func TestServiceOnPostgres(t *testing.T) {
 	svc := service.New(postgres.New(pool))
 	ctx := context.Background()
 	author := uuid.New()
-	upd := listings.UpdateParams{
-		Title: "Новое название", Description: "Новое описание", LookingFor: "Дизайнер",
-		Tags: []string{"Figma"}, Stage: listings.StageMVP,
-	}
+	upd := updParams()
 
 	l, err := svc.Create(ctx, params(author, listings.KindStartup, "Стартап", "Описание стартапа"))
 	if err != nil {

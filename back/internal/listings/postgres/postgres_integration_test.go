@@ -278,10 +278,7 @@ func TestUpdate(t *testing.T) {
 	ctx := context.Background()
 	l := create(t, r, pool, params(uuid.New(), listings.KindStartup, "Старое", "Старое описание"), 1)
 
-	up := listings.UpdateParams{
-		Title: "Новое", Description: "Новое описание", LookingFor: "Дизайнер",
-		Tags: []string{"Figma"}, Stage: listings.StageLaunched,
-	}
+	up := updParams()
 	got, err := r.Update(ctx, l.ID, up)
 	if err != nil {
 		t.Fatal(err)
@@ -328,5 +325,12 @@ func TestClose(t *testing.T) {
 	}
 	if _, err := r.Close(ctx, uuid.New()); !errors.Is(err, domain.ErrNotActive) {
 		t.Fatalf("Close(missing) = %v", err)
+	}
+}
+
+func updParams() listings.UpdateParams {
+	return listings.UpdateParams{
+		Title: "Новое", Description: "Новое описание", LookingFor: "Дизайнер",
+		Tags: []string{"Figma"}, Stage: listings.StageLaunched,
 	}
 }
