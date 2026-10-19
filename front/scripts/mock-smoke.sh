@@ -36,9 +36,12 @@ curl -sf -b "$TMP/anna" -X POST "${JSON[@]}" -d '{}' "$BASE/v1/applications/$AID
 echo '7. boris sees "accepted"'
 curl -sf -b "$TMP/boris" "$BASE/v1/me/applications/sent" | field '[(i["listing"]["title"], i["status"]) for i in d["items"]]'
 
-echo '8. no cookie → 401; /api/v1/auth/login via proxy → 404'
+echo '8. no cookie → 401; /api/v1/auth/** via proxy (any spelling) → 404'
 curl -s -o /dev/null -w '%{http_code}\n' "$BASE/v1/me"
-curl -s -o /dev/null -w '%{http_code}\n' "${JSON[@]}" -d '{"username":"anna","password":"demo1234"}' "$BASE/v1/auth/login"
+for p in /v1/auth/login /v1/auth/login/ /v1//auth/login /v1/auth/%6Cogin /v1/%61uth/register /v1/x/%2e%2e/auth/login; do
+  printf '   %-28s ' "$p"
+  curl -s -o /dev/null -w '%{http_code}\n' --path-as-is "${JSON[@]}" -d '{"username":"anna","password":"demo1234"}' "$BASE$p"
+done
 
 echo '9. boris uploads a photo; it is served with the original headers'
 PNG=$(python3 -c 'import base64,zlib,struct
