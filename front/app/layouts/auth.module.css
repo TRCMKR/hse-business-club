@@ -1,58 +1,80 @@
 .shell {
   align-items: center;
-  background: radial-gradient(1200px 600px at 10% -10%, var(--color-accent-soft), transparent 60%), var(--color-bg);
+  background: var(--color-bg);
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  justify-content: flex-start;
   min-height: 100dvh;
-  padding: calc(env(safe-area-inset-top) + 40px) 16px calc(env(safe-area-inset-bottom) + 24px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+}
+
+/* Navy band with the club name; the form card overlaps its bottom edge. */
+.hero {
+  --glow-1: radial-gradient(520px 260px at 85% 0%, rgb(97 148 255 / 35%), transparent 70%);
+  --glow-2: radial-gradient(420px 220px at 0% 100%, rgb(31 62 140 / 45%), transparent 70%);
+
+  background: var(--glow-1), var(--glow-2), var(--color-navy-deep);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  display: flex;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 40px) 16px 96px;
+  width: 100%;
 }
 
 @media (width >= 768px) {
-  .shell {
-    justify-content: center;
-    padding-top: 24px;
+  .hero {
+    border-radius: 0 0 32px 32px;
+    padding-bottom: 120px;
+    padding-top: 72px;
   }
 }
 
 .brand {
   align-items: center;
+  color: var(--color-nav-text-active);
   display: flex;
   gap: 12px;
+  max-width: 420px;
+  width: 100%;
 }
 
 .mark {
-  background: var(--color-accent);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 10px;
+  background: var(--gradient-accent);
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: var(--radius-md);
+  color: var(--color-text-inverse);
+  font-size: 15px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 13px 11px;
 }
 
 .title {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
 }
 
 .subtitle {
-  color: var(--color-text-secondary);
+  color: var(--color-nav-text);
   font-size: 14px;
+  font-weight: var(--font-weight-medium);
 }
 
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 20px;
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  margin-top: -64px;
   max-width: 420px;
   padding: 24px 20px;
-  width: 100%;
+  width: calc(100% - 32px);
 }
 
 @media (width >= 768px) {
   .card {
+    margin-top: -88px;
     padding: 32px;
   }
 }

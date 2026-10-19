@@ -24,9 +24,12 @@ export const AppHeader = defineComponent(() => {
   return () => (
     <header class={styles.header}>
       <div class={styles.inner}>
-        <NuxtLink to={'/'} class={styles.logo} aria-label={'Бизнес-клуб ВШЭ — на главную'}>
-          <span class={styles.logoMark}>{'ВШЭ'}</span>
-          <span class={styles.logoText}>{'Бизнес-клуб'}</span>
+        <NuxtLink to={'/'} class={styles.logo} aria-label={'Бизнес-клуб — на главную'}>
+          <span class={styles.logoMark} aria-hidden={'true'}>{'БК'}</span>
+          <span class={styles.logoText}>
+            <span class={styles.logoTitle}>{'Бизнес-клуб'}</span>
+            <span class={styles.logoSubtitle}>{'Стартапы и вакансии'}</span>
+          </span>
         </NuxtLink>
 
         <nav class={styles.nav} aria-label={'Основная навигация'}>
@@ -46,9 +49,9 @@ export const AppHeader = defineComponent(() => {
         </nav>
 
         <div class={styles.actions}>
-          <Button to={'/listings/new'} size={'sm'}>
+          <Button to={'/listings/new'} size={'sm'} aria-label={'Создать публикацию'}>
             <Icon name={'plus'} size={18} />
-            {'Создать публикацию'}
+            <span class={styles.createLabel}>{'Создать публикацию'}</span>
           </Button>
           {user.value && (
             <NuxtLink to={'/me'} class={styles.me} aria-label={'Профиль'} title={user.value.displayName}>

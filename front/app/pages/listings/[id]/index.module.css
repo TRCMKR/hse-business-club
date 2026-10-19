@@ -10,7 +10,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   display: inline-flex;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);

@@ -1,51 +1,89 @@
-/* Design tokens and base styles. Light theme only. */
+/*
+ * Design tokens and base styles.
+ * Palette is inspired by the HSE Business Club site (navy #06081c, blue #6194ff → #1f3e8c,
+ * yellow #fff705) but tuned for a content-heavy mini-app: light content background,
+ * navy navigation, WCAG AA contrast. Dark theme follows `prefers-color-scheme`.
+ * Contrast pairs are listed in tasks/reports/F8.md.
+ */
 
 :root {
-  /* Colors */
-  --color-bg: #f4f5f8;
+  color-scheme: light;
+
+  /* Brand */
+  --color-navy: #0b1030;
+  --color-navy-deep: #06081c;
+  --color-brand-blue: #6194ff;
+  --color-brand-blue-deep: #1f3e8c;
+
+  /* Yellow highlight: ONLY the active nav marker and the nav applications counter. */
+  --color-highlight: #fff705;
+  --color-highlight-text: #0b1030;
+
+  /* Surfaces & text */
+  --color-bg: #f4f6fb;
   --color-surface: #fff;
-  --color-surface-2: #f0f2f6;
-  --color-surface-muted: #f0f2f6;
-  --color-surface-hover: #e8ebf1;
-  --color-overlay: rgb(15 20 35 / 48%);
-  --color-text: #0f1523;
-  --color-text-secondary: #4a5468;
-  --color-text-muted: #8a93a6;
+  --color-surface-2: #eef1f8;
+  --color-surface-muted: #eef1f8;
+  --color-surface-hover: #e4e9f4;
+  --color-overlay: rgb(6 8 28 / 56%);
+  --color-text: #0f1530;
+  --color-text-secondary: #4a5470;
+  --color-text-muted: #5f6987;
   --color-text-inverse: #fff;
-  --color-border: #e1e5ec;
-  --color-border-strong: #c9cfda;
-  --color-accent: #1f5eff;
-  --color-accent-hover: #1a50db;
-  --color-accent-active: #1644bd;
-  --color-accent-soft: #e8efff;
-  --color-accent-text: #1748c7;
+  --color-border: #e2e6f0;
+  --color-border-strong: #c5cce0;
+
+  /* Accent (actions, links, focus) */
+  --color-accent: #3d6fe0;
+  --color-accent-hover: #3363d0;
+  --color-accent-active: #2a55b8;
+  --color-accent-soft: #e8eeff;
+  --color-accent-text: #2c58c4;
+  --gradient-accent: linear-gradient(135deg, #3d6fe0 0%, #1f3e8c 100%);
+  --gradient-accent-hover: linear-gradient(135deg, #3363d0 0%, #1a347a 100%);
+
+  /* Status */
   --color-success: #12a150;
   --color-success-soft: #e3f6ea;
   --color-success-text: #0b7a3b;
   --color-warning: #e08a00;
   --color-warning-soft: #fff3dc;
   --color-warning-text: #9a5b00;
-  --color-danger: #e5383b;
-  --color-danger-hover: #c92c2f;
+  --color-danger: #d32f33;
+  --color-danger-hover: #b8282c;
   --color-danger-soft: #fde8e8;
   --color-danger-text: #b42326;
+  --color-danger-focus: rgb(211 47 51 / 25%);
   --color-info: #0a8fd6;
   --color-info-soft: #e1f3fc;
   --color-info-text: #076a9f;
-  --color-neutral-soft: #eceff4;
-  --color-neutral-text: #4a5468;
-  --color-focus: rgb(31 94 255 / 45%);
-  --color-skeleton: #e6e9ef;
-  --color-skeleton-highlight: #f3f5f8;
+  --color-neutral-soft: #eceff6;
+  --color-neutral-text: #4a5470;
+  --color-focus: rgb(61 111 224 / 45%);
+  --color-skeleton: #e4e8f2;
+  --color-skeleton-highlight: #f2f4fa;
+
+  /* Navigation (navy bars in both themes) */
+  --color-nav-bg: #0b1030;
+  --color-nav-border: rgb(255 255 255 / 8%);
+  --color-nav-text: #cdced2;
+  --color-nav-text-active: #fff;
+  --color-nav-hover: rgb(255 255 255 / 8%);
+  --color-nav-active-bg: rgb(97 148 255 / 18%);
+
+  /* Selected item in segmented controls */
+  --color-selected-bg: #0b1030;
+  --color-selected-text: #fff;
 
   /* Typography */
-  --font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
   --font-size-md: 16px;
   --font-size-lg: 18px;
   --font-size-xl: 22px;
   --font-size-2xl: 28px;
+  --font-size-3xl: 36px;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -64,19 +102,20 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* Radii */
+  /* Radii: chips 999, buttons/controls 12, cards 16, sheets/dialogs 20. */
   --radius-xs: 6px;
   --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgb(15 21 35 / 6%);
-  --shadow-sm: 0 1px 3px rgb(15 21 35 / 8%), 0 1px 2px rgb(15 21 35 / 4%);
-  --shadow-md: 0 4px 16px rgb(15 21 35 / 8%), 0 2px 4px rgb(15 21 35 / 4%);
-  --shadow-lg: 0 16px 48px rgb(15 21 35 / 16%), 0 4px 12px rgb(15 21 35 / 6%);
+  /* Shadows: soft, navy-tinted */
+  --shadow-xs: 0 1px 2px rgb(11 16 48 / 5%);
+  --shadow-sm: 0 2px 6px rgb(11 16 48 / 6%), 0 1px 2px rgb(11 16 48 / 4%);
+  --shadow-md: 0 8px 24px rgb(11 16 48 / 8%), 0 2px 6px rgb(11 16 48 / 4%);
+  --shadow-lg: 0 20px 56px rgb(11 16 48 / 18%), 0 4px 12px rgb(11 16 48 / 6%);
+  --shadow-accent: 0 6px 16px rgb(31 62 140 / 24%);
   --shadow-focus: 0 0 0 3px var(--color-focus);
 
   /* Controls */
@@ -103,6 +142,55 @@
   --z-tabbar: 50;
   --z-modal: 100;
   --z-toast: 200;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-bg: #06081c;
+    --color-surface: #0f1433;
+    --color-surface-2: #161c42;
+    --color-surface-muted: #131838;
+    --color-surface-hover: #1c2350;
+    --color-overlay: rgb(0 0 0 / 64%);
+    --color-text: #eef0f7;
+    --color-text-secondary: #b4b9cc;
+    --color-text-muted: #8c93ad;
+    --color-border: #222a55;
+    --color-border-strong: #343d73;
+    --color-accent: #3d6fe0;
+    --color-accent-hover: #4370e0;
+    --color-accent-active: #3363d0;
+    --color-accent-soft: #1a2556;
+    --color-accent-text: #8fb0ff;
+    --gradient-accent: linear-gradient(135deg, #3d6fe0 0%, #1f3e8c 100%);
+    --gradient-accent-hover: linear-gradient(135deg, #4370e0 0%, #2546a0 100%);
+    --color-success-soft: #0f3a2a;
+    --color-success-text: #5fd394;
+    --color-warning-soft: #3d2e0c;
+    --color-warning-text: #f2c063;
+    --color-danger: #d93235;
+    --color-danger-hover: #e5484d;
+    --color-danger-soft: #3d1520;
+    --color-danger-text: #ff8a8f;
+    --color-danger-focus: rgb(255 138 143 / 30%);
+    --color-info-soft: #0c2f45;
+    --color-info-text: #6cc4f2;
+    --color-neutral-soft: #1c2350;
+    --color-neutral-text: #b4b9cc;
+    --color-focus: rgb(143 176 255 / 50%);
+    --color-skeleton: #161c42;
+    --color-skeleton-highlight: #222a5a;
+    --color-nav-bg: #0b1030;
+    --color-nav-border: rgb(255 255 255 / 10%);
+    --color-selected-bg: #3d6fe0;
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow-sm: 0 2px 6px rgb(0 0 0 / 30%);
+    --shadow-md: 0 8px 24px rgb(0 0 0 / 40%);
+    --shadow-lg: 0 20px 56px rgb(0 0 0 / 60%);
+    --shadow-accent: 0 8px 24px rgb(0 0 0 / 45%);
+  }
 }
 
 @media (width >= 768px) {
@@ -182,12 +270,12 @@ button {
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   text-decoration: none;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-accent-text);
   outline-offset: 2px;
 }
 

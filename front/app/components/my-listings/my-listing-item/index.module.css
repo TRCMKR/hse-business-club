@@ -5,6 +5,6 @@
 }
 
 .close {
-  color: var(--color-danger);
+  color: var(--color-danger-text);
   margin-left: auto;
 }

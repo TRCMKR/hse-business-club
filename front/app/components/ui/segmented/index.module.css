@@ -48,8 +48,8 @@
 }
 
 .active {
-  background: var(--color-surface);
+  background: var(--color-selected-bg);
   box-shadow: var(--shadow-sm);
-  color: var(--color-text);
+  color: var(--color-selected-text);
   font-weight: var(--font-weight-semibold);
 }

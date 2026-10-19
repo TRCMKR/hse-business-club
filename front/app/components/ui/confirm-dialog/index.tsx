@@ -48,11 +48,19 @@ export const ConfirmDialog = defineComponent((props: ConfirmDialogProps, { slots
           : props.message && <p class={styles.message}>{props.message}</p>),
         footer: () => (
           <>
-            <Button variant={'secondary'} disabled={props.loading} onClick={cancel}>{props.cancelText}</Button>
+            {/* Initial focus: never on a destructive action. */}
+            <Button
+              variant={'secondary'}
+              disabled={props.loading}
+              data-autofocus={props.tone === 'danger' ? '' : undefined}
+              onClick={cancel}
+            >
+              {props.cancelText}
+            </Button>
             <Button
               variant={props.tone}
               loading={props.loading}
-              data-autofocus={''}
+              data-autofocus={props.tone === 'danger' ? undefined : ''}
               onClick={() => emit('confirm')}
             >
               {props.confirmText}
