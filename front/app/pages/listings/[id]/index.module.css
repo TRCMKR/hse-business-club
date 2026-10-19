@@ -1,0 +1,89 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.back {
+  align-items: center;
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  display: inline-flex;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  gap: 2px;
+  margin-left: -6px;
+  min-height: 36px;
+  padding: 0 var(--space-2) 0 2px;
+}
+
+.back:hover {
+  background: var(--color-accent-soft);
+}
+
+/*
+ * Mobile: one column ordered header → my panel → body → sticky action bar; the column
+ * wrappers are `display: contents` so the action bar sticks relative to the whole page.
+ * Desktop: content on the left, a sticky side column on the right.
+ */
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.main,
+.aside {
+  display: contents;
+}
+
+.header {
+  order: 1;
+}
+
+.panel {
+  order: 2;
+}
+
+.body {
+  order: 3;
+}
+
+.actionBar {
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--space-3));
+  order: 4;
+  position: sticky;
+  z-index: 10;
+}
+
+.actionBar:empty {
+  display: none;
+}
+
+@media (width >= 768px) {
+  .layout {
+    align-items: start;
+    display: grid;
+    gap: var(--space-6);
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .main,
+  .aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .aside {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-6));
+  }
+
+  .actionBar {
+    position: static;
+  }
+}
