@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"sort"
@@ -82,7 +81,7 @@ func startApp(t *testing.T, opts ...option) *env {
 			CORSOrigins:     []string{"http://localhost:3000"},
 			ShutdownTimeout: 5 * time.Second,
 		},
-		Auth: config.Auth{JWTSecret: "e2e-secret-e2e-secret-e2e-secret", JWTTTL: time.Hour},
+		Auth: config.Auth{JWTSecret: "e2e-secret-e2e-secret-e2e-secret", JWTTTL: time.Hour}, //nolint:gosec // test-only secret
 		Seed: config.Seed{DemoData: o.seed},
 	}
 	store := memory.New()
@@ -424,6 +423,3 @@ func (b *syncBuffer) String() string {
 	defer b.mu.Unlock()
 	return b.buf.String()
 }
-
-// path builds a path with fmt.Sprintf.
-func path(format string, args ...any) string { return fmt.Sprintf(format, args...) }
