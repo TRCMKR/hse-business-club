@@ -51,6 +51,7 @@ func TestRequestParseErrors(t *testing.T) {
 		{"unknown enum in update", http.MethodPut, "/v1/listings/x", tok, `{"stage":"nope"}`},
 		{"unknown enum in query", http.MethodGet, "/v1/listings?kind=NOPE", tok, ""},
 		{"bad number in query", http.MethodGet, "/v1/listings?page=abc", tok, ""},
+		{"bad escape in query", http.MethodGet, "/v1/listings?query=%zz", tok, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
