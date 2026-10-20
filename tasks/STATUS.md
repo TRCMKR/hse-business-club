@@ -24,7 +24,7 @@
 | I1 | merged | task/I1 | opus | 03:28 | 04:05 | tasks/reports/I1.md | принять (6 не блокирующих) |
 | I2 | merged | task/I2 | opus | 04:11 | 04:35 | tasks/reports/I2.md | принять (3 фактические правки README внесены) |
 | I3 | accepted (ждёт merge B6) | task/I3 | opus | 05:18 | 06:00 | tasks/reports/I3.md | итерация 1: принять с правками → внесены, `kamal config: ok` |
-| B6 | rework | task/B6 | opus | 05:32 | 05:56 | tasks/reports/B6.md | итерация 1: принять с правкой entrypoint (trap TERM, лог ожидания, текст ошибки) |
+| B6 | merged | task/B6 | opus | 05:32 | 06:09 | tasks/reports/B6.md | принять → правка entrypoint → смержено |
 
 ## Журнал событий
 
@@ -83,6 +83,7 @@
 - 05:56 — B6: исполнитель закончил (миграции в `back/migrations/`, Migrator удалён, entrypoint с goose; test-all ×2, smoke 16/16). Запущен ревьюер.
 - 06:00 — I3: правки внесены (`b8cf5c6`), проверены координатором (`make deploy-config` ok). Merge после B6.
 - 06:06 — B6: ревью принят (test-all ×2, smoke 16/16, DDL без потерь); 3 мелких правки entrypoint — короткая итерация.
+- 06:09 — B6: правка entrypoint проверена (SIGTERM → 143, лог ожидания, быстрый выход при отказе БД); merge в main. Бэк на main: lint 0 issues, 17 пакетов ok. I3 сливает main и повторяет amd64-сборку бэка.
 
 ## Время по волнам
 
