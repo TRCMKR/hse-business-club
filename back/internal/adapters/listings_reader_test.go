@@ -5,55 +5,45 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/trcmkr/hse-business-club/back/internal/adapters"
+	"github.com/trcmkr/hse-business-club/back/internal/applications"
 	"github.com/trcmkr/hse-business-club/back/internal/listings"
+	"github.com/trcmkr/hse-business-club/back/internal/listings/mocks"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
 )
 
-// stubListings implements only Get; other methods panic through the nil embedded interface.
-type stubListings struct {
-	listings.Service
-	items map[uuid.UUID]*listings.Listing
-}
-
-func (s stubListings) Get(_ context.Context, id uuid.UUID) (*listings.Listing, error) {
-	if l, ok := s.items[id]; ok {
-		return l, nil
-	}
-	return nil, apperr.New(apperr.KindNotFound, "Публикация не найдена")
-}
-
 func TestListingReader(t *testing.T) {
-	active := &listings.Listing{ID: uuid.New(), AuthorID: uuid.New(), Status: listings.StatusActive}
-	closed := &listings.Listing{ID: uuid.New(), AuthorID: uuid.New(), Status: listings.StatusClosed}
-	r := adapters.NewListingReader(stubListings{items: map[uuid.UUID]*listings.Listing{
-		active.ID: active, closed.ID: closed,
-	}})
-
 	for _, tc := range []struct {
-		name string
-		l    *listings.Listing
-		open bool
+		name   string
+		status listings.Status
+		open   bool
 	}{
-		{"active", active, true},
-		{"closed", closed, false},
+		{"active", listings.StatusActive, true},
+		{"closed", listings.StatusClosed, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			info, err := r.GetListing(context.Background(), tc.l.ID)
-			if err != nil {
-				t.Fatalf("GetListing: %v", err)
-			}
-			if info.ID != tc.l.ID || info.AuthorID != tc.l.AuthorID || info.IsOpen != tc.open {
-				t.Fatalf("got %+v, want id %s author %s open %v", info, tc.l.ID, tc.l.AuthorID, tc.open)
-			}
+			svc := mocks.NewMockService(t)
+			l := &listings.Listing{ID: uuid.New(), AuthorID: uuid.New(), Status: tc.status}
+			svc.EXPECT().Get(mock.Anything, l.ID).Return(l, nil).Once()
+
+			info, err := adapters.NewListingReader(svc).GetListing(context.Background(), l.ID)
+			require.NoError(t, err)
+			assert.Equal(t, applications.ListingInfo{ID: l.ID, AuthorID: l.AuthorID, IsOpen: tc.open}, info)
 		})
 	}
 
 	t.Run("not found passes through", func(t *testing.T) {
-		_, err := r.GetListing(context.Background(), uuid.New())
-		if apperr.KindOf(err) != apperr.KindNotFound {
-			t.Fatalf("got %v, want KindNotFound", err)
-		}
+		svc := mocks.NewMockService(t)
+		id := uuid.New()
+		notFound := apperr.New(apperr.KindNotFound, "Публикация не найдена")
+		svc.EXPECT().Get(mock.Anything, id).Return(nil, notFound).Once()
+
+		info, err := adapters.NewListingReader(svc).GetListing(context.Background(), id)
+		require.ErrorIs(t, err, notFound)
+		assert.Equal(t, applications.ListingInfo{}, info)
 	})
 }

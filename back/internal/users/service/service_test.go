@@ -7,37 +7,62 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
+	"regexp"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/blob"
-	"github.com/trcmkr/hse-business-club/back/internal/platform/blob/memory"
+	blobmocks "github.com/trcmkr/hse-business-club/back/internal/platform/blob/mocks"
 	"github.com/trcmkr/hse-business-club/back/internal/users"
 	"github.com/trcmkr/hse-business-club/back/internal/users/domain"
+	"github.com/trcmkr/hse-business-club/back/internal/users/postgres"
 	"github.com/trcmkr/hse-business-club/back/internal/users/service"
+	"github.com/trcmkr/hse-business-club/back/internal/users/service/mocks"
+)
+
+var (
+	_ service.Repository        = (*postgres.Repository)(nil)
+	_ service.RefreshRepository = (*postgres.RefreshRepository)(nil)
 )
 
 const (
 	testUser       = "anna"
 	testPassword   = "password1"
 	testRefreshTTL = 24 * time.Hour
+	dummyHash      = "dummy-hash" // what the mocked hasher returns in New
+	storedHash     = "stored-hash"
+	msgInternal    = "Внутренняя ошибка"
 )
+
+var avatarKeyRe = regexp.MustCompile(`^[0-9a-f-]{36}\.jpg$`)
 
 type env struct {
 	svc    users.Service
-	repo   *fakeRepo
-	tokens *fakeTokens
-	hasher *fakeHasher
-	store  *memory.Store
-	now    time.Time // the service clock; tests move it
+	repo   *mocks.MockRepository
+	tokens *mocks.MockRefreshRepository
+	hasher *mocks.MockHasher
+	store  *blobmocks.MockStore
+	now    time.Time // the service clock
 }
 
-func newEnv() *env {
-	e := &env{repo: newFakeRepo(), tokens: newFakeTokens(), hasher: &fakeHasher{}, store: memory.New(), now: time.Now()}
+// newEnv builds the service on mocks; New hashes a random password once for misses.
+func newEnv(t *testing.T) *env {
+	t.Helper()
+	e := &env{
+		repo: mocks.NewMockRepository(t), tokens: mocks.NewMockRefreshRepository(t),
+		hasher: mocks.NewMockHasher(t), store: blobmocks.NewMockStore(t),
+		now: time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC),
+	}
+	e.hasher.EXPECT().Hash(mock.Anything).Return(dummyHash, nil).Once()
 	e.svc = service.New(e.repo, e.tokens, e.hasher, e.store,
 		service.WithRefreshTTL(testRefreshTTL), service.WithClock(func() time.Time { return e.now }))
 	return e
@@ -45,22 +70,20 @@ func newEnv() *env {
 
 func wantErr(t *testing.T, err error, kind apperr.Kind, msg string) {
 	t.Helper()
-	var e *apperr.Error
-	if !errors.As(err, &e) {
-		t.Fatalf("want *apperr.Error %v %q, got %v", kind, msg, err)
-	}
-	if e.Kind != kind || (msg != "" && e.Msg != msg) {
-		t.Fatalf("want %v %q, got %v %q", kind, msg, e.Kind, e.Msg)
+	var ae *apperr.Error
+	require.ErrorAs(t, err, &ae)
+	require.Equal(t, kind, ae.Kind, "err = %v", err)
+	if msg != "" {
+		require.Equal(t, msg, ae.Msg)
 	}
 }
 
-func (e *env) register(t *testing.T, username string) *users.User {
-	t.Helper()
-	u, err := e.svc.Register(context.Background(), users.RegisterParams{Username: username, Password: testPassword, DisplayName: "Имя"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return u
+func dbDown() error { return apperr.Wrap(apperr.KindUnknown, msgInternal, errors.New("db down")) }
+
+func userNotFound() error { return apperr.New(apperr.KindNotFound, postgres.MsgUserNotFound) }
+
+func user(username, avatarKey string) *users.User {
+	return &users.User{ID: uuid.New(), Username: username, DisplayName: "Имя", Skills: []string{}, AvatarKey: avatarKey}
 }
 
 func pngImage(t *testing.T, w, h int, c color.Color) []byte {
@@ -72,65 +95,87 @@ func pngImage(t *testing.T, w, h int, c color.Color) []byte {
 		}
 	}
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, png.Encode(&buf, img))
 	return buf.Bytes()
 }
 
-func TestRegisterAndAuthenticate(t *testing.T) {
-	e := newEnv()
+func TestRegister(t *testing.T) {
 	ctx := context.Background()
 
-	u, err := e.svc.Register(ctx, users.RegisterParams{Username: " Anna_K ", Password: testPassword, DisplayName: " Анна "})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if u.Username != "anna_k" || u.DisplayName != "Анна" {
-		t.Fatalf("not normalized: %+v", u)
-	}
-	if h := e.repo.hashes[u.ID]; h != "hash:password1" {
-		t.Fatalf("stored hash %q", h)
-	}
+	t.Run("normalized and hashed", func(t *testing.T) {
+		e := newEnv(t)
+		created := user("anna_k", "")
+		e.hasher.EXPECT().Hash(testPassword).Return("hash:password1", nil).Once()
+		e.repo.EXPECT().Create(mock.Anything, "anna_k", "hash:password1", "Анна").Return(created, nil).Once()
 
-	got, err := e.svc.Authenticate(ctx, "ANNA_K", testPassword)
-	if err != nil || got.ID != u.ID {
-		t.Fatalf("Authenticate = %+v, %v", got, err)
-	}
-
-	_, err = e.svc.Register(ctx, users.RegisterParams{Username: "anna_k", Password: "password2", DisplayName: "Другая"})
-	wantErr(t, err, apperr.KindConflict, "Логин уже занят")
-
-	_, err = e.svc.Register(ctx, users.RegisterParams{Username: "a", Password: testPassword, DisplayName: "A"})
-	wantErr(t, err, apperr.KindValidation, domain.MsgUsername)
-	_, err = e.svc.Register(ctx, users.RegisterParams{Username: "bob", Password: "short", DisplayName: "B"})
-	wantErr(t, err, apperr.KindValidation, domain.MsgPassword)
+		u, err := e.svc.Register(ctx, users.RegisterParams{Username: " Anna_K ", Password: testPassword, DisplayName: " Анна "})
+		require.NoError(t, err)
+		assert.Same(t, created, u)
+	})
+	t.Run("username taken", func(t *testing.T) {
+		e := newEnv(t)
+		e.hasher.EXPECT().Hash(mock.Anything).Return("hash", nil).Once()
+		e.repo.EXPECT().Create(mock.Anything, "anna_k", "hash", "Другая").
+			Return(nil, apperr.New(apperr.KindConflict, postgres.MsgUsernameTaken)).Once()
+		_, err := e.svc.Register(ctx, users.RegisterParams{Username: "anna_k", Password: "password2", DisplayName: "Другая"})
+		wantErr(t, err, apperr.KindConflict, "Логин уже занят")
+	})
+	t.Run("invalid input reaches neither hasher nor repo", func(t *testing.T) {
+		e := newEnv(t)
+		_, err := e.svc.Register(ctx, users.RegisterParams{Username: "a", Password: testPassword, DisplayName: "A"})
+		wantErr(t, err, apperr.KindValidation, domain.MsgUsername)
+		_, err = e.svc.Register(ctx, users.RegisterParams{Username: "bob", Password: "short", DisplayName: "B"})
+		wantErr(t, err, apperr.KindValidation, domain.MsgPassword)
+	})
+	t.Run("hasher failure", func(t *testing.T) {
+		e := newEnv(t)
+		e.hasher.EXPECT().Hash(testPassword).Return("", errors.New("rng failure")).Once()
+		_, err := e.svc.Register(ctx, users.RegisterParams{Username: testUser, Password: testPassword, DisplayName: "A"})
+		wantErr(t, err, apperr.KindUnknown, msgInternal)
+	})
 }
 
-func TestAuthenticateFailures(t *testing.T) {
-	e := newEnv()
+func TestAuthenticate(t *testing.T) {
 	ctx := context.Background()
-	e.register(t, testUser)
 
-	for _, tc := range []struct{ name, username, password string }{
-		{"wrong password", testUser, "password2"},
-		{"unknown user", "nobody", testPassword},
-		{"malformed login", "не логин", testPassword},
-		{"empty", "", ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			before := e.hasher.count()
-			_, err := e.svc.Authenticate(ctx, tc.username, tc.password)
+	t.Run("normalized login, password checked against the stored hash", func(t *testing.T) {
+		e := newEnv(t)
+		u := user("anna_k", "")
+		e.repo.EXPECT().GetByUsername(mock.Anything, "anna_k").Return(u, storedHash, nil).Once()
+		e.hasher.EXPECT().Check(storedHash, testPassword).Return(true).Once()
+		got, err := e.svc.Authenticate(ctx, " ANNA_K ", testPassword)
+		require.NoError(t, err)
+		assert.Same(t, u, got)
+	})
+
+	// Every failure is the same error and costs exactly one hash comparison
+	// (the mocks fail on a second Check or on a missing one).
+	t.Run("wrong password", func(t *testing.T) {
+		e := newEnv(t)
+		e.repo.EXPECT().GetByUsername(mock.Anything, testUser).Return(user(testUser, ""), storedHash, nil).Once()
+		e.hasher.EXPECT().Check(storedHash, "password2").Return(false).Once()
+		_, err := e.svc.Authenticate(ctx, testUser, "password2")
+		wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
+		assert.NotContains(t, err.Error(), "hash", "error leaks the hash")
+	})
+	t.Run("unknown user", func(t *testing.T) {
+		e := newEnv(t)
+		e.repo.EXPECT().GetByUsername(mock.Anything, "nobody").Return(nil, "", userNotFound()).Once()
+		e.hasher.EXPECT().Check(dummyHash, testPassword).Return(false).Once()
+		_, err := e.svc.Authenticate(ctx, "nobody", testPassword)
+		wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
+	})
+	for name, username := range map[string]string{"malformed login": "не логин", "empty": ""} {
+		t.Run(name, func(t *testing.T) {
+			e := newEnv(t) // no repo lookup
+			e.hasher.EXPECT().Check(dummyHash, mock.Anything).Return(false).Once()
+			_, err := e.svc.Authenticate(ctx, username, "")
 			wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
-			if e.hasher.count() != before+1 {
-				t.Fatalf("expected exactly one hash comparison, got %d", e.hasher.count()-before)
-			}
 		})
 	}
-
 	t.Run("storage failure is not masked", func(t *testing.T) {
-		e.repo.err = apperr.Wrap(apperr.KindUnknown, "Внутренняя ошибка", errors.New("db down"))
-		defer func() { e.repo.err = nil }()
+		e := newEnv(t)
+		e.repo.EXPECT().GetByUsername(mock.Anything, testUser).Return(nil, "", dbDown()).Once()
 		_, err := e.svc.Authenticate(ctx, testUser, testPassword)
 		wantErr(t, err, apperr.KindUnknown, "")
 	})
@@ -138,225 +183,342 @@ func TestAuthenticateFailures(t *testing.T) {
 
 // The production hasher really is bcrypt and the dummy hash path works with it.
 func TestBcryptHasher(t *testing.T) {
-	repo := newFakeRepo()
-	svc := service.New(repo, newFakeTokens(), service.Bcrypt, memory.New())
 	ctx := context.Background()
-	u, err := svc.Register(ctx, users.RegisterParams{Username: testUser, Password: testPassword, DisplayName: "A"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if h := repo.hashes[u.ID]; !strings.HasPrefix(h, "$2a$10$") {
-		t.Fatalf("not a bcrypt cost-10 hash: %q", h)
-	}
-	if _, err := svc.Authenticate(ctx, testUser, testPassword); err != nil {
-		t.Fatal(err)
-	}
+	repo := mocks.NewMockRepository(t)
+	svc := service.New(repo, mocks.NewMockRefreshRepository(t), service.Bcrypt, blobmocks.NewMockStore(t))
+	u := user(testUser, "")
+
+	var hash string
+	repo.EXPECT().Create(mock.Anything, testUser, mock.Anything, "A").
+		Run(func(_ context.Context, _, h, _ string) { hash = h }).Return(u, nil).Once()
+	_, err := svc.Register(ctx, users.RegisterParams{Username: testUser, Password: testPassword, DisplayName: "A"})
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(hash, "$2a$10$"), "not a bcrypt cost-10 hash: %q", hash)
+
+	repo.EXPECT().GetByUsername(mock.Anything, testUser).Return(u, hash, nil).Once()
+	got, err := svc.Authenticate(ctx, testUser, testPassword)
+	require.NoError(t, err)
+	assert.Same(t, u, got)
+
+	repo.EXPECT().GetByUsername(mock.Anything, testUser).Return(u, hash, nil).Once()
+	_, err = svc.Authenticate(ctx, testUser, "password2")
+	wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
+
+	repo.EXPECT().GetByUsername(mock.Anything, "ghost").Return(nil, "", userNotFound()).Once()
 	_, err = svc.Authenticate(ctx, "ghost", testPassword)
 	wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
 }
 
-func TestGetAndGetMany(t *testing.T) {
-	e := newEnv()
-	ctx := context.Background()
-	a, b := e.register(t, "alice"), e.register(t, "bob")
+// If the hasher fails in New, misses are still compared against a real bcrypt hash.
+func TestDummyHashFallback(t *testing.T) {
+	isBcrypt := mock.MatchedBy(func(h string) bool { return strings.HasPrefix(h, "$2a$10$") && len(h) == 60 })
+	for name, hashErr := range map[string]error{"error": errors.New("rng failure"), "empty hash": nil} {
+		t.Run(name, func(t *testing.T) {
+			repo, hasher := mocks.NewMockRepository(t), mocks.NewMockHasher(t)
+			hasher.EXPECT().Hash(mock.Anything).Return("", hashErr).Once()
+			svc := service.New(repo, mocks.NewMockRefreshRepository(t), hasher, blobmocks.NewMockStore(t))
 
-	got, err := e.svc.Get(ctx, a.ID)
-	if err != nil || got.Username != "alice" {
-		t.Fatalf("Get = %+v, %v", got, err)
-	}
-	_, err = e.svc.Get(ctx, uuid.New())
-	wantErr(t, err, apperr.KindNotFound, "")
-
-	m, err := e.svc.GetMany(ctx, []uuid.UUID{a.ID, uuid.New(), b.ID, a.ID})
-	if err != nil || len(m) != 2 || m[a.ID] == nil || m[b.ID] == nil {
-		t.Fatalf("GetMany = %v, %v", m, err)
-	}
-	m, err = e.svc.GetMany(ctx, nil)
-	if err != nil || m == nil || len(m) != 0 {
-		t.Fatalf("GetMany(nil) = %v, %v", m, err)
+			repo.EXPECT().GetByUsername(mock.Anything, "ghost").Return(nil, "", userNotFound()).Once()
+			hasher.EXPECT().Check(isBcrypt, testPassword).Return(false).Once()
+			_, err := svc.Authenticate(context.Background(), "ghost", testPassword)
+			wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
+		})
 	}
 }
 
-func TestUpdateProfile(t *testing.T) {
-	e := newEnv()
-	ctx := context.Background()
-	u := e.register(t, testUser)
+// The miss hash is computed in New, not on the first miss: newEnv expects exactly one
+// Hash call, and the misses only compare.
+func TestDummyHashComputedInNew(t *testing.T) {
+	e := newEnv(t)
+	for _, name := range []string{"ghost", "ghost2"} {
+		e.repo.EXPECT().GetByUsername(mock.Anything, name).Return(nil, "", userNotFound()).Once()
+	}
+	e.hasher.EXPECT().Check(dummyHash, testPassword).Return(false).Twice()
+	_, _ = e.svc.Authenticate(context.Background(), "ghost", testPassword)
+	_, _ = e.svc.Authenticate(context.Background(), "ghost2", testPassword)
+}
 
+func TestGetAndGetMany(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	a, b := user("alice", ""), user("bob", "")
+
+	e.repo.EXPECT().GetByID(mock.Anything, a.ID).Return(a, nil).Once()
+	got, err := e.svc.Get(ctx, a.ID)
+	require.NoError(t, err)
+	assert.Same(t, a, got)
+
+	missing := uuid.New()
+	e.repo.EXPECT().GetByID(mock.Anything, missing).Return(nil, userNotFound()).Once()
+	_, err = e.svc.Get(ctx, missing)
+	wantErr(t, err, apperr.KindNotFound, "Участник не найден")
+
+	// duplicates are dropped, the order of first occurrences is kept
+	found := map[uuid.UUID]*users.User{a.ID: a, b.ID: b}
+	e.repo.EXPECT().GetMany(mock.Anything, []uuid.UUID{a.ID, missing, b.ID}).Return(found, nil).Once()
+	m, err := e.svc.GetMany(ctx, []uuid.UUID{a.ID, missing, b.ID, a.ID})
+	require.NoError(t, err)
+	assert.Equal(t, found, m)
+
+	m, err = e.svc.GetMany(ctx, nil) // no repo call
+	require.NoError(t, err)
+	assert.NotNil(t, m)
+	assert.Empty(t, m)
+}
+
+func TestUpdateProfile(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	u := user(testUser, "")
+
+	want := users.UpdateProfileParams{DisplayName: "Анна", Headline: "Продакт", Skills: []string{"Go", "SQL"}, Telegram: testUser}
+	e.repo.EXPECT().Update(mock.Anything, u.ID, want).Return(u, nil).Once()
 	got, err := e.svc.UpdateProfile(ctx, u.ID, users.UpdateProfileParams{
 		DisplayName: " Анна ", Headline: "Продакт", Skills: []string{" Go ", "", "SQL"}, Telegram: "@anna",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.DisplayName != "Анна" || got.Telegram != testUser || len(got.Skills) != 2 || got.Skills[0] != "Go" {
-		t.Fatalf("not normalized: %+v", got)
-	}
+	require.NoError(t, err)
+	assert.Same(t, u, got)
 
+	// invalid input does not reach the repo
 	_, err = e.svc.UpdateProfile(ctx, u.ID, users.UpdateProfileParams{DisplayName: "A", Skills: []string{"Go", "go"}})
 	wantErr(t, err, apperr.KindValidation, "Навыки: без повторов")
 	_, err = e.svc.UpdateProfile(ctx, u.ID, users.UpdateProfileParams{DisplayName: "A", Headline: strings.Repeat("x", 121)})
 	wantErr(t, err, apperr.KindValidation, "Кратко о себе: не больше 120 символов")
-	_, err = e.svc.UpdateProfile(ctx, uuid.New(), users.UpdateProfileParams{DisplayName: "A"})
+
+	missing := uuid.New()
+	e.repo.EXPECT().Update(mock.Anything, missing, mock.Anything).Return(nil, userNotFound()).Once()
+	_, err = e.svc.UpdateProfile(ctx, missing, users.UpdateProfileParams{DisplayName: "A"})
 	wantErr(t, err, apperr.KindNotFound, "")
 }
 
-func TestAvatarLifecycle(t *testing.T) {
-	e := newEnv()
+// putAvatar expects one Put of a normalized avatar and records its key and bytes.
+type putAvatar struct {
+	key  string
+	data []byte
+}
+
+func (e *env) expectPut(t *testing.T, err error) *putAvatar {
+	t.Helper()
+	p := &putAvatar{}
+	e.store.EXPECT().Put(mock.Anything, mock.Anything, "image/jpeg", mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, key, _ string, r io.Reader, size int64) error {
+			data, rerr := io.ReadAll(r)
+			require.NoError(t, rerr)
+			require.Equal(t, int64(len(data)), size)
+			p.key, p.data = key, data
+			return err
+		}).Once()
+	return p
+}
+
+// expectSetKey expects the key of the last Put to be saved.
+func (e *env) expectSetKey(t *testing.T, u *users.User, p *putAvatar, err error) {
+	t.Helper()
+	e.repo.EXPECT().SetAvatarKey(mock.Anything, u.ID, mock.Anything).RunAndReturn(
+		func(_ context.Context, _ uuid.UUID, key string) (*users.User, error) {
+			assert.Equal(t, p.key, key, "the uploaded key is saved")
+			if err != nil {
+				return nil, err
+			}
+			c := *u
+			c.AvatarKey = key
+			return &c, nil
+		}).Once()
+}
+
+func TestSetAvatar(t *testing.T) {
 	ctx := context.Background()
-	u := e.register(t, testUser)
 
-	// set: one object in the store, key in the profile
-	u1, err := e.svc.SetAvatar(ctx, u.ID, pngImage(t, 300, 200, color.RGBA{R: 200, A: 255}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if u1.AvatarKey == "" || !strings.HasSuffix(u1.AvatarKey, ".jpg") || e.store.Len() != 1 || !e.store.Has(u1.AvatarKey) {
-		t.Fatalf("after set: key %q, store %d", u1.AvatarKey, e.store.Len())
-	}
-	av, err := e.svc.OpenAvatar(ctx, u1.AvatarKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg, format, err := image.DecodeConfig(bytes.NewReader(av.Data))
-	if err != nil || format != "jpeg" || cfg.Width != 512 || cfg.Height != 512 || av.ContentType != "image/jpeg" {
-		t.Fatalf("stored avatar: %v %s %dx%d %s", err, format, cfg.Width, cfg.Height, av.ContentType)
-	}
+	t.Run("first photo: normalized 512×512 JPEG under a new key", func(t *testing.T) {
+		e := newEnv(t)
+		u := user(testUser, "")
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		put := e.expectPut(t, nil)
+		e.expectSetKey(t, u, put, nil) // no Delete: there was no previous photo
 
-	// second set: new key, old object deleted
-	u2, err := e.svc.SetAvatar(ctx, u.ID, pngImage(t, 100, 100, color.RGBA{B: 200, A: 255}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if u2.AvatarKey == u1.AvatarKey || e.store.Len() != 1 || e.store.Has(u1.AvatarKey) || !e.store.Has(u2.AvatarKey) {
-		t.Fatalf("after second set: %q → %q, store %d", u1.AvatarKey, u2.AvatarKey, e.store.Len())
-	}
-	_, err = e.svc.OpenAvatar(ctx, u1.AvatarKey)
-	wantErr(t, err, apperr.KindNotFound, service.MsgAvatarNotFound)
+		got, err := e.svc.SetAvatar(ctx, u.ID, pngImage(t, 300, 200, color.RGBA{R: 200, A: 255}))
+		require.NoError(t, err)
+		assert.Regexp(t, avatarKeyRe, got.AvatarKey)
+		assert.Equal(t, put.key, got.AvatarKey)
+		cfg, format, err := image.DecodeConfig(bytes.NewReader(put.data))
+		require.NoError(t, err)
+		assert.Equal(t, "jpeg", format)
+		assert.Equal(t, 512, cfg.Width)
+		assert.Equal(t, 512, cfg.Height)
+	})
+	t.Run("replacing: new key, old object deleted", func(t *testing.T) {
+		e := newEnv(t)
+		old := uuid.NewString() + ".jpg"
+		u := user(testUser, old)
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		put := e.expectPut(t, nil)
+		e.expectSetKey(t, u, put, nil)
+		e.store.EXPECT().Delete(mock.Anything, old).Return(nil).Once()
 
-	// invalid photo: validation, nothing changes
-	_, err = e.svc.SetAvatar(ctx, u.ID, []byte("not an image"))
-	wantErr(t, err, apperr.KindValidation, domain.MsgAvatarFormat)
-	if cur, _ := e.svc.Get(ctx, u.ID); cur.AvatarKey != u2.AvatarKey || e.store.Len() != 1 {
-		t.Fatal("invalid photo changed the profile or the store")
-	}
+		got, err := e.svc.SetAvatar(ctx, u.ID, pngImage(t, 100, 100, color.RGBA{B: 200, A: 255}))
+		require.NoError(t, err)
+		assert.NotEqual(t, old, got.AvatarKey)
+		assert.Equal(t, put.key, got.AvatarKey)
+	})
+	t.Run("failed delete of the old object is only logged", func(t *testing.T) {
+		e := newEnv(t)
+		old := uuid.NewString() + ".jpg"
+		u := user(testUser, old)
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		put := e.expectPut(t, nil)
+		e.expectSetKey(t, u, put, nil)
+		e.store.EXPECT().Delete(mock.Anything, old).Return(errors.New("s3 down")).Once()
 
-	// remove, twice: idempotent
-	for range 2 {
+		got, err := e.svc.SetAvatar(ctx, u.ID, pngImage(t, 64, 64, color.White))
+		require.NoError(t, err)
+		assert.Equal(t, put.key, got.AvatarKey)
+	})
+	t.Run("invalid photo: nothing is touched", func(t *testing.T) {
+		e := newEnv(t)
+		_, err := e.svc.SetAvatar(ctx, uuid.New(), []byte("not an image"))
+		wantErr(t, err, apperr.KindValidation, domain.MsgAvatarFormat)
+		_, err = e.svc.SetAvatar(ctx, uuid.New(), pngImage(t, 63, 64, color.White))
+		wantErr(t, err, apperr.KindValidation, domain.MsgAvatarMinSide)
+	})
+	t.Run("unknown user: nothing is uploaded", func(t *testing.T) {
+		e := newEnv(t)
+		id := uuid.New()
+		e.repo.EXPECT().GetByID(mock.Anything, id).Return(nil, userNotFound()).Once()
+		_, err := e.svc.SetAvatar(ctx, id, pngImage(t, 64, 64, color.Black))
+		wantErr(t, err, apperr.KindNotFound, "")
+	})
+	t.Run("upload failure: the key is not saved", func(t *testing.T) {
+		e := newEnv(t)
+		u := user(testUser, "")
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		e.expectPut(t, errors.New("s3 down"))
+		_, err := e.svc.SetAvatar(ctx, u.ID, pngImage(t, 64, 64, color.White))
+		wantErr(t, err, apperr.KindUnknown, msgInternal)
+	})
+	// If saving the key fails after the upload, the uploaded object is removed and the
+	// previous photo is kept.
+	t.Run("saving the key fails: the upload is cleaned up", func(t *testing.T) {
+		e := newEnv(t)
+		u := user(testUser, uuid.NewString()+".jpg")
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		put := e.expectPut(t, nil)
+		e.expectSetKey(t, u, put, dbDown())
+		e.store.EXPECT().Delete(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) error {
+			assert.Equal(t, put.key, key, "only the orphan upload is deleted")
+			return nil
+		}).Once()
+		_, err := e.svc.SetAvatar(ctx, u.ID, pngImage(t, 64, 64, color.White))
+		wantErr(t, err, apperr.KindUnknown, "")
+	})
+}
+
+func TestRemoveAvatar(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("removes the key, then the object", func(t *testing.T) {
+		e := newEnv(t)
+		key := uuid.NewString() + ".jpg"
+		u := user(testUser, key)
+		cleared := *u
+		cleared.AvatarKey = ""
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		setKey := e.repo.EXPECT().SetAvatarKey(mock.Anything, u.ID, "").Return(&cleared, nil).Once()
+		del := e.store.EXPECT().Delete(mock.Anything, key).Return(nil).Once()
+		mock.InOrder(setKey, del)
+
 		got, err := e.svc.RemoveAvatar(ctx, u.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.AvatarKey != "" || e.store.Len() != 0 {
-			t.Fatalf("after remove: key %q, store %d", got.AvatarKey, e.store.Len())
-		}
-	}
-
-	// unknown user
-	_, err = e.svc.SetAvatar(ctx, uuid.New(), pngImage(t, 64, 64, color.Black))
-	wantErr(t, err, apperr.KindNotFound, "")
-	_, err = e.svc.RemoveAvatar(ctx, uuid.New())
-	wantErr(t, err, apperr.KindNotFound, "")
-	if e.store.Len() != 0 {
-		t.Fatalf("store has %d objects for an unknown user", e.store.Len())
-	}
+		require.NoError(t, err)
+		assert.Empty(t, got.AvatarKey)
+	})
+	t.Run("no photo: idempotent, the profile as is", func(t *testing.T) {
+		e := newEnv(t)
+		u := user(testUser, "")
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		got, err := e.svc.RemoveAvatar(ctx, u.ID)
+		require.NoError(t, err)
+		assert.Same(t, u, got)
+	})
+	t.Run("unknown user", func(t *testing.T) {
+		e := newEnv(t)
+		id := uuid.New()
+		e.repo.EXPECT().GetByID(mock.Anything, id).Return(nil, userNotFound()).Once()
+		_, err := e.svc.RemoveAvatar(ctx, id)
+		wantErr(t, err, apperr.KindNotFound, "")
+	})
+	t.Run("saving fails: the object is kept", func(t *testing.T) {
+		e := newEnv(t)
+		u := user(testUser, uuid.NewString()+".jpg")
+		e.repo.EXPECT().GetByID(mock.Anything, u.ID).Return(u, nil).Once()
+		e.repo.EXPECT().SetAvatarKey(mock.Anything, u.ID, "").Return(nil, dbDown()).Once()
+		_, err := e.svc.RemoveAvatar(ctx, u.ID)
+		wantErr(t, err, apperr.KindUnknown, "")
+	})
 }
 
-// If saving the key fails after the upload, the uploaded object is removed.
-func TestSetAvatarCleansUpOnRepoFailure(t *testing.T) {
-	e := newEnv()
-	ctx := context.Background()
-	u := e.register(t, testUser)
-	failing := &failingSetKey{fakeRepo: e.repo}
-	svc := service.New(failing, e.tokens, e.hasher, e.store)
-	_, err := svc.SetAvatar(ctx, u.ID, pngImage(t, 64, 64, color.White))
-	wantErr(t, err, apperr.KindUnknown, "")
-	if e.store.Len() != 0 {
-		t.Fatalf("orphan object left: %d", e.store.Len())
-	}
+// closeRecorder is an object body that records Close.
+type closeRecorder struct {
+	io.Reader
+	closed bool
 }
 
-type failingSetKey struct{ *fakeRepo }
-
-func (f *failingSetKey) SetAvatarKey(context.Context, uuid.UUID, string) (*users.User, error) {
-	return nil, apperr.Wrap(apperr.KindUnknown, "Внутренняя ошибка", errors.New("db down"))
+func (c *closeRecorder) Close() error {
+	c.closed = true
+	return nil
 }
 
 func TestOpenAvatar(t *testing.T) {
-	e := newEnv()
 	ctx := context.Background()
-	foreign := uuid.NewString() + ".jpg"
-	_ = e.store.Put(ctx, "secret.txt", "text/plain", strings.NewReader("x"), 1)
 
-	for _, key := range []string{
-		"", foreign, "../" + foreign, "secret.txt", strings.ToUpper(uuid.NewString()) + ".jpg",
-		uuid.NewString() + ".png", uuid.NewString() + ".jpg/x",
-	} {
+	t.Run("returns the stored JPEG and closes the body", func(t *testing.T) {
+		e := newEnv(t)
+		key := uuid.NewString() + ".jpg"
+		data := []byte("jpeg bytes")
+		body := &closeRecorder{Reader: bytes.NewReader(data)}
+		e.store.EXPECT().Get(mock.Anything, key).
+			Return(&blob.Object{ContentType: "image/jpeg", Size: int64(len(data)), Body: body}, nil).Once()
+
+		av, err := e.svc.OpenAvatar(ctx, key)
+		require.NoError(t, err)
+		assert.Equal(t, &users.Avatar{ContentType: "image/jpeg", Data: data}, av)
+		assert.True(t, body.closed)
+	})
+	t.Run("malformed keys do not reach the store", func(t *testing.T) {
+		e := newEnv(t)
+		foreign := uuid.NewString() + ".jpg"
+		for _, key := range []string{
+			"", "../" + foreign, "secret.txt", strings.ToUpper(uuid.NewString()) + ".jpg",
+			uuid.NewString() + ".png", uuid.NewString() + ".jpg/x",
+		} {
+			_, err := e.svc.OpenAvatar(ctx, key)
+			wantErr(t, err, apperr.KindNotFound, service.MsgAvatarNotFound)
+		}
+	})
+	t.Run("unknown (e.g. replaced) key", func(t *testing.T) {
+		e := newEnv(t)
+		key := uuid.NewString() + ".jpg"
+		e.store.EXPECT().Get(mock.Anything, key).Return(nil, blob.ErrNotFound).Once()
 		_, err := e.svc.OpenAvatar(ctx, key)
 		wantErr(t, err, apperr.KindNotFound, service.MsgAvatarNotFound)
-	}
-}
-
-func TestOpenAvatarStoreFailure(t *testing.T) {
-	svc := service.New(newFakeRepo(), newFakeTokens(), &fakeHasher{}, brokenStore{})
-	_, err := svc.OpenAvatar(context.Background(), uuid.NewString()+".jpg")
-	wantErr(t, err, apperr.KindUnknown, "")
-}
-
-type brokenStore struct{ blob.Store }
-
-func (brokenStore) Get(context.Context, string) (*blob.Object, error) {
-	return nil, errors.New("s3 down")
-}
-
-// Errors leaving the service are *apperr.Error and never mention the password hash.
-func TestNoHashInErrors(t *testing.T) {
-	e := newEnv()
-	e.register(t, testUser)
-	_, err := e.svc.Authenticate(context.Background(), testUser, "wrong-password")
-	if strings.Contains(err.Error(), "hash") {
-		t.Fatalf("error leaks hash: %v", err)
-	}
-}
-
-// If the hasher fails in New, misses are still compared against a real bcrypt hash.
-func TestDummyHashFallback(t *testing.T) {
-	h := &brokenHasher{}
-	svc := service.New(newFakeRepo(), newFakeTokens(), h, memory.New())
-	_, err := svc.Authenticate(context.Background(), "ghost", testPassword)
-	wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
-	if len(h.checked) != 1 || !strings.HasPrefix(h.checked[0], "$2a$10$") || len(h.checked[0]) != 60 {
-		t.Fatalf("miss compared against %q, want a bcrypt cost-10 hash", h.checked)
-	}
-}
-
-// The miss hash is computed in New, not on the first miss.
-func TestDummyHashComputedInNew(t *testing.T) {
-	h := &countingHasher{}
-	svc := service.New(newFakeRepo(), newFakeTokens(), h, memory.New())
-	if n := h.hashes; n != 1 {
-		t.Fatalf("Hash called %d times in New, want 1", n)
-	}
-	_, _ = svc.Authenticate(context.Background(), "ghost", testPassword)
-	_, _ = svc.Authenticate(context.Background(), "ghost2", testPassword)
-	if n := h.hashes; n != 1 {
-		t.Fatalf("Hash called %d times after misses, want 1", n)
-	}
-}
-
-type brokenHasher struct{ checked []string }
-
-func (*brokenHasher) Hash(string) (string, error) { return "", errors.New("rng failure") }
-func (b *brokenHasher) Check(hash, _ string) bool {
-	b.checked = append(b.checked, hash)
-	return false
-}
-
-type countingHasher struct {
-	fakeHasher
-	hashes int
-}
-
-func (c *countingHasher) Hash(p string) (string, error) {
-	c.hashes++
-	return c.fakeHasher.Hash(p)
+	})
+	t.Run("store failure", func(t *testing.T) {
+		e := newEnv(t)
+		e.store.EXPECT().Get(mock.Anything, mock.Anything).Return(nil, errors.New("s3 down")).Once()
+		_, err := e.svc.OpenAvatar(ctx, uuid.NewString()+".jpg")
+		wantErr(t, err, apperr.KindUnknown, msgInternal)
+	})
+	t.Run("read failure", func(t *testing.T) {
+		e := newEnv(t)
+		body := &closeRecorder{Reader: iotest.ErrReader(errors.New("connection reset"))}
+		e.store.EXPECT().Get(mock.Anything, mock.Anything).Return(&blob.Object{Body: body}, nil).Once()
+		_, err := e.svc.OpenAvatar(ctx, uuid.NewString()+".jpg")
+		wantErr(t, err, apperr.KindUnknown, msgInternal)
+		assert.True(t, body.closed)
+	})
+	t.Run("oversized object is not ours", func(t *testing.T) {
+		e := newEnv(t)
+		body := &closeRecorder{Reader: bytes.NewReader(make([]byte, 1<<20+1))}
+		e.store.EXPECT().Get(mock.Anything, mock.Anything).Return(&blob.Object{Body: body}, nil).Once()
+		_, err := e.svc.OpenAvatar(ctx, uuid.NewString()+".jpg")
+		wantErr(t, err, apperr.KindUnknown, msgInternal)
+	})
 }
