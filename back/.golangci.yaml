@@ -51,6 +51,7 @@ linters:
       - \.pb\.scratch\.go$
       - \.pb\.goclay\.go$
       - pkg/api
+      - (^|/)mocks/
     rules:
       # e2e scenarios and the demo data table read better with literals inline
       - path: (tests/e2e/|internal/seed/data\.go)

@@ -9,6 +9,8 @@ LDFLAGS := -s -w \
 # Built with the local Go toolchain: a prebuilt binary older than the toolchain
 # cannot type-check the standard library.
 GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+# mockery v3 via `go run` at a pinned version (no global install); config: .mockery.yml.
+MOCKERY       ?= go run github.com/vektra/mockery/v3@v3.8.1
 
 ifneq (,$(wildcard .env))
 	include .env
@@ -31,6 +33,11 @@ tools:
 ## generates gRPC, gateway and swagger code from api/ into pkg/
 generate: tools
 	PATH="$(BIN_DIR):$$PATH" buf generate
+
+.PHONY: generate-mocks
+## generates testify mocks of ports and repositories (.mockery.yml) into internal/**/mocks
+generate-mocks:
+	$(MOCKERY)
 
 .PHONY: lint
 ## runs buf lint and golangci-lint

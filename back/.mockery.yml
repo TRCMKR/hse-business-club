@@ -1,0 +1,41 @@
+# mockery v3 (ARCHITECTURE §6a): `make generate-mocks`. Mocks are committed.
+# v3 names of the v2 options: structname = mockname, pkgname = outpkg; the testify
+# template always generates the expecter (EXPECT()), v2 `with-expecter: true`.
+all: false
+template: testify
+formatter: goimports
+force-file-write: true
+log-level: warn
+dir: "{{.InterfaceDir}}/mocks"
+structname: "Mock{{.InterfaceName}}"
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+pkgname: mocks
+packages:
+  github.com/trcmkr/hse-business-club/back/internal/users:
+    interfaces:
+      Service:
+  github.com/trcmkr/hse-business-club/back/internal/listings:
+    interfaces:
+      Service:
+  github.com/trcmkr/hse-business-club/back/internal/applications:
+    interfaces:
+      Service:
+      ListingReader:
+  github.com/trcmkr/hse-business-club/back/internal/platform/blob:
+    interfaces:
+      Store:
+  github.com/trcmkr/hse-business-club/back/internal/platform/auth:
+    interfaces:
+      Issuer:
+      Verifier:
+  github.com/trcmkr/hse-business-club/back/internal/users/service:
+    interfaces:
+      Repository:
+      RefreshRepository:
+      Hasher:
+  github.com/trcmkr/hse-business-club/back/internal/listings/service:
+    interfaces:
+      Repository:
+  github.com/trcmkr/hse-business-club/back/internal/applications/service:
+    interfaces:
+      Repository:
