@@ -163,7 +163,9 @@
 
 ## 3. Модель данных (PostgreSQL)
 
-Миграции — goose SQL, применяются автоматически при старте бэкенда.
+Миграции — goose SQL в `back/migrations/` (одна папка, timestamp-имена, как в других проектах
+автора); применяются goose CLI в entrypoint контейнера перед стартом приложения (в compose и
+на стенде — автоматически), локально — `make migration-up`.
 
 ```sql
 CREATE TABLE users (

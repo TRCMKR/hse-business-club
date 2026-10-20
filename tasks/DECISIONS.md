@@ -115,3 +115,21 @@
   читает `users.users` напрямую (проверка пустоты + advisory lock) — допустимо, порт users не
   расширяем; (4) тексты `description`/`about` сида — на усмотрение B5.
 - **Документы:** `back/ARCHITECTURE.md` §3.
+## 2026-10-20 05:30 — миграции через goose CLI из `back/migrations/` (задача B6)
+
+- **Поднял:** пользователь («вместо мигратора в коде — миграции через goose из папки
+  migrations как в других проектах»). Референс соглашения: `bot-aller/migrations`,
+  `matcher/matcher-back/migrations` + цели `migration-create/up/down/status` в Makefile.
+- **Решение:** убрать `platform/db.Migrator` и embed-миграции из контекстов; одна папка
+  `back/migrations/` с `YYYYMMDDHHMMSS_<name>.sql`, одна таблица версий `public.goose_db_version`;
+  схемы остаются раздельными (миграции создают `CREATE SCHEMA` + объекты с квалифицированными
+  именами). Применение: goose CLI в entrypoint образа (`goose up` → `exec hbc`), `make
+  migration-*` локально, библиотека goose в `dbtest` для integration/e2e. `/readyz` больше не
+  зависит от миграций (они уже применены к старту). Сид — без изменений.
+- **Документы:** `back/ARCHITECTURE.md` §1 п.2, §4, §6, §7; `SPEC.md` §3; `tasks/B6-goose-migrations.md`.
+- **Уведомлены:** I3 (entrypoint применяет миграции — kamal-хуков не нужно), README (B6 правит §Запуск/§Тесты бэка).
+
+## 2026-10-20 05:30 — деплой выполняет пользователь
+
+- I3 готовит конфиги/Makefile/README; `kamal setup`/`deploy` на `72.4.68.165` запускает
+  пользователь сам. Сервер и домен (`hbc.trcmkr.ru`) подтверждены.

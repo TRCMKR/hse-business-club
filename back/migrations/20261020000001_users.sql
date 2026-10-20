@@ -1,6 +1,8 @@
 -- +goose Up
--- Runs with search_path = users (platform/db.Migrator); names are qualified anyway.
-CREATE TABLE IF NOT EXISTS users.users (
+-- Context "users" (ARCHITECTURE §1, rule 2): its own schema, fully qualified names.
+CREATE SCHEMA IF NOT EXISTS users;
+
+CREATE TABLE users.users (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     username      text NOT NULL UNIQUE,
     password_hash text NOT NULL,
@@ -15,4 +17,4 @@ CREATE TABLE IF NOT EXISTS users.users (
 );
 
 -- +goose Down
-DROP TABLE IF EXISTS users.users;
+DROP SCHEMA IF EXISTS users CASCADE;

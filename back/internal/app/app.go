@@ -19,7 +19,6 @@ import (
 	"github.com/trcmkr/hse-business-club/back/internal/platform/auth"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/blob"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/config"
-	"github.com/trcmkr/hse-business-club/back/internal/platform/db"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/server"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/telemetry"
 	"github.com/trcmkr/hse-business-club/back/internal/seed"
@@ -43,15 +42,11 @@ type App struct {
 	bff    *bff.Implementation
 }
 
-// Migrators returns the migrators of all bounded contexts, in order.
-func Migrators() []db.Migrator {
-	return []db.Migrator{userspg.Migrator, listingspg.Migrator, appspg.Migrator}
-}
-
-// New runs migrations, builds contexts and the BFF, seeds demo data when
-// SEED_DEMO_DATA is set, and builds the server (listeners are bound). Since all of
-// it happens before Run, /readyz answers only after migrations; it then checks the
-// pool and the blob store.
+// New builds contexts and the BFF, seeds demo data when SEED_DEMO_DATA is set, and
+// builds the server (listeners are bound). The schema is expected to be migrated
+// already: goose applies back/migrations before the binary starts (container
+// entrypoint, `make migration-up`, dbtest in tests). /readyz checks the pool and the
+// blob store.
 func New(ctx context.Context, cfg *config.Config, d Deps) (*App, error) {
 	if d.Log == nil || d.Telemetry == nil || d.Pool == nil || d.Blob == nil {
 		return nil, errors.New("app: Log, Telemetry, Pool and Blob are required")
@@ -59,13 +54,6 @@ func New(ctx context.Context, cfg *config.Config, d Deps) (*App, error) {
 
 	if err := d.Telemetry.Register(telemetry.PoolCollector(d.Pool)); err != nil {
 		return nil, err
-	}
-
-	for _, m := range Migrators() {
-		if err := m.Up(ctx, d.Pool); err != nil {
-			return nil, fmt.Errorf("app: %w", err)
-		}
-		d.Log.Info("migrations applied", zap.String("schema", m.Schema))
 	}
 
 	jwt := auth.NewJWT(cfg.Auth.JWTSecret, cfg.Auth.JWTTTL)

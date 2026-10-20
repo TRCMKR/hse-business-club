@@ -1,7 +1,9 @@
 -- +goose Up
--- Runs with search_path = listings (platform/db.Migrator).
+-- Context "listings": its own schema, fully qualified names.
 -- author_id references users.users(id) logically; no cross-schema FK (ARCHITECTURE §1).
-CREATE TABLE listings (
+CREATE SCHEMA IF NOT EXISTS listings;
+
+CREATE TABLE listings.listings (
     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     author_id    uuid NOT NULL,
     kind         text NOT NULL CHECK (kind IN ('startup', 'vacancy')),
@@ -16,8 +18,8 @@ CREATE TABLE listings (
     updated_at   timestamptz NOT NULL DEFAULT now(),
     closed_at    timestamptz
 );
-CREATE INDEX listings_feed_idx   ON listings (status, created_at DESC);
-CREATE INDEX listings_author_idx ON listings (author_id, created_at DESC);
+CREATE INDEX listings_feed_idx   ON listings.listings (status, created_at DESC);
+CREATE INDEX listings_author_idx ON listings.listings (author_id, created_at DESC);
 
 -- +goose Down
-DROP TABLE listings;
+DROP SCHEMA IF EXISTS listings CASCADE;

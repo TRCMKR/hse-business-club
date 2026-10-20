@@ -22,7 +22,7 @@ import (
 func setup(t *testing.T) (*postgres.Repo, *pgxpool.Pool) {
 	t.Helper()
 	pool := dbtest.Pool(t)
-	dbtest.Migrate(t, pool, postgres.Migrator)
+	dbtest.Migrate(t, pool)
 	return postgres.New(pool), pool
 }
 
@@ -72,16 +72,16 @@ func equalIDs(t *testing.T, got []*applications.Application, want ...uuid.UUID) 
 	}
 }
 
-func TestMigrator(t *testing.T) {
+func TestMigrations(t *testing.T) {
 	_, pool := setup(t)
 	ctx := context.Background()
-	if err := postgres.Migrator.Up(ctx, pool); err != nil {
+	if err := dbtest.Up(ctx, pool); err != nil {
 		t.Fatalf("second Up: %v", err)
 	}
 	var ok bool
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('applications.applications') IS NOT NULL
 		AND to_regclass('applications.applications_listing_author_idx') IS NOT NULL
-		AND to_regclass('applications.goose_db_version') IS NOT NULL`).Scan(&ok); err != nil || !ok {
+		AND to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&ok); err != nil || !ok {
 		t.Fatalf("schema objects missing: ok=%v err=%v", ok, err)
 	}
 }

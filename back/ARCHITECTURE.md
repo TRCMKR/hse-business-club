@@ -29,10 +29,14 @@ HTTP/JSON (grpc-gateway)  ──►  gRPC hbc.v1.HseBusinessClub (BFF)
 1. Контекст импортирует только `platform/*` и свой корневой пакет. Импорт
    `internal/listings/...` из `internal/applications/...` запрещён; нужна информация —
    объяви порт в своём пакете (`applications.ListingReader`), реализуй в `internal/adapters`.
-2. Каждый контекст — своя Postgres-схема (`users`, `listings`, `applications`), свои
-   миграции в `internal/<ctx>/postgres/migrations`, своя таблица версий goose
-   (`<ctx>.goose_db_version`). **Никаких FK и JOIN между схемами.** Ссылки между
-   контекстами — `uuid` без ограничения.
+2. Каждый контекст — своя Postgres-схема (`users`, `listings`, `applications`). Миграции —
+   goose SQL в одной папке `back/migrations/` (`YYYYMMDDHHMMSS_<name>.sql`, как в других
+   проектах автора), одна таблица версий `public.goose_db_version`; каждая миграция создаёт
+   объекты только своей схемы с полностью квалифицированными именами (`users.users`).
+   Применяются **не кодом приложения**, а goose CLI: entrypoint контейнера выполняет
+   `goose up` перед стартом бинарника; локально — `make migration-up`; в тестах —
+   библиотека goose по той же папке (`platform/db/dbtest`). **Никаких FK и JOIN между
+   схемами.** Ссылки между контекстами — `uuid` без ограничения.
 3. Транзакция не пересекает границу контекста. Если нужна согласованность — денормализация
    на границе (например, `applications.listing_author_id` копируется при создании отклика,
    автор публикации не меняется) и проверка перед действием через порт.
@@ -349,7 +353,7 @@ EmitUnpopulated, DiscardUnknown}})` — чтобы `V1GetAvatar` (`google.api.Ht
 | Логи | zap JSON. `logger.FromContext(ctx)` добавляет `request_id`, `trace_id`, `span_id`, `user_id`. gRPC logging-интерцептор: метод, код, длительность, peer. Уровень из `LOG_LEVEL`. |
 | Метрики | Prometheus на `DEBUG_ADDR/metrics`: gRPC server metrics (`go-grpc-middleware/v2/interceptors/prometheus`), HTTP gateway (`http_requests_total`, `http_request_duration_seconds` по route/method/status), `pgxpool` (acquired/idle/total conns, acquire duration), `build_info{version,commit}`, Go runtime. |
 | Трейсы | OpenTelemetry: `otelgrpc` (сервер и клиент gateway), `otelhttp` (gateway), `otelpgx` (БД). Экспорт OTLP/gRPC в `OTEL_EXPORTER_OTLP_ENDPOINT`; если пусто — провайдер с no-op экспортером (span context всё равно создаётся для `trace_id` в логах). Ресурс: `service.name=hbc-back`, `service.version`. Sampler из `OTEL_TRACES_SAMPLER_ARG` (по умолчанию 1.0). |
-| Health | `GET /healthz` — liveness (200 всегда после старта); `GET /readyz` — `pool.Ping` и `blob.Ping` с таймаутом 1s каждая, тело `{"db":"ok","blob":"ok"}` / 503 с причиной. Оба на публичном и debug-портах. |
+| Health | `GET /healthz` — liveness (200 всегда после старта); `GET /readyz` — `pool.Ping` и `blob.Ping` с таймаутом 1s каждая (миграции к моменту старта уже применены entrypoint'ом), тело `{"db":"ok","blob":"ok"}` / 503 с причиной. Оба на публичном и debug-портах. |
 | Файлы | `internal/platform/blob`: S3-совместимое хранилище (в compose — MinIO) для фото профиля; бакет создаётся при старте; трейсы через `otelhttp` на транспорте клиента; метрики `blob_operations_total`, `blob_operation_duration_seconds`. |
 | pprof | `DEBUG_ADDR/debug/pprof/*`. |
 | Swagger | `DEBUG_ADDR/docs/` (swagger-ui с CDN) + `/docs/swagger.json` из embed. |
@@ -390,7 +394,7 @@ back/
 ├── internal/
 │   ├── platform/
 │   │   ├── config/      ├── logger/     ├── telemetry/   (otel + prometheus)
-│   │   ├── db/          (pgxpool, Migrator{Schema, FS, Dir}, таблица версий всегда <schema>.goose_db_version, WithTx)
+│   │   ├── db/          (pgxpool, WithTx; dbtest/ — goose up из ../migrations для тестов)
 │   │   ├── server/      (grpc + gateway + chi, health, docs, pprof, metrics)
 │   │   ├── auth/        (bcrypt, jwt, interceptor, ctx)
 │   │   ├── blob/        (Store порт; s3/ на minio-go, memory/ для тестов)
@@ -399,12 +403,13 @@ back/
 │   │   ├── users.go               порт + типы (B0)
 │   │   ├── domain/                валидация, инварианты, avatar.go (нормализация фото; чистый Go + x/image)
 │   │   ├── service/               реализация Service
-│   │   └── postgres/              repo + migrations/ (schema users)
+│   │   └── postgres/              repo (schema users)
 │   ├── listings/      (то же)
 │   ├── applications/  (то же)
 │   ├── adapters/      listings→applications.ListingReader и т. п.
 │   ├── bff/           реализация hbc.v1: service.go, auth.go, users.go, listings.go, applications.go, mapping.go, errors.go, validate.go
 │   └── seed/
+├── migrations/                          goose SQL (все схемы), применяются entrypoint'ом/`make migration-up`
 ├── pkg/api/hbc/v1/                      сгенерировано, коммитится
 ├── tests/e2e/                           интеграционные HTTP-тесты (build tag e2e)
 ├── Dockerfile, Makefile, .golangci.yaml, .env.example, .dockerignore, README.md
@@ -416,7 +421,8 @@ back/
 1. Для контекста написать `api/<ctx>/v1/<ctx>.proto`, зеркалящий его порт (структуры
    параметров уже «proto-образные»). Сгенерировать.
 2. В `cmd/<ctx>/main.go` поднять gRPC-сервер контекста на том же `platform/server`
-   (без gateway). Схема `<ctx>` уезжает в отдельную БД — миграции уже свои. Бакет фото
+   (без gateway). Схема `<ctx>` уезжает в отдельную БД — её миграции выделяются из
+   `migrations/` по префиксу схемы. Бакет фото
    уезжает вместе с `users` (к нему обращается только этот контекст); отдача файлов
    остаётся в BFF через `OpenAvatar` — или заменяется на публичный CDN-URL в `avatar_url`.
 3. В `internal/adapters` добавить gRPC-клиентскую реализацию порта; в composition root
