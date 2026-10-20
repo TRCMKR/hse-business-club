@@ -7,11 +7,22 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
+	"github.com/trcmkr/hse-business-club/back/internal/platform/auth"
+	"github.com/trcmkr/hse-business-club/back/internal/users"
 	hbcv1 "github.com/trcmkr/hse-business-club/back/pkg/api/hbc/v1"
+)
+
+const (
+	avatarKey    = "0b6f5a3e-1c2d-4e5f-8a9b-0c1d2e3f4a5b.jpg"
+	unknownJPG   = "unknown.jpg"
+	skillProduct = "Продукт"
 )
 
 // headerStream records headers set by grpc.SetHeader outside of a real server.
@@ -25,97 +36,160 @@ func (s *headerStream) SetHeader(md metadata.MD) error {
 func (s *headerStream) SendHeader(md metadata.MD) error { return s.SetHeader(md) }
 func (s *headerStream) SetTrailer(metadata.MD) error    { return nil }
 
+func withAvatar(u *users.User, key string) *users.User {
+	c := *u
+	c.AvatarKey = key
+	return &c
+}
+
 func TestV1GetMe(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna := e.user(t, nameAnna)
+	anna := newUser(nameAnna)
+	anna.Headline, anna.About, anna.Skills, anna.Telegram = "Фаундер", "О себе", []string{skillProduct}, nameAnna
+	anna = withAvatar(anna, avatarKey)
 
-	u, err := e.bff.V1GetMe(as(anna.ID), &hbcv1.V1GetMeRequest{})
-	wantOK(t, err)
-	if u.GetId() != anna.ID.String() || u.GetUsername() != nameAnna || u.GetCreatedAt().AsTime() != anna.CreatedAt {
-		t.Fatalf("user = %v", u)
-	}
+	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().Get(mock.Anything, anna.ID).Return(anna, nil).Once()
 
-	e.users.err = errors.New("pgx: connection refused")
-	_, err = e.bff.V1GetMe(as(anna.ID), &hbcv1.V1GetMeRequest{})
-	wantStatus(t, err, codes.Internal, msgInternal)
+		u, err := e.bff.V1GetMe(as(anna.ID), &hbcv1.V1GetMeRequest{})
+		wantOK(t, err)
+		if u.GetId() != anna.ID.String() || u.GetUsername() != nameAnna || u.GetDisplayName() != anna.DisplayName ||
+			u.GetHeadline() != anna.Headline || u.GetAbout() != anna.About || strings.Join(u.GetSkills(), ",") != skillProduct ||
+			u.GetTelegram() != nameAnna || u.GetAvatarUrl() != avatarPathPrefix+avatarKey || u.GetCreatedAt().AsTime() != anna.CreatedAt {
+			t.Fatalf("user = %v", u)
+		}
+	})
+
+	t.Run(caseInternal, func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().Get(mock.Anything, anna.ID).Return(nil, errors.New("pgx: connection refused")).Once()
+
+		_, err := e.bff.V1GetMe(as(anna.ID), &hbcv1.V1GetMeRequest{})
+		wantStatus(t, err, codes.Internal, msgInternal)
+	})
 }
 
 func TestV1UpdateMe(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna := e.user(t, nameAnna)
-
-	u, err := e.bff.V1UpdateMe(as(anna.ID), &hbcv1.V1UpdateMeRequest{
-		DisplayName: "Анна Соколова", Headline: "Фаундер", About: "О себе", Skills: []string{"Продукт", "Финтех"}, Telegram: "@anna",
-	})
-	wantOK(t, err)
-	if u.GetDisplayName() != "Анна Соколова" || u.GetHeadline() != "Фаундер" || u.GetAbout() != "О себе" ||
-		strings.Join(u.GetSkills(), ",") != "Продукт,Финтех" || u.GetTelegram() != nameAnna {
-		t.Fatalf("user = %v", u)
+	anna := newUser(nameAnna)
+	req := &hbcv1.V1UpdateMeRequest{
+		DisplayName: "Анна Соколова", Headline: "Фаундер", About: "О себе", Skills: []string{skillProduct, "Финтех"}, Telegram: "@anna",
 	}
 
-	_, err = e.bff.V1UpdateMe(as(anna.ID), &hbcv1.V1UpdateMeRequest{})
-	wantStatus(t, err, codes.InvalidArgument, fmsgDisplayName)
+	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		updated := *anna
+		updated.DisplayName, updated.Headline, updated.About = req.GetDisplayName(), req.GetHeadline(), req.GetAbout()
+		updated.Skills, updated.Telegram = req.GetSkills(), nameAnna // the context normalizes "@anna"
+		e.users.EXPECT().UpdateProfile(mock.Anything, anna.ID, users.UpdateProfileParams{
+			DisplayName: req.GetDisplayName(), Headline: req.GetHeadline(), About: req.GetAbout(),
+			Skills: req.GetSkills(), Telegram: req.GetTelegram(),
+		}).Return(&updated, nil).Once()
+
+		u, err := e.bff.V1UpdateMe(as(anna.ID), req)
+		wantOK(t, err)
+		if u.GetDisplayName() != req.GetDisplayName() || u.GetHeadline() != req.GetHeadline() || u.GetAbout() != req.GetAbout() ||
+			strings.Join(u.GetSkills(), ",") != "Продукт,Финтех" || u.GetTelegram() != nameAnna {
+			t.Fatalf("user = %v", u)
+		}
+	})
+
+	t.Run("validation", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().UpdateProfile(mock.Anything, anna.ID, users.UpdateProfileParams{}).
+			Return(nil, apperr.Validation("display_name", cmsgDisplayName)).Once()
+
+		_, err := e.bff.V1UpdateMe(as(anna.ID), &hbcv1.V1UpdateMeRequest{})
+		wantStatus(t, err, codes.InvalidArgument, cmsgDisplayName)
+	})
 }
 
 func TestV1GetUser(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna, boris := e.user(t, nameAnna), e.user(t, nameBoris)
+	anna, boris := newUser(nameAnna), newUser(nameBoris)
 
-	u, err := e.bff.V1GetUser(as(boris.ID), &hbcv1.V1GetUserRequest{Id: anna.ID.String()})
-	wantOK(t, err)
-	if u.GetId() != anna.ID.String() || u.GetUsername() != nameAnna {
-		t.Fatalf("user = %v", u)
-	}
+	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().Get(mock.Anything, anna.ID).Return(anna, nil).Once()
 
-	e.calls.reset()
-	_, err = e.bff.V1GetUser(as(boris.ID), &hbcv1.V1GetUserRequest{Id: "not-a-uuid"})
-	wantStatus(t, err, codes.NotFound, msgUserNotFound)
-	e.noCalls(t)
+		u, err := e.bff.V1GetUser(as(boris.ID), &hbcv1.V1GetUserRequest{Id: anna.ID.String()})
+		wantOK(t, err)
+		require.Equal(t, anna.ID.String(), u.GetId())
+		require.Equal(t, nameAnna, u.GetUsername())
+		require.Empty(t, u.GetAvatarUrl())
+	})
 
-	_, err = e.bff.V1GetUser(as(boris.ID), &hbcv1.V1GetUserRequest{Id: "00000000-0000-4000-8000-000000000000"})
-	wantStatus(t, err, codes.NotFound, msgUserNotFound)
+	t.Run("bad id", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t) // no expectations: ports are not called
+		_, err := e.bff.V1GetUser(as(boris.ID), &hbcv1.V1GetUserRequest{Id: "not-a-uuid"})
+		wantStatus(t, err, codes.NotFound, msgUserNotFound)
+	})
+
+	t.Run("unknown id", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().Get(mock.Anything, anna.ID).Return(nil, errOf(apperr.KindNotFound, msgUserNotFound)).Once()
+
+		_, err := e.bff.V1GetUser(as(boris.ID), &hbcv1.V1GetUserRequest{Id: anna.ID.String()})
+		wantStatus(t, err, codes.NotFound, msgUserNotFound)
+	})
 }
 
 func TestV1UploadAvatar(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna := e.user(t, nameAnna)
+	anna := newUser(nameAnna)
 	ctx := as(anna.ID)
 
-	e.calls.reset()
-	_, err := e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{})
-	wantStatus(t, err, codes.InvalidArgument, msgAvatarEmpty)
-	e.noCalls(t)
+	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t) // no expectations: ports are not called
+		_, err := e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{})
+		wantStatus(t, err, codes.InvalidArgument, msgAvatarEmpty)
+	})
 
-	_, err = e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{Data: notImage})
-	wantStatus(t, err, codes.InvalidArgument, fmsgAvatarFormat)
+	t.Run("not an image", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().SetAvatar(mock.Anything, anna.ID, []byte("not an image")).
+			Return(nil, apperr.Validation("avatar", cmsgAvatarFormat)).Once()
 
-	u, err := e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{Data: []byte("jpeg-1")})
-	wantOK(t, err)
-	first := u.GetAvatarUrl()
-	if !strings.HasPrefix(first, "/v1/avatars/") || !strings.HasSuffix(first, ".jpg") {
-		t.Fatalf("avatarUrl = %q", first)
-	}
-	u, err = e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{Data: []byte("jpeg-2")})
-	wantOK(t, err)
-	if u.GetAvatarUrl() == first {
-		t.Fatal("avatarUrl must change on every upload")
-	}
+		_, err := e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{Data: []byte("not an image")})
+		wantStatus(t, err, codes.InvalidArgument, cmsgAvatarFormat)
+	})
+
+	// The bytes go to the context as is; avatarUrl is built from the new key, so it
+	// changes on every upload.
+	t.Run("upload and replace", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		const second = "1c7a6b4f-2d3e-4f5a-9b8c-1d2e3f4a5b6c.jpg"
+		e.users.EXPECT().SetAvatar(mock.Anything, anna.ID, []byte("jpeg-1")).Return(withAvatar(anna, avatarKey), nil).Once()
+		e.users.EXPECT().SetAvatar(mock.Anything, anna.ID, []byte("jpeg-2")).Return(withAvatar(anna, second), nil).Once()
+
+		u, err := e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{Data: []byte("jpeg-1")})
+		wantOK(t, err)
+		require.Equal(t, avatarPathPrefix+avatarKey, u.GetAvatarUrl())
+		u, err = e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{Data: []byte("jpeg-2")})
+		wantOK(t, err)
+		require.Equal(t, avatarPathPrefix+second, u.GetAvatarUrl())
+	})
 }
 
 func TestV1DeleteAvatar(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	anna := e.user(t, nameAnna)
-	ctx := as(anna.ID)
-	_, err := e.bff.V1UploadAvatar(ctx, &hbcv1.V1UploadAvatarRequest{Data: []byte("jpeg")})
-	wantOK(t, err)
+	anna := newUser(nameAnna)
+	e.users.EXPECT().RemoveAvatar(mock.Anything, anna.ID).Return(anna, nil).Twice()
 
-	for range 2 { // idempotent
-		u, err := e.bff.V1DeleteAvatar(ctx, &hbcv1.V1DeleteAvatarRequest{})
+	for range 2 { // idempotent: the context answers the same, the BFF passes it
+		u, err := e.bff.V1DeleteAvatar(as(anna.ID), &hbcv1.V1DeleteAvatarRequest{})
 		wantOK(t, err)
 		if u.GetAvatarUrl() != "" || u.GetId() != anna.ID.String() {
 			t.Fatalf("user = %v", u)
@@ -123,31 +197,62 @@ func TestV1DeleteAvatar(t *testing.T) {
 	}
 }
 
-func TestV1GetAvatar(t *testing.T) {
+func TestV1DeleteAvatarInternal(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	anna := e.user(t, nameAnna)
-	u, err := e.bff.V1UploadAvatar(as(anna.ID), &hbcv1.V1UploadAvatarRequest{Data: []byte("jpeg-bytes")})
-	wantOK(t, err)
-	file := strings.TrimPrefix(u.GetAvatarUrl(), avatarPathPrefix)
+	anna := newUser(nameAnna)
+	e.users.EXPECT().RemoveAvatar(mock.Anything, anna.ID).Return(nil, errors.New("s3: timeout")).Once()
 
-	stream := &headerStream{}
-	ctx := grpc.NewContextWithServerTransportStream(context.Background(), stream) // public: no user
-	body, err := e.bff.V1GetAvatar(ctx, &hbcv1.V1GetAvatarRequest{File: file})
-	wantOK(t, err)
-	if body.GetContentType() != jpegType || !bytes.Equal(body.GetData(), []byte("jpeg-bytes")) {
-		t.Fatalf("body = %s %q", body.GetContentType(), body.GetData())
-	}
-	if got := stream.md.Get("cache-control"); len(got) != 1 || got[0] != "public, max-age=31536000, immutable" {
-		t.Fatalf("cache-control = %v", got)
-	}
+	_, err := e.bff.V1DeleteAvatar(as(anna.ID), &hbcv1.V1DeleteAvatarRequest{})
+	wantStatus(t, err, codes.Internal, msgInternal)
+}
 
-	_, err = e.bff.V1GetAvatar(ctx, &hbcv1.V1GetAvatarRequest{File: "unknown.jpg"})
-	wantStatus(t, err, codes.NotFound, fmsgAvatarNotFound)
+func TestV1GetAvatar(t *testing.T) {
+	t.Parallel()
+	data := []byte("jpeg-bytes")
+
+	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().OpenAvatar(mock.Anything, avatarKey).Return(&users.Avatar{ContentType: jpegType, Data: data}, nil).Once()
+
+		stream := &headerStream{}
+		ctx := grpc.NewContextWithServerTransportStream(context.Background(), stream) // public: no user
+		body, err := e.bff.V1GetAvatar(ctx, &hbcv1.V1GetAvatarRequest{File: avatarKey})
+		wantOK(t, err)
+		if body.GetContentType() != jpegType || !bytes.Equal(body.GetData(), data) {
+			t.Fatalf("body = %s %q", body.GetContentType(), body.GetData())
+		}
+		require.Equal(t, []string{avatarCacheControl}, stream.md.Get("cache-control"))
+		require.Equal(t, "public, max-age=31536000, immutable", avatarCacheControl)
+	})
+
+	t.Run("unknown file", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().OpenAvatar(mock.Anything, unknownJPG).Return(nil, errOf(apperr.KindNotFound, cmsgAvatarNotFound)).Once()
+
+		stream := &headerStream{}
+		ctx := grpc.NewContextWithServerTransportStream(context.Background(), stream)
+		_, err := e.bff.V1GetAvatar(ctx, &hbcv1.V1GetAvatarRequest{File: unknownJPG})
+		wantStatus(t, err, codes.NotFound, cmsgAvatarNotFound)
+		require.Empty(t, stream.md.Get("cache-control")) // errors are not cached as immutable
+	})
+
+	// Without a transport stream grpc.SetHeader fails: the error is not swallowed.
+	t.Run("no stream", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.users.EXPECT().OpenAvatar(mock.Anything, avatarKey).Return(&users.Avatar{ContentType: jpegType, Data: data}, nil).Once()
+
+		_, err := e.bff.V1GetAvatar(context.Background(), &hbcv1.V1GetAvatarRequest{File: avatarKey})
+		require.Error(t, err)
+	})
 }
 
 // TestPrivateMethodsRequireUser checks the safety net behind the auth interceptor:
-// every private RPC answers Unauthenticated without touching ports.
+// every private RPC answers Unauthenticated without touching ports (the mocks have
+// no expectations, so any port call fails the test).
 func TestPrivateMethodsRequireUser(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -201,8 +306,8 @@ func TestPrivateMethodsRequireUser(t *testing.T) {
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {
-			wantStatus(t, call(), codes.Unauthenticated, "Требуется вход")
+			wantStatus(t, call(), codes.Unauthenticated, auth.MsgUnauthenticated)
 		})
 	}
-	e.noCalls(t)
+	require.Equal(t, "Требуется вход", auth.MsgUnauthenticated)
 }

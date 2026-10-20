@@ -6,14 +6,28 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/trcmkr/hse-business-club/back/internal/applications"
+	appmocks "github.com/trcmkr/hse-business-club/back/internal/applications/mocks"
 	"github.com/trcmkr/hse-business-club/back/internal/listings"
+	listingmocks "github.com/trcmkr/hse-business-club/back/internal/listings/mocks"
+	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/auth"
+	authmocks "github.com/trcmkr/hse-business-club/back/internal/platform/auth/mocks"
 	"github.com/trcmkr/hse-business-club/back/internal/users"
+	usermocks "github.com/trcmkr/hse-business-club/back/internal/users/mocks"
 )
+
+// The BFF only passes the rules of SPEC §2.3 through: the contexts own them. Unit
+// tests here stub the ports with mockery mocks (ARCHITECTURE §6a) and check that a
+// port error reaches the client with the right gRPC code and the same message, that
+// requests are validated before any port call, and how responses are composed.
+// A mock fails the test on any call without an expectation, so a test that sets no
+// expectations on a port also asserts that the port is not called.
 
 // Test data used across tests.
 const (
@@ -26,119 +40,209 @@ const (
 	tagGo         = "Go"
 	jpegType      = "image/jpeg"
 	testAccessTTL = 15 * time.Minute
+	testRefresh   = "refresh-token"
 )
 
-// env is a BFF wired to in-memory fakes.
+// caseInternal names subtests where a port fails with a plain error (500).
+const caseInternal = "internal"
+
+// Messages of the contexts (they own the real ones); the BFF passes them through.
+const (
+	cmsgLoginTaken      = "Логин уже занят"
+	cmsgBadLogin        = "Неверный логин или пароль"
+	cmsgUsername        = "Логин: от 3 до 32 символов"
+	cmsgDisplayName     = "Имя: от 1 до 80 символов"
+	cmsgAvatarFormat    = "Фото: поддерживаются JPEG, PNG и WebP"
+	cmsgAvatarNotFound  = "Фото не найдено"
+	cmsgTitle           = "Название: от 3 до 120 символов"
+	cmsgStageRequired   = "Стадия: укажите стадию"
+	cmsgLimit           = "Размер страницы: от 1 до 50"
+	cmsgForbiddenEdit   = "Редактировать публикацию может только автор"
+	cmsgListingClosed   = "Публикация закрыта"
+	cmsgOwnListing      = "Нельзя откликнуться на свою публикацию"
+	cmsgAlreadyApplied  = "Вы уже откликались на эту публикацию"
+	cmsgMessage         = "Сообщение: от 1 до 2000 символов"
+	cmsgDecided         = "Решение по отклику уже принято"
+	cmsgForbiddenListAp = "Смотреть отклики может только автор"
+	cmsgNoRights        = "Недостаточно прав"
+)
+
+// baseTime is the creation time of fixtures; later fixtures get later times.
+var baseTime = time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+
+// env is a BFF wired to mocks of all its ports.
 type env struct {
-	calls    *calls
-	users    *fakeUsers
-	listings *fakeListings
-	apps     *fakeApplications
+	users    *usermocks.MockService
+	listings *listingmocks.MockService
+	apps     *appmocks.MockService
+	issuer   *authmocks.MockIssuer
 	bff      *Implementation
 }
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	c, cl := &calls{}, &clock{}
-	ls := newFakeListings(c, cl)
-	e := &env{calls: c, users: newFakeUsers(c, cl), listings: ls, apps: newFakeApplications(c, cl, ls)}
-	e.bff = New(Deps{Users: e.users, Listings: e.listings, Applications: e.apps, Issuer: fakeIssuer{}, AccessTTL: testAccessTTL})
+	return newEnvOn(t)
+}
+
+// mockT is what mockery mocks need from a test.
+type mockT interface {
+	mock.TestingT
+	Cleanup(func())
+}
+
+// newEnvOn is newEnv with mocks reporting to t (see serverT in gateway_test.go).
+func newEnvOn(t mockT) *env {
+	e := &env{
+		users:    usermocks.NewMockService(t),
+		listings: listingmocks.NewMockService(t),
+		apps:     appmocks.NewMockService(t),
+		issuer:   authmocks.NewMockIssuer(t),
+	}
+	e.bff = New(Deps{Users: e.users, Listings: e.listings, Applications: e.apps, Issuer: e.issuer, AccessTTL: testAccessTTL})
 	return e
 }
 
 // as returns a context authenticated as id.
 func as(id uuid.UUID) context.Context { return auth.WithUserID(context.Background(), id) }
 
-// user registers a member directly in the fake (password testPassword).
-func (e *env) user(t *testing.T, username string) *users.User {
-	t.Helper()
-	u, err := e.users.Register(context.Background(), users.RegisterParams{Username: username, Password: testPassword, DisplayName: "Name " + username})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return u
+// accessToken is what the mocked issuer returns for id.
+func accessToken(id uuid.UUID) string { return "access:" + id.String() }
+
+// expectIssue makes the issuer return accessToken(id) once.
+func (e *env) expectIssue(id uuid.UUID) {
+	e.issuer.EXPECT().Issue(id).Return(accessToken(id), nil).Once()
 }
 
-func (e *env) startup(t *testing.T, author uuid.UUID, title string) *listings.Listing {
-	t.Helper()
-	l, err := e.listings.Create(context.Background(), listings.CreateParams{
-		AuthorID: author, Kind: listings.KindStartup, Title: title, Description: "Description of " + title,
-		LookingFor: lookingForCTO, Tags: []string{tagGo}, Stage: listings.StageMVP,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return l
-}
-
-func (e *env) vacancy(t *testing.T, author uuid.UUID, title string) *listings.Listing {
-	t.Helper()
-	l, err := e.listings.Create(context.Background(), listings.CreateParams{
-		AuthorID: author, Kind: listings.KindVacancy, Title: title, Description: "Description of " + title,
-		LookingFor: "Designer", Compensation: "Доля",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return l
-}
-
-func (e *env) closeListing(t *testing.T, l *listings.Listing) {
-	t.Helper()
-	if _, err := e.listings.Close(context.Background(), l.ID, l.AuthorID); err != nil {
-		t.Fatal(err)
+// newUser is a user fixture.
+func newUser(username string) *users.User {
+	return &users.User{
+		ID: uuid.New(), Username: username, DisplayName: "Name " + username,
+		CreatedAt: baseTime, UpdatedAt: baseTime,
 	}
 }
 
-func (e *env) apply(t *testing.T, l *listings.Listing, applicant uuid.UUID) *applications.Application {
-	t.Helper()
-	a, err := e.apps.Apply(context.Background(), l.ID, applicant, "Хочу в команду")
-	if err != nil {
-		t.Fatal(err)
+// newStartup is an active startup fixture by author.
+func newStartup(author uuid.UUID, title string) *listings.Listing {
+	return &listings.Listing{
+		ID: uuid.New(), AuthorID: author, Kind: listings.KindStartup, Title: title,
+		Description: "Description of " + title, LookingFor: lookingForCTO, Tags: []string{tagGo},
+		Stage: listings.StageMVP, Status: listings.StatusActive, CreatedAt: baseTime, UpdatedAt: baseTime,
 	}
-	return a
 }
 
-func (e *env) setStatus(t *testing.T, a *applications.Application, s applications.Status) {
-	t.Helper()
-	var err error
-	switch s {
-	case applications.StatusAccepted:
-		_, err = e.apps.Accept(context.Background(), a.ID, a.ListingAuthorID)
-	case applications.StatusDeclined:
-		_, err = e.apps.Decline(context.Background(), a.ID, a.ListingAuthorID)
-	case applications.StatusWithdrawn:
-		_, err = e.apps.Withdraw(context.Background(), a.ID, a.ApplicantID)
-	case applications.StatusPending:
-	}
-	if err != nil {
-		t.Fatal(err)
+// newVacancy is an active vacancy fixture by author.
+func newVacancy(author uuid.UUID, title string) *listings.Listing {
+	return &listings.Listing{
+		ID: uuid.New(), AuthorID: author, Kind: listings.KindVacancy, Title: title,
+		Description: "Description of " + title, LookingFor: "Designer", Compensation: "Доля",
+		Status: listings.StatusActive, CreatedAt: baseTime, UpdatedAt: baseTime,
 	}
 }
+
+// closed returns a closed copy of l.
+func closed(l *listings.Listing) *listings.Listing {
+	c := *l
+	at := baseTime.Add(time.Hour)
+	c.Status, c.ClosedAt, c.UpdatedAt = listings.StatusClosed, &at, at
+	return &c
+}
+
+// newApp is a pending application fixture of applicant to l.
+func newApp(l *listings.Listing, applicant uuid.UUID) *applications.Application {
+	return &applications.Application{
+		ID: uuid.New(), ListingID: l.ID, ListingAuthorID: l.AuthorID, ApplicantID: applicant,
+		Message: "Хочу в команду", Status: applications.StatusPending, CreatedAt: baseTime, UpdatedAt: baseTime,
+	}
+}
+
+// withStatus returns a copy of a in status s (decided_at is set for accepted/declined).
+func withStatus(a *applications.Application, s applications.Status) *applications.Application {
+	c := *a
+	c.Status, c.UpdatedAt = s, baseTime.Add(time.Hour)
+	if s == applications.StatusAccepted || s == applications.StatusDeclined {
+		at := c.UpdatedAt
+		c.DecidedAt = &at
+	}
+	return &c
+}
+
+// byID maps users by id, as Users.GetMany returns them.
+func byID(us ...*users.User) map[uuid.UUID]*users.User {
+	out := make(map[uuid.UUID]*users.User, len(us))
+	for _, u := range us {
+		out[u.ID] = u
+	}
+	return out
+}
+
+// listingsByID maps listings by id, as Listings.GetMany returns them.
+func listingsByID(ls ...*listings.Listing) map[uuid.UUID]*listings.Listing {
+	out := make(map[uuid.UUID]*listings.Listing, len(ls))
+	for _, l := range ls {
+		out[l.ID] = l
+	}
+	return out
+}
+
+// userIDs returns the ids of us.
+func userIDs(us ...*users.User) []uuid.UUID {
+	out := make([]uuid.UUID, 0, len(us))
+	for _, u := range us {
+		out = append(out, u.ID)
+	}
+	return out
+}
+
+// sameIDs matches an id slice that holds exactly the want ids, each once, in any
+// order: batch calls get every needed id and no duplicates.
+func sameIDs(want ...uuid.UUID) any {
+	return mock.MatchedBy(func(got []uuid.UUID) bool { return equalIDSets(got, want) })
+}
+
+func equalIDSets(got, want []uuid.UUID) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	set := make(map[uuid.UUID]bool, len(want))
+	for _, id := range want {
+		set[id] = true
+	}
+	for _, id := range got {
+		if !set[id] {
+			return false // unknown or repeated
+		}
+		delete(set, id)
+	}
+	return true
+}
+
+// expectUsers expects times Users.GetMany calls for exactly us and returns them.
+func (e *env) expectUsers(times int, us ...*users.User) {
+	e.users.EXPECT().GetMany(mock.Anything, sameIDs(userIDs(us...)...)).Return(byID(us...), nil).Times(times)
+}
+
+// expectListings expects times Listings.GetMany calls for exactly ls and returns them.
+func (e *env) expectListings(times int, ls ...*listings.Listing) {
+	ids := make([]uuid.UUID, 0, len(ls))
+	for _, l := range ls {
+		ids = append(ids, l.ID)
+	}
+	e.listings.EXPECT().GetMany(mock.Anything, sameIDs(ids...)).Return(listingsByID(ls...), nil).Times(times)
+}
+
+// errOf is a context error of kind with msg.
+func errOf(kind apperr.Kind, msg string) error { return apperr.New(kind, msg) }
 
 // wantStatus asserts that err is a gRPC status with the code and message.
 func wantStatus(t *testing.T, err error, code codes.Code, msg string) {
 	t.Helper()
 	st, ok := status.FromError(err)
-	if !ok {
-		t.Fatalf("error %v is not a gRPC status", err)
-	}
-	if st.Code() != code || st.Message() != msg {
-		t.Fatalf("got %s %q, want %s %q", st.Code(), st.Message(), code, msg)
-	}
+	require.Truef(t, ok, "error %v is not a gRPC status", err)
+	require.Equal(t, code, st.Code(), "code (message %q)", st.Message())
+	require.Equal(t, msg, st.Message())
 }
 
 func wantOK(t *testing.T, err error) {
 	t.Helper()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-// noCalls asserts that no port was called since the last reset.
-func (e *env) noCalls(t *testing.T) {
-	t.Helper()
-	if c := e.calls.snapshot(); len(c) != 0 {
-		t.Fatalf("ports were called: %v", c)
-	}
+	require.NoError(t, err)
 }
