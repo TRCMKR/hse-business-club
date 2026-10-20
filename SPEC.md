@@ -85,7 +85,9 @@
 
 | Правило | Ошибка API |
 |---|---|
-| Все методы, кроме ping/register/login, требуют валидный JWT | `Unauthenticated` (401) |
+| Все методы, кроме ping/register/login/refresh/logout/avatars, требуют валидный access-токен | `Unauthenticated` (401) «Требуется вход» |
+| Refresh-токен неизвестен, истёк, отозван или уже использован (ротация) | `Unauthenticated` (401) «Сессия истекла»; повторное использование уже ротированного токена отзывает всю цепочку (семью) токенов этого входа |
+| Logout с неизвестным refresh-токеном | 200 (идемпотентно) |
 | Нельзя откликнуться на свою публикацию | `FailedPrecondition` (400) «Нельзя откликнуться на свою публикацию» |
 | Нельзя откликнуться на закрытую публикацию | `FailedPrecondition` (400) «Публикация закрыта» |
 | Нельзя откликнуться повторно, пока есть отклик в статусе pending/accepted/declined | `AlreadyExists` (409) «Вы уже откликались на эту публикацию» |
@@ -182,6 +184,18 @@ CREATE TABLE users (
     updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE users.refresh_tokens (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     uuid NOT NULL,                 -- users.users без FK не нужен: та же схема, FK допустим
+    family_id   uuid NOT NULL,                 -- цепочка ротаций одного входа
+    token_hash  bytea NOT NULL UNIQUE,         -- sha256(refresh_token)
+    expires_at  timestamptz NOT NULL,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    revoked_at  timestamptz                    -- NULL = действует
+);
+CREATE INDEX refresh_tokens_user_idx   ON users.refresh_tokens (user_id);
+CREATE INDEX refresh_tokens_family_idx ON users.refresh_tokens (family_id);
+
 CREATE TABLE listings (
     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     author_id    uuid NOT NULL,                 -- ссылка на users без FK (разные схемы)
@@ -237,8 +251,10 @@ FK между схемами нет. Статусы и виды хранятся
 | Метод и путь | RPC | Кто | Назначение |
 |---|---|---|---|
 | `GET /v1/ping` | V1Ping | все | health |
-| `POST /v1/auth/register` | V1Register | все | регистрация → `{token, user}` |
-| `POST /v1/auth/login` | V1Login | все | вход → `{token, user}` |
+| `POST /v1/auth/register` | V1Register | все | регистрация → `{accessToken, refreshToken, user, accessExpiresIn}` |
+| `POST /v1/auth/login` | V1Login | все | вход → `{accessToken, refreshToken, user, accessExpiresIn}` |
+| `POST /v1/auth/refresh` | V1Refresh | все | обмен refresh-токена на новую пару (ротация) |
+| `POST /v1/auth/logout` | V1Logout | все | отзыв refresh-токена (идемпотентно) |
 | `GET /v1/me` | V1GetMe | auth | текущий пользователь |
 | `PUT /v1/me` | V1UpdateMe | auth | обновить профиль (полная замена редактируемых полей) |
 | `GET /v1/users/{id}` | V1GetUser | auth | публичный профиль |
@@ -273,7 +289,11 @@ FK между схемами нет. Статусы и виды хранятся
 - Enum — строковые имена: `"LISTING_KIND_STARTUP"`, `"APPLICATION_STATUS_PENDING"`.
 - Timestamps — RFC 3339 в UTC: `"2026-10-19T18:00:00Z"`. Не заданные — `null`.
 - Числа — только `int32` в контракте (у `int64` в protojson строковое представление).
-- Аутентификация: `Authorization: Bearer <jwt>`. JWT HS256, срок 24 часа, claim `sub` = user id.
+- Аутентификация: `Authorization: Bearer <accessToken>`. Access — JWT HS256, срок `ACCESS_TTL`
+  (по умолчанию 15 минут), claim `sub` = user id. Refresh — непрозрачная случайная строка
+  (32 байта, base64url), срок `REFRESH_TTL` (по умолчанию 30 дней), хранится на сервере
+  только хешем (SHA-256) в `users.refresh_tokens`; при каждом `V1Refresh` выдаётся новый
+  refresh, старый отзывается (ротация). `accessExpiresIn` — секунды до истечения access.
 - `avatarUrl` — путь относительно корня API (`/v1/avatars/<uuid>.jpg`) или `""`. Фронт
   подставляет свой префикс прокси (`/api` + `avatarUrl`). Имя файла меняется при каждой
   загрузке, поэтому ответ `GET /v1/avatars/{file}` кэшируется как immutable.
@@ -302,7 +322,9 @@ FK между схемами нет. Статусы и виды хранятся
 
 ```json
 {
-  "token": "eyJ...",
+  "accessToken": "eyJ...",
+  "refreshToken": "Q2h...",
+  "accessExpiresIn": 900,
   "user": {
     "id": "11111111-1111-4111-8111-111111111111",
     "username": "anna",
@@ -358,10 +380,13 @@ FK между схемами нет. Статусы и виды хранятся
 ## 5. Безопасность
 
 - Пароли — bcrypt (cost 10). В ответах API нет хешей и e-mail.
-- JWT подписывается секретом из env `JWT_SECRET`; в compose задан демо-секрет, в README —
-  как заменить.
-- Браузер **не хранит JWT в JS**: фронт (Nitro-сервер Nuxt) кладёт токен в httpOnly-cookie и
-  сам добавляет `Authorization` при проксировании запросов к бэкенду. В compose порты API и
+- Access-JWT подписывается секретом из env `JWT_SECRET`; в compose задан демо-секрет, в README —
+  как заменить. Access живёт 15 минут, refresh — 30 дней с ротацией и обнаружением повторного
+  использования (семья токенов отзывается целиком); logout отзывает refresh на сервере.
+- Браузер **не хранит токены в JS**: фронт (Nitro-сервер Nuxt) кладёт access и refresh в две
+  httpOnly-cookie (`hbc_access`, `hbc_refresh`) и сам добавляет `Authorization` при
+  проксировании; при 401 от бэкенда прокси один раз делает `V1Refresh`, обновляет cookie и
+  повторяет запрос; если refresh не удался — чистит cookie и отдаёт 401 клиенту («Сессия истекла»). В compose порты API и
   debug опубликованы только для удобства проверки (Swagger, smoke); в проде наружу смотрит
   только фронт.
 - Все проверки прав — на сервере (п. 2.3), фронт лишь прячет недоступные действия.

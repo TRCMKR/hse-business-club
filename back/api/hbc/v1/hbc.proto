@@ -34,8 +34,8 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
   }
 };
 
-// Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login и
-// V1GetAvatar, требуют заголовок Authorization: Bearer <jwt>.
+// Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login,
+// V1Refresh, V1Logout и V1GetAvatar, требуют заголовок Authorization: Bearer <access_token>.
 service HseBusinessClub {
   // ---------- Служебное ----------
 
@@ -57,6 +57,23 @@ service HseBusinessClub {
   rpc V1Login(V1LoginRequest) returns (V1AuthResponse) {
     option (google.api.http) = {
       post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  // Обмен refresh-токена на новую пару (ротация: старый refresh отзывается).
+  // Неизвестный, истёкший или уже использованный refresh → Unauthenticated «Сессия истекла».
+  rpc V1Refresh(V1RefreshRequest) returns (V1AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+  }
+
+  // Отзыв refresh-токена (выход). Идемпотентно: неизвестный токен → 200.
+  rpc V1Logout(V1LogoutRequest) returns (V1LogoutResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/logout"
       body: "*"
     };
   }
@@ -332,9 +349,24 @@ message V1LoginRequest {
 }
 
 message V1AuthResponse {
-  string token = 1;
-  User user = 2;
+  // Короткоживущий JWT для заголовка Authorization: Bearer.
+  string access_token = 1;
+  // Долгоживущий непрозрачный токен для V1Refresh/V1Logout. Хранится только в httpOnly-cookie.
+  string refresh_token = 2;
+  User user = 3;
+  // Срок жизни access_token в секундах.
+  int32 access_expires_in = 4;
 }
+
+message V1RefreshRequest {
+  string refresh_token = 1;
+}
+
+message V1LogoutRequest {
+  string refresh_token = 1;
+}
+
+message V1LogoutResponse {}
 
 message V1GetMeRequest {}
 

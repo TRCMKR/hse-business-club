@@ -134,6 +134,20 @@ type Service interface {
     RemoveAvatar(ctx context.Context, id uuid.UUID) (*User, error)
     // key — значение User.AvatarKey. KindNotFound «Фото не найдено» (и при плохом формате key).
     OpenAvatar(ctx context.Context, key string) (*Avatar, error)
+
+    // Refresh-токены (SPEC §4.2, §5). Выдаёт новую семью токенов для входа.
+    IssueRefresh(ctx context.Context, userID uuid.UUID) (*RefreshToken, error)
+    // Ротация: token отзывается, выдаётся следующий в той же семье. KindUnauthenticated
+    // «Сессия истекла» при неизвестном/истёкшем/отозванном; повторное использование уже
+    // ротированного токена отзывает всю семью.
+    RotateRefresh(ctx context.Context, token string) (userID uuid.UUID, next *RefreshToken, err error)
+    // Идемпотентно: неизвестный токен — не ошибка.
+    RevokeRefresh(ctx context.Context, token string) error
+}
+
+type RefreshToken struct {
+    Token     string    // непрозрачный, base64url(32 случайных байта); наружу — только через BFF
+    ExpiresAt time.Time
 }
 ```
 
@@ -300,8 +314,9 @@ type Service interface {
 ### `internal/platform/auth` (используется BFF и сервером)
 
 ```go
-type Issuer interface{ Issue(userID uuid.UUID) (token string, err error) }
+type Issuer interface{ Issue(userID uuid.UUID) (token string, err error) } // access-JWT, TTL = ACCESS_TTL
 type Verifier interface{ Verify(token string) (userID uuid.UUID, err error) }
+func (j *JWT) TTL() time.Duration // для access_expires_in в ответе
 func UserIDFromContext(ctx context.Context) (uuid.UUID, bool)
 func UnaryInterceptor(v Verifier, publicMethods map[string]bool) grpc.UnaryServerInterceptor
 ```
@@ -370,7 +385,8 @@ EmitUnpopulated, DiscardUnknown}})` — чтобы `V1GetAvatar` (`google.api.Ht
 | `POSTGRES_DSN` | — | обязателен |
 | `POSTGRES_MAX_CONNS` | `10` | |
 | `JWT_SECRET` | — | обязателен |
-| `JWT_TTL` | `24h` | |
+| `ACCESS_TTL` | `15m` | срок access-JWT |
+| `REFRESH_TTL` | `720h` | срок refresh-токена (30 дней) |
 | `CORS_ORIGINS` | `http://localhost:3000` | через запятую |
 | `SEED_DEMO_DATA` | `false` | SPEC §6 |
 | `S3_ENDPOINT` | — | обязателен, `host:port` без схемы (`minio:9000`) |
@@ -415,6 +431,16 @@ back/
 ├── Dockerfile, Makefile, .golangci.yaml, .env.example, .dockerignore, README.md
 └── ARCHITECTURE.md
 ```
+
+## 6a. Тесты: моки через mockery
+
+Unit-тесты BFF и сервисов контекстов используют моки интерфейсов (портов, репозиториев,
+`blob.Store`, `auth.Issuer/Verifier`, `applications.ListingReader`, `users/service.Hasher`),
+сгенерированные **mockery v3** по `back/.mockery.yml` в пакеты `internal/<pkg>/mocks`
+(`MockUsersService` и т. п., `with-expecter: true`, testify). Моки коммитятся; `make
+generate-mocks` не должен давать диффа; `golangci-lint` исключает `mocks/`. Рукописные
+in-memory фейки в unit-тестах не используются; поведение БД проверяют integration-тесты на
+реальном Postgres (`dbtest`), сквозное — `tests/e2e`.
 
 ## 7. Путь к BFF + микросервисам
 

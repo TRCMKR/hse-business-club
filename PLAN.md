@@ -56,6 +56,9 @@ B0 + F0 (Dockerfile'ы) ── I0 compose + observability stack ─────�
 | I1 | `tasks/I1-smoke-and-qa.md` | smoke-скрипт, сквозная ручная проверка, фиксы на стыке | `make smoke` зелёный |
 | I2 | `tasks/I2-readme.md` | корневой README, скриншоты, TODO для ручного заполнения | README |
 | B6 | `tasks/B6-goose-migrations.md` | по запросу пользователя: миграции через goose CLI из `back/migrations/` вместо мигратора в коде | entrypoint + `make migration-*` |
+| B7 | `tasks/B7-refresh-tokens.md` | по запросу: access (15 мин) + refresh (30 дней, ротация, семья) токены — бэк, proto обновлён | `V1Refresh`, `V1Logout`, e2e |
+| F9 | `tasks/F9-refresh-tokens-front.md` | по запросу: две httpOnly-cookie, refresh в прокси/SSR, mock, e2e | фронт |
+| B8 | `tasks/B8-mockery.md` | по запросу: unit-тесты бэка на моках mockery v3, фейки удалены | `make generate-mocks` |
 | I3 | `tasks/I3-deploy-kamal.md` | бонус: стенд `hbc.trcmkr.ru` через Kamal (два конфига + accessories db/minio), по запросу пользователя | `make deploy` |
 
 ## Как запускать

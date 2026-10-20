@@ -133,3 +133,21 @@
 
 - I3 готовит конфиги/Makefile/README; `kamal setup`/`deploy` на `72.4.68.165` запускает
   пользователь сам. Сервер и домен (`hbc.trcmkr.ru`) подтверждены.
+## 2026-10-20 07:00 — access + refresh токены; unit-тесты на mockery (по запросу пользователя)
+
+- **Токены.** Access — JWT HS256, `ACCESS_TTL` 15 мин (было `JWT_TTL` 24 ч); refresh —
+  непрозрачный (32 байта base64url), `REFRESH_TTL` 30 дней, хранится хешем в
+  `users.refresh_tokens` (контекст users, та же схема), ротация при каждом `V1Refresh`,
+  повторное использование ротированного токена отзывает семью; `V1Logout` отзывает refresh.
+  Новые публичные RPC `V1Refresh`, `V1Logout`; `V1AuthResponse` → `accessToken`,
+  `refreshToken`, `user`, `accessExpiresIn` (JSON-ключ `token` исчез — стенда ещё нет).
+  Фронт: две httpOnly-cookie `hbc_access`/`hbc_refresh`, прокси и SSR при 401 делают один
+  refresh и повторяют запрос. Порт users расширен (`IssueRefresh/RotateRefresh/RevokeRefresh`).
+- **Mockery.** Референсов в проектах автора нет; соглашение: mockery v3, `.mockery.yml`,
+  моки в `internal/<pkg>/mocks`, expecter, testify; рукописные фейки в unit-тестах убираются.
+  ARCHITECTURE §6a.
+- **Порядок:** B7 (бэк) ‖ F9 (фронт) → B8 (mockery, после B7, чтобы не конфликтовать по тестам)
+  → I1-повтор smoke на живом стеке (в рамках B7/F9 приёмки).
+- **Документы:** `back/api/hbc/v1/hbc.proto`, `SPEC.md` §2.3, §3, §4.1–4.3, §5,
+  `back/ARCHITECTURE.md` §2, §5, §6a; задачи `tasks/B7-refresh-tokens.md`,
+  `tasks/F9-refresh-tokens-front.md`, `tasks/B8-mockery.md`.
