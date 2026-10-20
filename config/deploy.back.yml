@@ -20,7 +20,8 @@ servers:
     options:
       network-alias: hbc-back
       # The server has 1 CPU / ~960 MB RAM shared with other apps; see README §Деплой.
-      memory: 160m
+      # Avatar normalization decodes photos up to 8000×8000 in memory, hence the headroom.
+      memory: 320m
 
 registry:
   username:
@@ -50,7 +51,7 @@ env:
     LOG_LEVEL: info
     POSTGRES_MAX_CONNS: "5"
     # Soft Go heap limit below the container limit: GC works harder instead of OOM.
-    GOMEMLIMIT: 120MiB
+    GOMEMLIMIT: 250MiB
   secret:
     - JWT_SECRET
     - POSTGRES_DSN
@@ -99,11 +100,13 @@ accessories:
 ssh:
   user: root
 
-# Small disk (~1.8 GB free): keep only the current and one previous container/image.
-retain_containers: 2
+# Small disk (~1.8 GB free): Kamal keeps the running container plus N stopped ones,
+# so 1 = the current and one previous version (enough for `kamal rollback`).
+retain_containers: 1
 
-# First boot waits for PostgreSQL init and demo-data seeding.
-deploy_timeout: 60
+# First boot: PostgreSQL initdb, the entrypoint waits for the DB (up to ~30 s), applies
+# goose migrations, seeds demo data; the first HEALTHCHECK runs after 10 s.
+deploy_timeout: 120
 
 logging:
   options:

@@ -76,16 +76,20 @@ VERSION ?=
 
 DEPLOY_ENV = set -e; \
 	if [ ! -f "$(DEPLOY_ENV_FILE)" ]; then echo "$(DEPLOY_ENV_FILE) not found: cp .env.deploy.example $(DEPLOY_ENV_FILE) and fill it in" >&2; exit 1; fi; \
-	set -a; . "./$(DEPLOY_ENV_FILE)"; set +a; \
+	set -a; . "$(abspath $(DEPLOY_ENV_FILE))"; set +a; \
 	if [ -z "$${DOCKERHUB_USERNAME:-}" ] && [ -r "$$HOME/.zprofile" ] && command -v zsh >/dev/null 2>&1; then \
 		DOCKERHUB_USERNAME="$$(zsh -c '. "$$HOME/.zprofile" >/dev/null 2>&1; print -r -- "$$DOCKERHUB_USERNAME"')"; \
 		DOCKERHUB_PASSWORD="$$(zsh -c '. "$$HOME/.zprofile" >/dev/null 2>&1; print -r -- "$$DOCKERHUB_PASSWORD"')"; \
 		export DOCKERHUB_USERNAME DOCKERHUB_PASSWORD; \
 	fi; \
-	if [ -z "$${DOCKERHUB_USERNAME:-}" ] || [ -z "$${DOCKERHUB_PASSWORD:-}" ]; then echo "DOCKERHUB_USERNAME / DOCKERHUB_PASSWORD are not set" >&2; exit 1; fi;
+	if [ -z "$${DOCKERHUB_USERNAME:-}" ] || [ -z "$${DOCKERHUB_PASSWORD:-}" ]; then echo "DOCKERHUB_USERNAME / DOCKERHUB_PASSWORD are not set" >&2; exit 1; fi; \
+	for v in HBC_JWT_SECRET HBC_POSTGRES_PASSWORD HBC_S3_ACCESS_KEY HBC_S3_SECRET_KEY; do \
+		if [ -z "$$(printenv "$$v")" ]; then echo "$$v is empty in $(DEPLOY_ENV_FILE)" >&2; exit 1; fi; \
+	done; \
+	if [ "$$(printf %s "$$HBC_JWT_SECRET" | wc -c)" -lt 32 ]; then echo "HBC_JWT_SECRET must be at least 32 characters" >&2; exit 1; fi;
 
 .PHONY: deploy-config
-## validates both Kamal configs with the real secrets (no server access)
+## checks .env.deploy (all HBC_* set, JWT >= 32 chars) and that both Kamal configs parse; no server access
 deploy-config:
 	@$(DEPLOY_ENV) $(KAMAL) config $(BACK_CFG) >/dev/null && $(KAMAL) config $(FRONT_CFG) >/dev/null && echo "kamal config: ok"
 
