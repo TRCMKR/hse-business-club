@@ -11,6 +11,8 @@ export default defineNuxtPlugin({
       return;
     }
     const auth = useAuthStore();
+    // Composables before the first `await`: the Nuxt context is gone after it.
+    const unavailable = useAuthUnavailable();
     try {
       const user = await auth.fetchMe();
       if (!user) {
@@ -21,7 +23,7 @@ export default defineNuxtPlugin({
       // Backend down: the session may well be valid — do not send the user to /login
       // (the middleware shows a 503 error page with «Повторить» instead).
       console.error('[auth] fetchMe failed', error);
-      useAuthUnavailable().value = true;
+      unavailable.value = true;
     }
   },
 });
