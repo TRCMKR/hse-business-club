@@ -3,6 +3,7 @@ package bff
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -101,13 +102,25 @@ type fakeUsers struct {
 	byID      map[uuid.UUID]*users.User
 	passwords map[uuid.UUID]string
 	avatars   map[string][]byte
+	refresh   map[string]*fakeRefresh // by token
+	seq       int
 	err       error // returned by every method when set
+}
+
+// fakeRefresh is a refresh token of the fake users context.
+type fakeRefresh struct {
+	userID  uuid.UUID
+	family  int
+	revoked bool
 }
 
 var _ users.Service = (*fakeUsers)(nil)
 
 func newFakeUsers(c *calls, cl *clock) *fakeUsers {
-	return &fakeUsers{calls: c, clock: cl, byID: map[uuid.UUID]*users.User{}, passwords: map[uuid.UUID]string{}, avatars: map[string][]byte{}}
+	return &fakeUsers{
+		calls: c, clock: cl, byID: map[uuid.UUID]*users.User{}, passwords: map[uuid.UUID]string{},
+		avatars: map[string][]byte{}, refresh: map[string]*fakeRefresh{},
+	}
 }
 
 func (f *fakeUsers) begin(name string) error {
@@ -250,6 +263,64 @@ func (f *fakeUsers) OpenAvatar(_ context.Context, key string) (*users.Avatar, er
 		return nil, apperr.New(apperr.KindNotFound, fmsgAvatarNotFound)
 	}
 	return &users.Avatar{ContentType: jpegType, Data: slices.Clone(data)}, nil
+}
+
+// newRefresh issues "refresh:<n>" in family (0 = a new family). f.mu is held.
+func (f *fakeUsers) newRefresh(userID uuid.UUID, family int) *users.RefreshToken {
+	f.seq++
+	if family == 0 {
+		family = f.seq
+	}
+	token := fmt.Sprintf("refresh:%d", f.seq)
+	f.refresh[token] = &fakeRefresh{userID: userID, family: family}
+	return &users.RefreshToken{Token: token, ExpiresAt: f.clock.tick().Add(time.Hour)}
+}
+
+func (f *fakeUsers) revokeFamily(family int) {
+	for _, r := range f.refresh {
+		if r.family == family {
+			r.revoked = true
+		}
+	}
+}
+
+func (f *fakeUsers) IssueRefresh(_ context.Context, userID uuid.UUID) (*users.RefreshToken, error) {
+	err := f.begin("IssueRefresh")
+	defer f.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	return f.newRefresh(userID, 0), nil
+}
+
+func (f *fakeUsers) RotateRefresh(_ context.Context, token string) (uuid.UUID, *users.RefreshToken, error) {
+	err := f.begin("RotateRefresh")
+	defer f.mu.Unlock()
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
+	cur, ok := f.refresh[token]
+	if !ok {
+		return uuid.Nil, nil, apperr.New(apperr.KindUnauthenticated, msgSessionExpired)
+	}
+	if cur.revoked {
+		f.revokeFamily(cur.family)
+		return uuid.Nil, nil, apperr.New(apperr.KindUnauthenticated, msgSessionExpired)
+	}
+	cur.revoked = true
+	return cur.userID, f.newRefresh(cur.userID, cur.family), nil
+}
+
+func (f *fakeUsers) RevokeRefresh(_ context.Context, token string) error {
+	err := f.begin("RevokeRefresh")
+	defer f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if cur, ok := f.refresh[token]; ok {
+		f.revokeFamily(cur.family)
+	}
+	return nil
 }
 
 // ---------- listings ----------

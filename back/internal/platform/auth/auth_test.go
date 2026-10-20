@@ -48,6 +48,9 @@ func TestJWTIssueVerify(t *testing.T) {
 	if got != id {
 		t.Fatalf("Verify() = %s, want %s", got, id)
 	}
+	if j.TTL() != time.Hour {
+		t.Fatalf("TTL() = %s, want 1h", j.TTL())
+	}
 }
 
 func TestJWTExpired(t *testing.T) {

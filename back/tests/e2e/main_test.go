@@ -23,7 +23,7 @@ import (
 var pool *pgxpool.Pool
 
 // tables are truncated before every test.
-const truncateSQL = "TRUNCATE applications.applications, listings.listings, users.users"
+const truncateSQL = "TRUNCATE applications.applications, listings.listings, users.refresh_tokens, users.users"
 
 func TestMain(m *testing.M) {
 	dsn := os.Getenv("TEST_POSTGRES_DSN")
