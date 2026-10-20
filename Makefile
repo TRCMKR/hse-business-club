@@ -12,7 +12,7 @@ FRONT_URL ?= http://localhost:3000
 help:
 	@echo "Usage: make <target>"
 	@echo ""
-	@awk '/^## /{c=substr($$0,4);next} /^[a-zA-Z0-9_-]+:/{t=$$1;sub(":","",t);if(c!=""){printf "  %-10s %s\n",t,c;c=""}}' $(MAKEFILE_LIST)
+	@awk '/^## /{c=substr($$0,4);next} /^[a-zA-Z0-9_-]+:/{t=$$1;sub(":","",t);if(c!=""){printf "  %-16s %s\n",t,c;c=""}}' $(MAKEFILE_LIST)
 
 .PHONY: up
 ## builds images and starts db, minio, back, front (front :3000, API :8080, debug :8081)
@@ -55,3 +55,70 @@ lint:
 ## smoke test of the running stack: main scenario, photo via MinIO, login via the front (API_URL, FRONT_URL)
 smoke:
 	@API_URL="$(API_URL)" FRONT_URL="$(FRONT_URL)" scripts/smoke.sh
+
+# ---------- Deploy: Kamal 2, stand https://hbc.trcmkr.ru (README §Деплой) ----------
+# Two Kamal configs (monorepo, two images); the order is always back (with accessories
+# db + minio) → front, and the reverse for removal.
+# Secrets: .env.deploy (gitignored, template .env.deploy.example) is exported into the
+# environment; .kamal/secrets maps the variables to the containers. Docker Hub credentials
+# come from DOCKERHUB_USERNAME / DOCKERHUB_PASSWORD: already exported (e.g. a login zsh
+# that sourced ~/.zprofile), set in .env.deploy, or read from ~/.zprofile with zsh as a
+# fallback. Only those two variables are taken from the profile, so it never has to be
+# sourced by /bin/sh.
+KAMAL ?= kamal
+DEPLOY_ENV_FILE ?= .env.deploy
+# Thor parses -c only after the (sub)command: `kamal deploy -c …`, not `kamal -c … deploy`.
+BACK_CFG = -c config/deploy.back.yml
+FRONT_CFG = -c config/deploy.front.yml
+# deploy-logs / deploy-rollback: which service (back|front); deploy-rollback: VERSION=<git sha>
+SERVICE ?= front
+VERSION ?=
+
+DEPLOY_ENV = set -e; \
+	if [ ! -f "$(DEPLOY_ENV_FILE)" ]; then echo "$(DEPLOY_ENV_FILE) not found: cp .env.deploy.example $(DEPLOY_ENV_FILE) and fill it in" >&2; exit 1; fi; \
+	set -a; . "./$(DEPLOY_ENV_FILE)"; set +a; \
+	if [ -z "$${DOCKERHUB_USERNAME:-}" ] && [ -r "$$HOME/.zprofile" ] && command -v zsh >/dev/null 2>&1; then \
+		DOCKERHUB_USERNAME="$$(zsh -c '. "$$HOME/.zprofile" >/dev/null 2>&1; print -r -- "$$DOCKERHUB_USERNAME"')"; \
+		DOCKERHUB_PASSWORD="$$(zsh -c '. "$$HOME/.zprofile" >/dev/null 2>&1; print -r -- "$$DOCKERHUB_PASSWORD"')"; \
+		export DOCKERHUB_USERNAME DOCKERHUB_PASSWORD; \
+	fi; \
+	if [ -z "$${DOCKERHUB_USERNAME:-}" ] || [ -z "$${DOCKERHUB_PASSWORD:-}" ]; then echo "DOCKERHUB_USERNAME / DOCKERHUB_PASSWORD are not set" >&2; exit 1; fi;
+
+.PHONY: deploy-config
+## validates both Kamal configs with the real secrets (no server access)
+deploy-config:
+	@$(DEPLOY_ENV) $(KAMAL) config $(BACK_CFG) >/dev/null && $(KAMAL) config $(FRONT_CFG) >/dev/null && echo "kamal config: ok"
+
+.PHONY: deploy-setup
+## first deploy: back + db + minio (kamal setup), then front; needs .env.deploy
+deploy-setup:
+	@$(DEPLOY_ENV) $(KAMAL) setup $(BACK_CFG) && $(KAMAL) setup $(FRONT_CFG)
+
+.PHONY: deploy
+## builds amd64 images, pushes them to Docker Hub and deploys back, then front
+deploy:
+	@$(DEPLOY_ENV) $(KAMAL) deploy $(BACK_CFG) && $(KAMAL) deploy $(FRONT_CFG)
+
+.PHONY: deploy-logs
+## follows logs of the deployed SERVICE=front|back (default front)
+deploy-logs:
+	@$(DEPLOY_ENV) $(KAMAL) app logs -f -c config/deploy.$(SERVICE).yml
+
+.PHONY: deploy-rollback
+## SERVICE=front|back VERSION=<sha>: rolls back to a retained version (no VERSION: lists them)
+deploy-rollback:
+	@$(DEPLOY_ENV) if [ -z "$(VERSION)" ]; then \
+		$(KAMAL) app containers -c config/deploy.$(SERVICE).yml; \
+		echo "pick a version and run: make deploy-rollback SERVICE=$(SERVICE) VERSION=<version>" >&2; exit 1; \
+	fi; \
+	$(KAMAL) rollback "$(VERSION)" -c config/deploy.$(SERVICE).yml
+
+.PHONY: deploy-reset
+## wipes stand data (db + photos) and reseeds demo data; the app images stay
+deploy-reset:
+	@$(DEPLOY_ENV) $(KAMAL) accessory remove all -y $(BACK_CFG) && $(KAMAL) accessory boot all $(BACK_CFG) && $(KAMAL) app boot $(BACK_CFG)
+
+.PHONY: deploy-remove
+## removes the stand: front, back, db + minio with their data (kamal-proxy stays)
+deploy-remove:
+	@$(DEPLOY_ENV) $(KAMAL) app remove -y $(FRONT_CFG) && $(KAMAL) app remove -y $(BACK_CFG) && $(KAMAL) accessory remove all -y $(BACK_CFG)

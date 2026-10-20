@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+!.env.deploy.example
+# Kamal deploy secrets (template: .env.deploy.example)
+.env.deploy
 
 # Local compose overrides (e.g. other host ports); docker compose picks
 # docker-compose.override.yaml up automatically
