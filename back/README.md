@@ -56,6 +56,7 @@ curl localhost:8081/metrics      # Prometheus
 | Цель | Что делает |
 |---|---|
 | `make generate` | `buf generate`: `pkg/api/hbc/v1/*` (pb, grpc, gateway, swagger). Результат коммитится |
+| `make generate-mocks` | mockery v3 по `.mockery.yml`: моки портов и репозиториев в `internal/**/mocks`. Результат коммитится |
 | `make lint` | `buf lint` + golangci-lint (собирается локальным Go, версия зафиксирована в Makefile) |
 | `make test` | unit-тесты (`-race`), без инфраструктуры |
 | `make test-integration` | поднимает `db` + `minio` из корневого compose с override `docker-compose.test.yaml` (ждёт healthcheck: `pg_isready`), гоняет тесты с тегом `integration` (репозитории, `db`, `blob/s3`), гасит контейнеры |
@@ -108,7 +109,16 @@ goose CLI запускается через `go run …/cmd/goose@<версия 
 
 ## Тесты
 
-- **unit** — домены, сервисы на фейках, BFF на фейках портов, сервер (gateway, ошибки, метрики).
+- **unit** — домены (табличные тесты), сервисы контекстов на моках репозиториев, BFF на моках
+  портов, сервер (gateway, ошибки, метрики). Моки генерирует **mockery v3** (шаблон testify,
+  `EXPECT()`) по [`.mockery.yml`](.mockery.yml) в `internal/<pkg>/mocks` (`MockService`,
+  `MockRepository`, `MockStore`, …): `make generate-mocks`, результат коммитится, после
+  правки интерфейса порта моки перегенерируются (дифф после `make generate-mocks` — ошибка).
+  `NewMock…(t)` проверяет ожидания в конце теста, а вызов без ожидания валит тест, поэтому
+  «порт не вызывался» проверяется отсутствием ожиданий; число вызовов — `.Once()`/`.Times(n)`.
+  Транзакционные методы (`Update(ctx, id, fn)`, `InTx(ctx, fn)`) мокаются через
+  `RunAndReturn`, который вызывает `fn`. Рукописных фейков в unit-тестах нет: поведение SQL
+  (сортировки, фильтры, уникальность, блокировки) проверяют integration-тесты.
 - **integration** (`//go:build integration`) — репозитории контекстов на настоящем Postgres,
   миграции `migrations/` (up идемпотентен, down до нуля, снова up), `blob/s3` на MinIO.
   Каждый тест начинает с чистой базы (`dbtest.Migrate`: `Reset` + goose up, после теста —
