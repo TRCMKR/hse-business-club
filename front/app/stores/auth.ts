@@ -51,7 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   /**
-   * Clears the httpOnly cookie on the Nitro side, the local state and all cached
+   * Revokes the refresh token (Nitro → `V1Logout`), clears both httpOnly cookies, the local state and all cached
    * `useAsyncData` results, so the next account never sees the previous user's data.
    */
   const logout = async () => {

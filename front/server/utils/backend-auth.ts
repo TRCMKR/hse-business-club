@@ -1,66 +1,72 @@
 import type { H3Event } from 'h3';
-import { readBody, setResponseStatus } from 'h3';
-import { FetchError } from 'ofetch';
-import type { ApiErrorBody, User } from '~~/api/types';
-import { handleMock } from '../mock';
-
-interface AuthResult {
-  token: string
-  user: User
-}
+import { readRawBody, setResponseStatus } from 'h3';
+import type { ApiErrorBody, AuthResponse } from '~~/api/types';
+import { clearAuthSession, readAuthSession, writeAuthSession } from './auth-cookie';
+import type { BackendConfig } from './backend';
+import { backendFetch, readErrorBody, unavailableBody } from './backend';
 
 type Outcome
-  = | { ok: true, data: AuthResult }
+  = | { ok: true, data: AuthResponse }
     | { ok: false, status: number, error: ApiErrorBody };
 
-const internalError = (): ApiErrorBody => ({ code: 13, message: 'Внутренняя ошибка', details: [] });
+const JSON_HEADERS = { 'content-type': 'application/json', 'accept': 'application/json' };
 
-const callBackend = async (event: H3Event, path: string, body: unknown): Promise<Outcome> => {
-  const config = useRuntimeConfig(event);
-
-  if (config.mockApi) {
-    const res = handleMock({ method: 'POST', path, query: {}, token: null, body });
-    if (res.status >= 200 && res.status < 300) {
-      return { ok: true, data: res.body as AuthResult };
-    }
-    return { ok: false, status: res.status, error: res.body as ApiErrorBody };
-  }
-
+const postAuth = async (config: BackendConfig, path: string, body: string): Promise<Outcome> => {
+  let res: Response;
   try {
-    const data = await $fetch<AuthResult>(`${config.apiBaseUrl}${path}`, { method: 'POST', body: body as Record<string, unknown> });
-    return { ok: true, data };
+    res = await backendFetch(config, { method: 'POST', path, headers: JSON_HEADERS, body, timeoutMs: 15_000 }, null);
   } catch (error) {
-    if (error instanceof FetchError && error.response) {
-      const data = error.data as Partial<ApiErrorBody> | undefined;
-      if (data && typeof data.message === 'string') {
-        return {
-          ok: false,
-          status: error.response.status,
-          error: { code: data.code ?? 2, message: data.message, details: data.details ?? [] },
-        };
-      }
-      return { ok: false, status: error.response.status, error: internalError() };
-    }
     console.error('[auth] backend unreachable', error);
-    return { ok: false, status: 502, error: { code: 14, message: 'Сервер недоступен, попробуйте позже', details: [] } };
+    return { ok: false, status: 502, error: unavailableBody() };
   }
+  if (res.ok) {
+    return { ok: true, data: await res.json() as AuthResponse };
+  }
+  return { ok: false, status: res.status, error: await readErrorBody(res) };
 };
 
 /**
  * Shared handler for /api/auth/login and /api/auth/register: forwards the body to the
- * backend (or the mock), stores the JWT in the httpOnly cookie and returns only
- * `{ user }` — the token never reaches browser JS. Errors keep the backend status and
- * the `{code, message, details}` body.
+ * backend (or the mock), stores the access and refresh tokens in two httpOnly cookies and
+ * returns only `{ user }` — tokens never reach browser JS. Errors keep the backend status
+ * and the `{code, message, details}` body.
  */
-export const proxyAuth = async (event: H3Event, path: '/v1/auth/login' | '/v1/auth/register') => {
-  const body = await readBody(event).catch(() => undefined);
-  const outcome = await callBackend(event, path, body ?? {});
+export const proxyAuth = async (event: H3Event, config: BackendConfig, path: '/v1/auth/login' | '/v1/auth/register') => {
+  const raw = await readRawBody(event, 'utf8').catch(() => undefined);
+  const outcome = await postAuth(config, path, raw?.trim() ? raw : '{}');
 
   if (!outcome.ok) {
     setResponseStatus(event, outcome.status);
     return outcome.error;
   }
 
-  writeAuthToken(event, outcome.data.token);
+  writeAuthSession(event, outcome.data);
   return { user: outcome.data.user };
+};
+
+/**
+ * /api/auth/logout: revokes the refresh token on the backend (`V1Logout`; any failure is
+ * swallowed — the user is logging out anyway) and clears both cookies.
+ */
+export const logoutSession = async (event: H3Event, config: BackendConfig) => {
+  const { refresh } = readAuthSession(event);
+  clearAuthSession(event);
+  if (refresh) {
+    try {
+      const res = await backendFetch(config, {
+        method: 'POST',
+        path: '/v1/auth/logout',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ refreshToken: refresh }),
+        timeoutMs: 10_000,
+      }, null);
+      await res.body?.cancel();
+      if (!res.ok) {
+        console.error(`[auth] logout: backend answered ${res.status}`);
+      }
+    } catch (error) {
+      console.error('[auth] logout: backend unreachable', error);
+    }
+  }
+  return {};
 };

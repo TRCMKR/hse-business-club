@@ -1,24 +1,25 @@
-import { AUTH_COOKIE } from '~~/api/constants';
+import type { BackendContext } from '~~/api/backend-context';
+import { BACKEND_CONTEXT_KEY } from '~~/api/backend-context';
 import { useAuthStore, useAuthUnavailable } from '~/stores/auth';
 
-/** SSR: resolve the current user once per request if the auth cookie is present. */
+/**
+ * SSR: resolve the current user once per request if the request carries a session
+ * (access and/or refresh cookie). An expired access token is refreshed transparently by
+ * the backend caller; if the refresh fails it clears the cookies itself.
+ */
 export default defineNuxtPlugin({
   name: 'auth',
   dependsOn: ['pinia'],
   async setup() {
-    const cookie = useCookie(AUTH_COOKIE);
-    if (!cookie.value) {
+    const backend = useRequestEvent()?.context[BACKEND_CONTEXT_KEY] as BackendContext | undefined;
+    if (!backend?.hasSession()) {
       return;
     }
     const auth = useAuthStore();
     // Composables before the first `await`: the Nuxt context is gone after it.
     const unavailable = useAuthUnavailable();
     try {
-      const user = await auth.fetchMe();
-      if (!user) {
-        // Expired / invalid token: drop the cookie so the next request is clean.
-        cookie.value = null;
-      }
+      await auth.fetchMe();
     } catch (error) {
       // Backend down: the session may well be valid — do not send the user to /login
       // (the middleware shows a 503 error page with «Повторить» instead).
