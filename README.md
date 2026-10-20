@@ -443,4 +443,139 @@ make test    # back: unit + integration + e2e; front: vitest
 
 ## Деплой
 
-Не делался. Проект запускается локально через Docker Compose (см. [Запуск](#запуск)).
+Демо-стенд: **https://hbc.trcmkr.ru**. Он выкладывается через [Kamal 2](https://kamal-deploy.org)
+на один сервер (`72.4.68.165`, Ubuntu 24.04, Docker). Локально по-прежнему достаточно
+Docker Compose (см. [Запуск](#запуск)).
+
+### Как устроено
+
+В монорепо два образа, поэтому и конфигов Kamal два. Выкладываются они всегда в одном
+порядке: сначала бэкенд с базой и MinIO, потом фронтенд.
+
+| Конфиг | Что поднимает | Снаружи |
+|---|---|---|
+| [`config/deploy.back.yml`](config/deploy.back.yml) | `hbc-back` (образ `trcmkr/hbc-back`), accessories `hbc-back-db` (`postgres:17-alpine`) и `hbc-back-minio` (тот же образ MinIO, что в compose) | ничего: роль без kamal-proxy, порты не публикуются |
+| [`config/deploy.front.yml`](config/deploy.front.yml) | `hbc-front` (образ `trcmkr/hbc-front`) | `https://hbc.trcmkr.ru` через kamal-proxy, сертификат Let's Encrypt |
+
+- Все контейнеры живут в docker-сети `kamal` и находят друг друга по алиасам:
+  фронт ходит в API по `http://hbc-back:8080`, бэк — в `hbc-db:5432` и `hbc-minio:9000`.
+  Наружу смотрит только фронт, как и требует SPEC §5.
+- kamal-proxy на сервере общий с другими приложениями. Наши конфиги его не
+  перенастраивают, только добавляют маршрут для `hbc.trcmkr.ru`.
+- Фронт работает за HTTPS, поэтому cookie с токеном ставится с `Secure`
+  (`NUXT_COOKIE_SECURE=true`).
+- Данные лежат на хосте в `/root/hbc-back-db/data` и `/root/hbc-back-minio/data` и
+  переживают передеплой.
+- Секреты не хранятся в репозитории. [`.kamal/secrets`](.kamal/secrets) только ссылается на
+  переменные окружения. Значения лежат в `.env.deploy` (он в `.gitignore`), шаблон с
+  командами генерации — [`.env.deploy.example`](.env.deploy.example).
+
+### Что нужно
+
+1. **Kamal 2.11+**: `gem install kamal` или `brew install kamal`.
+2. **Docker с buildx.** Образы собираются локально под `linux/amd64`. На Apple Silicon
+   сборка идёт через эмуляцию QEMU, она медленнее нативной.
+3. **SSH-доступ `root` к серверу по ключу**, ключ хоста в `known_hosts`
+   (`ssh root@72.4.68.165 true` должен пройти без вопросов). На сервере нужны Docker и
+   запущенный kamal-proxy не старше v0.9.2. Если Docker нет, `kamal setup` поставит его сам.
+4. **Аккаунт Docker Hub** с правом пушить в `trcmkr/hbc-back` и `trcmkr/hbc-front`.
+   Вместо пароля лучше взять access token (Account settings → Personal access tokens,
+   права Read & Write). Учётные данные передаются в переменных `DOCKERHUB_USERNAME` и
+   `DOCKERHUB_PASSWORD`.
+5. **DNS:** `hbc.trcmkr.ru` должен указывать на сервер. Сейчас это обеспечивает wildcard
+   `*.trcmkr.ru`.
+
+### Секреты
+
+```bash
+cp .env.deploy.example .env.deploy
+# заполнить значения, команды генерации указаны в шаблоне:
+#   HBC_JWT_SECRET         openssl rand -hex 32
+#   HBC_POSTGRES_PASSWORD  openssl rand -hex 24
+#   HBC_S3_ACCESS_KEY      echo "hbc-$(openssl rand -hex 6)"
+#   HBC_S3_SECRET_KEY      openssl rand -hex 32
+```
+
+Цели `make deploy*` экспортируют `.env.deploy` в окружение (`set -a; . ./.env.deploy`).
+Переменные `DOCKERHUB_USERNAME` и `DOCKERHUB_PASSWORD` берутся по порядку:
+
+1. из окружения (например, их экспортирует `~/.zprofile` в login-shell терминала);
+2. из `.env.deploy`, если раскомментировать их там;
+3. из `~/.zprofile`. Make читает его через `zsh -c` и берёт только эти две переменные,
+   поэтому профиль не обязан быть совместим с `/bin/sh`.
+
+Пароль базы и ключи MinIO применяются только при первом запуске accessories. Если поменять
+их позже, нужно [сбросить данные](#сброс-данных-стенда).
+
+### Команды
+
+| Команда | Что делает |
+|---|---|
+| `make deploy-config` | проверяет оба конфига с реальными секретами, на сервер не ходит |
+| `make deploy-setup` | первая выкладка: `kamal setup` для бэка (Docker на сервере, accessories db и minio, деплой бэка), затем для фронта |
+| `make deploy` | собирает образы amd64, пушит их в Docker Hub и выкатывает бэк, затем фронт без простоя |
+| `make deploy-logs [SERVICE=back]` | показывает логи фронта (по умолчанию) или бэка в режиме follow |
+| `make deploy-rollback SERVICE=front VERSION=<sha>` | откатывает сервис к сохранённой версии. Без `VERSION` выводит список контейнеров с версиями |
+| `make deploy-reset` | удаляет данные стенда (базу и фото) и заново загружает демо-данные |
+| `make deploy-remove` | удаляет стенд: фронт, бэк, db и minio вместе с данными. kamal-proxy и чужие приложения остаются |
+
+`make -n deploy` показывает, какие команды будут выполнены. Первая выкладка с нуля:
+
+```bash
+cp .env.deploy.example .env.deploy   # заполнить
+make deploy-config                   # kamal config: ok
+make deploy-setup                    # ~10–20 минут, большую часть занимает сборка фронта под QEMU
+curl -I https://hbc.trcmkr.ru/login  # HTTP/2 200
+```
+
+После этого можно войти на `https://hbc.trcmkr.ru` под любым
+[тестовым аккаунтом](#тестовые-аккаунты). Обновление стенда выполняется через `make deploy`.
+
+Образ собирается из рабочего дерева (`builder.context` = `back` или `front`), так что в
+него попадают и незакоммиченные правки. Kamal в этом случае добавляет к тегу суффикс
+`_uncommitted_…`. Для чистой версии выкладывайте закоммиченное дерево.
+
+### Сброс данных стенда
+
+`make deploy-reset` выполняет три шага: `kamal accessory remove all -y` (удаляет
+контейнеры db и minio вместе с каталогами данных), `kamal accessory boot all` и
+`kamal app boot` для бэка. При перезапуске бэк заново применяет миграции, создаёт бакет и
+загружает демо-данные. Фронт перезапускать не нужно, но старые cookie станут
+недействительными, и пользователям придётся войти заново.
+
+### Отладка
+
+API и Swagger UI наружу не публикуются, поэтому `https://hbc.trcmkr.ru/v1/...` и `/docs/`
+недоступны. Фронт проксирует API под `/api/v1/*`. Посмотреть бэк изнутри можно так:
+
+```bash
+kamal app exec --reuse -c config/deploy.back.yml 'wget -qO- http://127.0.0.1:8080/readyz'
+kamal accessory logs db -c config/deploy.back.yml
+kamal app details -c config/deploy.front.yml
+```
+
+Перед прямыми вызовами `kamal` нужно загрузить секреты в shell: `set -a; . ./.env.deploy; set +a`.
+Учтите, что опция `-c` ставится после подкоманды (`kamal deploy -c …`).
+
+### Ограничения стенда
+
+- **Ресурсы.** На сервере 1 CPU, около 960 МБ RAM, 512 МБ swap и примерно 1,8 ГБ
+  свободного диска. Там же работают другие приложения. Каждому контейнеру задан
+  потолок памяти (`options.memory`): back 160 МБ, front 256 МБ, db 160 МБ, minio 160 МБ.
+  Обычно они потребляют меньше: около 30, 100, 50 и 100 МБ соответственно. Бэку и MinIO
+  дополнительно задан `GOMEMLIMIT`, фронту — `--max-old-space-size`. Postgres запущен с
+  `shared_buffers=32MB` и `max_connections=20`. Если контейнер упрётся в лимит, его убьёт
+  OOM, и Docker перезапустит контейнер, но память соседей при этом не пострадает. Самая
+  тяжёлая операция — обработка фото около 8000×8000: она может не уложиться в 160 МБ.
+  Обычные фото с телефона укладываются.
+- **Диск.** Образы занимают около 700 МБ (postgres ~280, minio ~160, front и back).
+  `retain_containers: 2` хранит только текущую и одну предыдущую версию. Логи ограничены
+  тремя файлами по 10 МБ на контейнер.
+- **Демо-данные включены** (`SEED_DEMO_DATA=true`). Пароли тестовых аккаунтов
+  опубликованы в README, поэтому войти на стенд может кто угодно. Стенд предназначен
+  только для демонстрации.
+- **Без простоя выкатывается только фронт** (kamal-proxy переключает трафик после
+  healthcheck `/login`). Бэк работает без прокси: на время рестарта алиас `hbc-back` может
+  указывать на старый и новый контейнер одновременно, возможны единичные ошибки 502.
+- **Один сервер:** нет резервирования и бэкапов. `make deploy-remove` и `make deploy-reset`
+  удаляют данные безвозвратно.
