@@ -21,7 +21,7 @@ import (
 func realEnv(t *testing.T) (*service.Service, *stubListings, uuid.UUID, uuid.UUID, func() int) {
 	t.Helper()
 	pool := dbtest.Pool(t)
-	dbtest.Migrate(t, pool, postgres.Migrator)
+	dbtest.Migrate(t, pool)
 	author, listing := uuid.New(), uuid.New()
 	listings := &stubListings{items: map[uuid.UUID]applications.ListingInfo{
 		listing: {ID: listing, AuthorID: author, IsOpen: true},

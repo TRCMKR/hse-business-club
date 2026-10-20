@@ -22,7 +22,7 @@ import (
 func setup(t *testing.T) (*postgres.Repository, *pgxpool.Pool) {
 	t.Helper()
 	pool := dbtest.Pool(t)
-	dbtest.Migrate(t, pool, postgres.Migrator)
+	dbtest.Migrate(t, pool)
 	return postgres.New(pool), pool
 }
 
@@ -155,7 +155,7 @@ func TestRepository(t *testing.T) {
 	})
 }
 
-// Up on an already migrated schema is a no-op, and the table lives in schema "users".
+// Up on an already migrated database is a no-op, and the table lives in schema "users".
 func TestMigrationIdempotent(t *testing.T) {
 	repo, pool := setup(t)
 	ctx := context.Background()
@@ -163,7 +163,7 @@ func TestMigrationIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		if err := postgres.Migrator.Up(ctx, pool); err != nil {
+		if err := dbtest.Up(ctx, pool); err != nil {
 			t.Fatalf("second Up: %v", err)
 		}
 	}
@@ -171,7 +171,7 @@ func TestMigrationIdempotent(t *testing.T) {
 		t.Fatalf("data lost after re-migration: %v", err)
 	}
 	var versions int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM users.goose_db_version WHERE version_id = 1").Scan(&versions); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM public.goose_db_version WHERE version_id = 20261020000001").Scan(&versions); err != nil {
 		t.Fatal(err)
 	}
 	if versions != 1 {
