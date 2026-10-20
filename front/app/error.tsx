@@ -27,7 +27,10 @@ export default defineComponent((props: Props) => {
 
   useHead({ title: computed(() => (is404.value ? title.value : 'Ошибка')) });
 
-  const goFeed = () => clearError({ redirect: '/' });
+  // 503 (backend was down during SSR): the session is re-checked only by a full load.
+  const goFeed = () => (props.error.statusCode === 503
+    ? window.location.assign('/')
+    : clearError({ redirect: '/' }));
   const retry = () => window.location.reload();
 
   return () => (
