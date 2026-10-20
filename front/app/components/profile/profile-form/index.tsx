@@ -1,5 +1,6 @@
 import { defineComponent, ref } from 'vue';
 import { useForm } from 'vee-validate';
+import { useEventListener } from '@vueuse/core';
 import { toTypedSchema } from '@vee-validate/yup';
 import { toast } from 'vue-sonner';
 import { prop } from '@fe/prop-types';
@@ -9,6 +10,7 @@ import type { User } from '~~/api/types';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { ChipsInput } from '~/components/ui/chips-input';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { Input } from '~/components/ui/input';
 import { Textarea } from '~/components/ui/textarea';
 import { useAuthStore } from '~/stores/auth';
@@ -33,7 +35,7 @@ export const ProfileForm = defineComponent((props: ProfileFormProps, { emit }) =
   const auth = useAuthStore();
   const formError = ref('');
 
-  const { defineField, errors, handleSubmit, isSubmitting } = useForm({
+  const { defineField, errors, handleSubmit, isSubmitting, meta } = useForm({
     validationSchema: toTypedSchema(profileFormSchema),
     initialValues: {
       displayName: props.user.displayName,
@@ -59,6 +61,7 @@ export const ProfileForm = defineComponent((props: ProfileFormProps, { emit }) =
         skills: values.skills,
         telegram: values.telegram,
       });
+      saved.value = true;
       auth.setUser(user);
       toast.success('Профиль сохранён');
       emit('saved', user);
@@ -66,6 +69,37 @@ export const ProfileForm = defineComponent((props: ProfileFormProps, { emit }) =
       formError.value = getErrorMessage(error);
     }
   });
+
+  // Unsaved changes guard (same as the listing form).
+  const saved = ref(false);
+  const hasUnsaved = () => meta.value.dirty && !saved.value;
+  const leaveOpen = ref(false);
+  let resolveLeave: ((ok: boolean) => void) | null = null;
+  const answerLeave = (ok: boolean) => {
+    leaveOpen.value = false;
+    resolveLeave?.(ok);
+    resolveLeave = null;
+  };
+
+  onBeforeRouteLeave(() => {
+    if (!hasUnsaved()) {
+      return true;
+    }
+    resolveLeave?.(false);
+    leaveOpen.value = true;
+    return new Promise<boolean>((resolve) => {
+      resolveLeave = resolve;
+    });
+  });
+
+  if (import.meta.client) {
+    useEventListener(window, 'beforeunload', (e: BeforeUnloadEvent) => {
+      if (hasUnsaved()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+  }
 
   // Double click / Enter while the request is in flight is ignored.
   const onFormSubmit = (e: Event) => {
@@ -134,6 +168,16 @@ export const ProfileForm = defineComponent((props: ProfileFormProps, { emit }) =
           <Button type={'submit'} loading={isSubmitting.value}>{'Сохранить'}</Button>
           <Button variant={'secondary'} disabled={isSubmitting.value} onClick={() => emit('cancel')}>{'Отмена'}</Button>
         </div>
+        <ConfirmDialog
+          open={leaveOpen.value}
+          title={'Уйти без сохранения?'}
+          message={'Изменения профиля будут потеряны.'}
+          confirmText={'Уйти'}
+          cancelText={'Остаться'}
+          tone={'danger'}
+          onConfirm={() => answerLeave(true)}
+          onCancel={() => answerLeave(false)}
+        />
       </form>
     </Card>
   );

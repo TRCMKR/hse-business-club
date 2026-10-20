@@ -30,6 +30,25 @@ test.describe('unsaved form guard', () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
+  test('leaving /me with an edited profile asks for confirmation', async ({ page }) => {
+    await loginAs(page, 'vera');
+    await page.goto('/me');
+    await page.getByRole('button', { name: /Редактировать/ }).first().click();
+    const headline = page.getByTestId('profile-form').getByLabel('Кратко о себе');
+    await headline.fill('Несохранённое описание');
+
+    await feedNavLink(page).click();
+    const dialog = page.getByRole('dialog', { name: 'Уйти без сохранения?' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Остаться' }).click();
+    await expect(page).toHaveURL(/\/me$/);
+    await expect(headline).toHaveValue('Несохранённое описание');
+
+    await feedNavLink(page).click();
+    await dialog.getByRole('button', { name: 'Уйти' }).click();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
   test('pristine form leaves without confirmation', async ({ page }) => {
     await loginAs(page, 'anna');
     await page.goto('/listings/new');
