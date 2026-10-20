@@ -17,7 +17,7 @@
 | F3 | merged | task/F3 | opus | 01:50 | 02:13 | tasks/reports/F3.md | принять (5 не блокирующих → F6) |
 | F4 | merged | task/F4 | opus | 01:50 | 02:10 | tasks/reports/F4.md | принять (6 не блокирующих → F6) |
 | F5 | merged | task/F5 | opus | 01:50 | 02:08 | tasks/reports/F5.md | принять (5 не блокирующих → F6) |
-| F6 | running | task/F6 | opus | 02:47 | | | |
+| F6 | review | task/F6 | opus | 02:47 | 03:20 | tasks/reports/F6.md | в работе |
 | F7 | merged | task/F7 | opus | 00:52 / 01:12 | 01:04 / 01:24 | tasks/reports/F7.md | итер. 1: вернуть → принять; итер. 2: принять (3 мелких, не блокируют) |
 | F8 | merged | task/F8 | opus | 02:24 | 02:39 | tasks/reports/F8.md | принять (8 не блокирующих → F6; axe 72 прогона без нарушений) |
 | I0 | merged | task/I0 | opus | 02:14 | 02:41 | tasks/reports/I0.md | итерация 1: конфликт с B5 → слит, принят |
@@ -67,6 +67,7 @@
 - 02:41 — I0: merge с B5 проверен ревьюером (test-all 81 с, стек healthy за 20 с, логин+лента через compose работают); merge в main.
 - 02:46 — F8: ревью принят; merge в main.
 - 02:47 — волна 2: запущен F6 (QA на живом бэке, a11y, тёмная тема, Playwright e2e, сквозные правки).
+- 03:20 — F6: исполнитель закончил (17 коммитов; 310 unit, 28 Playwright e2e, axe 0; чек-лист 25/25 на живом бэке). Запущен ревьюер.
 
 ## Время по волнам
 
