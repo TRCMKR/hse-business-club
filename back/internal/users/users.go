@@ -60,4 +60,19 @@ type Service interface {
 	RemoveAvatar(ctx context.Context, id uuid.UUID) (*User, error)
 	// key — значение User.AvatarKey. KindNotFound «Фото не найдено» (и при плохом формате key).
 	OpenAvatar(ctx context.Context, key string) (*Avatar, error)
+
+	// Refresh-токены (SPEC §4.2, §5). Выдаёт новую семью токенов для входа.
+	IssueRefresh(ctx context.Context, userID uuid.UUID) (*RefreshToken, error)
+	// Ротация: token отзывается, выдаётся следующий в той же семье. KindUnauthenticated
+	// «Сессия истекла» при неизвестном/истёкшем/отозванном; повторное использование уже
+	// ротированного токена отзывает всю семью.
+	RotateRefresh(ctx context.Context, token string) (userID uuid.UUID, next *RefreshToken, err error)
+	// Идемпотентно: неизвестный токен — не ошибка.
+	RevokeRefresh(ctx context.Context, token string) error
+}
+
+// RefreshToken is an issued refresh token.
+type RefreshToken struct {
+	Token     string    // непрозрачный, base64url(32 случайных байта); наружу — только через BFF
+	ExpiresAt time.Time
 }

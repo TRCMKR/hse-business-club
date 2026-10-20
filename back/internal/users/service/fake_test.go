@@ -10,6 +10,7 @@ import (
 
 	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
 	"github.com/trcmkr/hse-business-club/back/internal/users"
+	"github.com/trcmkr/hse-business-club/back/internal/users/domain"
 	"github.com/trcmkr/hse-business-club/back/internal/users/postgres"
 	"github.com/trcmkr/hse-business-club/back/internal/users/service"
 )
@@ -145,4 +146,126 @@ func (h *fakeHasher) count() int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.checks
+}
+
+var _ service.RefreshRepository = (*postgres.RefreshRepository)(nil)
+
+// fakeTokens is an in-memory service.RefreshRepository. InTx serializes transactions
+// and rolls the state back when fn fails, like the postgres one.
+type fakeTokens struct {
+	tx     sync.Mutex // held for the whole InTx
+	mu     sync.Mutex
+	byHash map[string]*domain.StoredRefreshToken
+	err    error // returned by every method except InTx when set
+}
+
+func newFakeTokens() *fakeTokens {
+	return &fakeTokens{byHash: map[string]*domain.StoredRefreshToken{}}
+}
+
+func cloneToken(t *domain.StoredRefreshToken) *domain.StoredRefreshToken {
+	c := *t
+	c.Hash = slices.Clone(t.Hash)
+	if t.RevokedAt != nil {
+		at := *t.RevokedAt
+		c.RevokedAt = &at
+	}
+	return &c
+}
+
+func (f *fakeTokens) snapshot() map[string]*domain.StoredRefreshToken {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make(map[string]*domain.StoredRefreshToken, len(f.byHash))
+	for k, v := range f.byHash {
+		out[k] = cloneToken(v)
+	}
+	return out
+}
+
+// all returns copies of the stored tokens.
+func (f *fakeTokens) all() []*domain.StoredRefreshToken {
+	var out []*domain.StoredRefreshToken
+	for _, t := range f.snapshot() {
+		out = append(out, t)
+	}
+	return out
+}
+
+func (f *fakeTokens) InTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	f.tx.Lock()
+	defer f.tx.Unlock()
+	before := f.snapshot()
+	if err := fn(ctx); err != nil {
+		f.mu.Lock()
+		f.byHash = before
+		f.mu.Unlock()
+		return err
+	}
+	return nil
+}
+
+func (f *fakeTokens) Create(_ context.Context, t *domain.StoredRefreshToken) (*domain.StoredRefreshToken, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return nil, f.err
+	}
+	if _, ok := f.byHash[string(t.Hash)]; ok {
+		return nil, apperr.New(apperr.KindConflict, "Внутренняя ошибка")
+	}
+	c := cloneToken(t)
+	c.ID, c.CreatedAt = uuid.New(), time.Now()
+	f.byHash[string(t.Hash)] = c
+	return cloneToken(c), nil
+}
+
+func (f *fakeTokens) GetByHash(_ context.Context, hash []byte) (*domain.StoredRefreshToken, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return nil, f.err
+	}
+	t, ok := f.byHash[string(hash)]
+	if !ok {
+		return nil, apperr.New(apperr.KindNotFound, postgres.MsgRefreshTokenNotFound)
+	}
+	return cloneToken(t), nil
+}
+
+func (f *fakeTokens) revokeWhere(match func(*domain.StoredRefreshToken) bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	now := time.Now()
+	for _, t := range f.byHash {
+		if t.RevokedAt == nil && match(t) {
+			t.RevokedAt = &now
+		}
+	}
+	return nil
+}
+
+func (f *fakeTokens) RevokeByID(_ context.Context, id uuid.UUID) error {
+	return f.revokeWhere(func(t *domain.StoredRefreshToken) bool { return t.ID == id })
+}
+
+func (f *fakeTokens) RevokeFamily(_ context.Context, familyID uuid.UUID) error {
+	return f.revokeWhere(func(t *domain.StoredRefreshToken) bool { return t.FamilyID == familyID })
+}
+
+func (f *fakeTokens) DeleteExpired(_ context.Context, userID uuid.UUID, now time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	for k, t := range f.byHash {
+		if t.UserID == userID && !t.ExpiresAt.After(now) {
+			delete(f.byHash, k)
+		}
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -21,20 +22,24 @@ import (
 )
 
 const (
-	testUser     = "anna"
-	testPassword = "password1"
+	testUser       = "anna"
+	testPassword   = "password1"
+	testRefreshTTL = 24 * time.Hour
 )
 
 type env struct {
 	svc    users.Service
 	repo   *fakeRepo
+	tokens *fakeTokens
 	hasher *fakeHasher
 	store  *memory.Store
+	now    time.Time // the service clock; tests move it
 }
 
 func newEnv() *env {
-	e := &env{repo: newFakeRepo(), hasher: &fakeHasher{}, store: memory.New()}
-	e.svc = service.New(e.repo, e.hasher, e.store)
+	e := &env{repo: newFakeRepo(), tokens: newFakeTokens(), hasher: &fakeHasher{}, store: memory.New(), now: time.Now()}
+	e.svc = service.New(e.repo, e.tokens, e.hasher, e.store,
+		service.WithRefreshTTL(testRefreshTTL), service.WithClock(func() time.Time { return e.now }))
 	return e
 }
 
@@ -134,7 +139,7 @@ func TestAuthenticateFailures(t *testing.T) {
 // The production hasher really is bcrypt and the dummy hash path works with it.
 func TestBcryptHasher(t *testing.T) {
 	repo := newFakeRepo()
-	svc := service.New(repo, service.Bcrypt, memory.New())
+	svc := service.New(repo, newFakeTokens(), service.Bcrypt, memory.New())
 	ctx := context.Background()
 	u, err := svc.Register(ctx, users.RegisterParams{Username: testUser, Password: testPassword, DisplayName: "A"})
 	if err != nil {
@@ -262,7 +267,7 @@ func TestSetAvatarCleansUpOnRepoFailure(t *testing.T) {
 	ctx := context.Background()
 	u := e.register(t, testUser)
 	failing := &failingSetKey{fakeRepo: e.repo}
-	svc := service.New(failing, e.hasher, e.store)
+	svc := service.New(failing, e.tokens, e.hasher, e.store)
 	_, err := svc.SetAvatar(ctx, u.ID, pngImage(t, 64, 64, color.White))
 	wantErr(t, err, apperr.KindUnknown, "")
 	if e.store.Len() != 0 {
@@ -292,7 +297,7 @@ func TestOpenAvatar(t *testing.T) {
 }
 
 func TestOpenAvatarStoreFailure(t *testing.T) {
-	svc := service.New(newFakeRepo(), &fakeHasher{}, brokenStore{})
+	svc := service.New(newFakeRepo(), newFakeTokens(), &fakeHasher{}, brokenStore{})
 	_, err := svc.OpenAvatar(context.Background(), uuid.NewString()+".jpg")
 	wantErr(t, err, apperr.KindUnknown, "")
 }
@@ -316,7 +321,7 @@ func TestNoHashInErrors(t *testing.T) {
 // If the hasher fails in New, misses are still compared against a real bcrypt hash.
 func TestDummyHashFallback(t *testing.T) {
 	h := &brokenHasher{}
-	svc := service.New(newFakeRepo(), h, memory.New())
+	svc := service.New(newFakeRepo(), newFakeTokens(), h, memory.New())
 	_, err := svc.Authenticate(context.Background(), "ghost", testPassword)
 	wantErr(t, err, apperr.KindUnauthenticated, service.MsgInvalidCredentials)
 	if len(h.checked) != 1 || !strings.HasPrefix(h.checked[0], "$2a$10$") || len(h.checked[0]) != 60 {
@@ -327,7 +332,7 @@ func TestDummyHashFallback(t *testing.T) {
 // The miss hash is computed in New, not on the first miss.
 func TestDummyHashComputedInNew(t *testing.T) {
 	h := &countingHasher{}
-	svc := service.New(newFakeRepo(), h, memory.New())
+	svc := service.New(newFakeRepo(), newFakeTokens(), h, memory.New())
 	if n := h.hashes; n != 1 {
 		t.Fatalf("Hash called %d times in New, want 1", n)
 	}
