@@ -1,4 +1,11 @@
-COMPOSE ?= docker compose
+# COMPOSE_FILES: extra compose files, e.g. a local override of the ports when 8080/3000
+# are busy: make up smoke COMPOSE_FILES=ports.override.yaml API_URL=http://localhost:18080
+# FRONT_URL=http://localhost:13000. docker compose also honours COMPOSE_FILE and
+# COMPOSE_PROJECT_NAME from the environment.
+COMPOSE_FILES ?=
+COMPOSE ?= docker compose $(if $(COMPOSE_FILES),-f docker-compose.yaml $(addprefix -f ,$(COMPOSE_FILES)))
+API_URL ?= http://localhost:8080
+FRONT_URL ?= http://localhost:3000
 
 .PHONY: help
 ## prints help about all targets
@@ -45,7 +52,6 @@ lint:
 	cd front && npm run lint
 
 .PHONY: smoke
-## end-to-end smoke test against the running stack (implemented in I1)
+## smoke test of the running stack: main scenario, photo via MinIO, login via the front (API_URL, FRONT_URL)
 smoke:
-	@if [ -x scripts/smoke.sh ]; then scripts/smoke.sh; \
-	else echo "scripts/smoke.sh is not implemented yet (I1)"; fi
+	@API_URL="$(API_URL)" FRONT_URL="$(FRONT_URL)" scripts/smoke.sh
