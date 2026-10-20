@@ -24,7 +24,7 @@
 | I1 | merged | task/I1 | opus | 03:28 | 04:05 | tasks/reports/I1.md | принять (6 не блокирующих) |
 | I2 | merged | task/I2 | opus | 04:11 | 04:35 | tasks/reports/I2.md | принять (3 фактические правки README внесены) |
 | I3 | accepted (ждёт merge B6) | task/I3 | opus | 05:18 | 06:00 | tasks/reports/I3.md | итерация 1: принять с правками → внесены, `kamal config: ok` |
-| B6 | review | task/B6 | opus | 05:32 | 06:05 | tasks/reports/B6.md | в работе |
+| B6 | rework | task/B6 | opus | 05:32 | 05:56 | tasks/reports/B6.md | итерация 1: принять с правкой entrypoint (trap TERM, лог ожидания, текст ошибки) |
 
 ## Журнал событий
 
@@ -82,6 +82,7 @@
 - 05:55 — I3: ревью принят с правками до выкладки (6 пунктов); возвращено исполнителю. В main-дереве восстановлены `front/lib/blob-avatar/dist/*.d.ts`, удалённые побочным эффектом `npm ci` (`install-links` пересобирает пакет без tsc) — перед `make deploy` проверять `git status`.
 - 05:56 — B6: исполнитель закончил (миграции в `back/migrations/`, Migrator удалён, entrypoint с goose; test-all ×2, smoke 16/16). Запущен ревьюер.
 - 06:00 — I3: правки внесены (`b8cf5c6`), проверены координатором (`make deploy-config` ok). Merge после B6.
+- 06:06 — B6: ревью принят (test-all ×2, smoke 16/16, DDL без потерь); 3 мелких правки entrypoint — короткая итерация.
 
 ## Время по волнам
 
