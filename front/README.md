@@ -105,9 +105,23 @@ tests/                    — vitest
 синий акцент для действий, жёлтый дозированно, шрифт Montserrat (`@nuxt/fonts`, Google,
 веса 400–700, cyrillic + latin, `font-display: swap`). Логотип и блоки сайта не используются.
 
-- Все цвета, радиусы и тени — CSS-переменные в `app/assets/css/main.css`; компоненты
-  используют только токены (без hex в модулях). Тёмная тема — `prefers-color-scheme: dark`
-  переопределяет те же переменные (navy-поверхности).
+- Цвета, градиенты, тени, радиусы и размеры шрифта — CSS-переменные в
+  `app/assets/css/main.css`; в `*.module.css` нет hex/`rgb()` и числовых `font-size`
+  (проверка: `grep -rnE 'rgb\(|#[0-9a-f]{3,8}\b|font-size: *[0-9]' app --include='*.module.css'`
+  → пусто). Геометрия (высоты, отступы мелких элементов) может быть в px. Тёмная тема —
+  `prefers-color-scheme: dark` переопределяет те же переменные (navy-поверхности);
+  `theme-color` задан двумя `<meta media>` (`#f4f6fb` / `#06081c`). Тосты `vue-sonner`
+  перекрашены токенами в `main.css`.
+- Шрифт: `--font-family` = `'Montserrat', 'Montserrat Fallback: Arial', …` — второе
+  семейство генерирует `@nuxt/fonts` (метрически подогнанный Arial), без сдвига вёрстки
+  при подмене шрифта.
+- Рамка полей ввода `--color-border-strong` — ≥ 3:1 к фону и поверхности в обеих темах
+  (WCAG 1.4.11); декоративная рамка при hover карточки — `--color-border-hover`.
+- Фокус: глобальный `:focus-visible` (2px `--color-accent-text`); на navy-панелях —
+  белый (`--color-nav-focus`); элементы с `outline: none` используют `--shadow-focus-ring`
+  (поля — `--shadow-focus` + синяя рамка).
+- `prefers-reduced-motion: reduce` гасит анимации и переходы; skeleton вместо
+  «перелива» мягко пульсирует прозрачностью (индикатор загрузки остаётся).
 - Текст на фоне: `--color-text*` (≥ 4.5:1 в обеих темах). Синий текст и ссылки —
   `--color-accent-text`, а не `--color-accent` (тот — для заливок кнопок и рамок).
 - Primary-кнопка — `--gradient-accent`; secondary — прозрачная с синей рамкой.
