@@ -53,10 +53,11 @@ type DB struct {
 	MaxConns int32  `env:"POSTGRES_MAX_CONNS" envDefault:"10"`
 }
 
-// Auth holds JWT settings.
+// Auth holds token settings: the access JWT and the opaque refresh token.
 type Auth struct {
-	JWTSecret string        `env:"JWT_SECRET,required,notEmpty"`
-	JWTTTL    time.Duration `env:"JWT_TTL" envDefault:"24h"`
+	JWTSecret  string        `env:"JWT_SECRET,required,notEmpty"`
+	AccessTTL  time.Duration `env:"ACCESS_TTL" envDefault:"15m"`
+	RefreshTTL time.Duration `env:"REFRESH_TTL" envDefault:"720h"`
 }
 
 // Blob holds S3-compatible object storage settings.
@@ -118,8 +119,11 @@ func (c *Config) Validate() error {
 	if c.DB.MaxConns < 1 {
 		errs = append(errs, fmt.Errorf("POSTGRES_MAX_CONNS must be >= 1, got %d", c.DB.MaxConns))
 	}
-	if c.Auth.JWTTTL <= 0 {
-		errs = append(errs, fmt.Errorf("JWT_TTL must be positive, got %s", c.Auth.JWTTTL))
+	if c.Auth.AccessTTL <= 0 {
+		errs = append(errs, fmt.Errorf("ACCESS_TTL must be positive, got %s", c.Auth.AccessTTL))
+	}
+	if c.Auth.RefreshTTL <= 0 {
+		errs = append(errs, fmt.Errorf("REFRESH_TTL must be positive, got %s", c.Auth.RefreshTTL))
 	}
 	if c.Server.ShutdownTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("SHUTDOWN_TIMEOUT must be positive, got %s", c.Server.ShutdownTimeout))

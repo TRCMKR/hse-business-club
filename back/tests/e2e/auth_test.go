@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,9 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// noSecrets fails if a raw response body leaks a password or a bcrypt hash.
+// noSecrets fails if a raw response body leaks a password or a bcrypt hash. Values
+// of the issued tokens are skipped: random strings may contain anything.
 func noSecrets(t *testing.T, what string, body []byte) {
 	t.Helper()
+	var out J
+	if json.Unmarshal(body, &out) == nil {
+		delete(out, "accessToken")
+		delete(out, "refreshToken")
+		body, _ = json.Marshal(out)
+	}
 	s := strings.ToLower(string(body))
 	for _, bad := range []string{"password", "$2a$", "$2b$", "hash"} {
 		if strings.Contains(s, bad) {
@@ -45,7 +53,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	}
 	noSecrets(t, "register response", body)
 	_, out := e.do(http.MethodPost, "/v1/auth/login", "", J{"username": "anna_1", "password": password})
-	expectKeys(t, "auth response", out, "token", "user")
+	expectPair(t, "auth response", out)
 	u := obj(t, out, "user")
 	expectUser(t, u)
 	if u["username"] != "anna_1" || u["displayName"] != "Анна" || u["headline"] != "" || u["avatarUrl"] != "" ||

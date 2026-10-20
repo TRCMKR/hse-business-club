@@ -33,6 +33,11 @@ func (j *JWT) WithClock(now func() time.Time) *JWT {
 	return &c
 }
 
+// TTL is the lifetime of issued access tokens (access_expires_in in responses).
+func (j *JWT) TTL() time.Duration {
+	return j.ttl
+}
+
 // Issue implements Issuer.
 func (j *JWT) Issue(userID uuid.UUID) (string, error) {
 	now := j.now()

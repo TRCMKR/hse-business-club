@@ -30,7 +30,12 @@ const (
 	msgUserNotFound        = "Участник не найден"
 	msgListingNotFound     = "Публикация не найдена"
 	msgApplicationNotFound = "Отклик не найден"
+	msgSessionExpired      = "Сессия истекла"
 )
+
+// maxRefreshTokenLen bounds the refresh token accepted from the client: issued tokens
+// are 43 characters (base64url of 32 bytes), anything much longer cannot be ours.
+const maxRefreshTokenLen = 128
 
 // currentUser returns the authenticated caller. The auth interceptor has already
 // rejected anonymous calls to private methods; this is a safety net.
@@ -41,6 +46,17 @@ func currentUser(ctx context.Context) (uuid.UUID, error) {
 	}
 	return id, nil
 }
+
+// refreshTokenParam checks the shape of a refresh token from the request: an empty or
+// oversized one cannot name a session, so it is 401 «Сессия истекла».
+func refreshTokenParam(token string) (string, error) {
+	if token == "" || len(token) > maxRefreshTokenLen {
+		return "", sessionExpired()
+	}
+	return token, nil
+}
+
+func sessionExpired() error { return status.Error(codes.Unauthenticated, msgSessionExpired) }
 
 // parsePathID parses an id taken from the URL path. A malformed id cannot name any
 // object, so it is reported as NotFound with the entity message (nothing to disclose).

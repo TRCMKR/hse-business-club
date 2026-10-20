@@ -956,11 +956,16 @@ func (x *V1LoginRequest) GetPassword() string {
 }
 
 type V1AuthResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	User          *User                  `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Короткоживущий JWT для заголовка Authorization: Bearer.
+	AccessToken string `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	// Долгоживущий непрозрачный токен для V1Refresh/V1Logout. Хранится только в httpOnly-cookie.
+	RefreshToken string `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	User         *User  `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
+	// Срок жизни access_token в секундах.
+	AccessExpiresIn int32 `protobuf:"varint,4,opt,name=access_expires_in,json=accessExpiresIn,proto3" json:"access_expires_in,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *V1AuthResponse) Reset() {
@@ -993,9 +998,16 @@ func (*V1AuthResponse) Descriptor() ([]byte, []int) {
 	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *V1AuthResponse) GetToken() string {
+func (x *V1AuthResponse) GetAccessToken() string {
 	if x != nil {
-		return x.Token
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *V1AuthResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
 	}
 	return ""
 }
@@ -1007,6 +1019,137 @@ func (x *V1AuthResponse) GetUser() *User {
 	return nil
 }
 
+func (x *V1AuthResponse) GetAccessExpiresIn() int32 {
+	if x != nil {
+		return x.AccessExpiresIn
+	}
+	return 0
+}
+
+type V1RefreshRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *V1RefreshRequest) Reset() {
+	*x = V1RefreshRequest{}
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *V1RefreshRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*V1RefreshRequest) ProtoMessage() {}
+
+func (x *V1RefreshRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use V1RefreshRequest.ProtoReflect.Descriptor instead.
+func (*V1RefreshRequest) Descriptor() ([]byte, []int) {
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *V1RefreshRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+type V1LogoutRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *V1LogoutRequest) Reset() {
+	*x = V1LogoutRequest{}
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *V1LogoutRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*V1LogoutRequest) ProtoMessage() {}
+
+func (x *V1LogoutRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use V1LogoutRequest.ProtoReflect.Descriptor instead.
+func (*V1LogoutRequest) Descriptor() ([]byte, []int) {
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *V1LogoutRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+type V1LogoutResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *V1LogoutResponse) Reset() {
+	*x = V1LogoutResponse{}
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *V1LogoutResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*V1LogoutResponse) ProtoMessage() {}
+
+func (x *V1LogoutResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use V1LogoutResponse.ProtoReflect.Descriptor instead.
+func (*V1LogoutResponse) Descriptor() ([]byte, []int) {
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{12}
+}
+
 type V1GetMeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1015,7 +1158,7 @@ type V1GetMeRequest struct {
 
 func (x *V1GetMeRequest) Reset() {
 	*x = V1GetMeRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[10]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1027,7 +1170,7 @@ func (x *V1GetMeRequest) String() string {
 func (*V1GetMeRequest) ProtoMessage() {}
 
 func (x *V1GetMeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[10]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1040,7 +1183,7 @@ func (x *V1GetMeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1GetMeRequest.ProtoReflect.Descriptor instead.
 func (*V1GetMeRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{10}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{13}
 }
 
 type V1UpdateMeRequest struct {
@@ -1056,7 +1199,7 @@ type V1UpdateMeRequest struct {
 
 func (x *V1UpdateMeRequest) Reset() {
 	*x = V1UpdateMeRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[11]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1068,7 +1211,7 @@ func (x *V1UpdateMeRequest) String() string {
 func (*V1UpdateMeRequest) ProtoMessage() {}
 
 func (x *V1UpdateMeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[11]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1081,7 +1224,7 @@ func (x *V1UpdateMeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1UpdateMeRequest.ProtoReflect.Descriptor instead.
 func (*V1UpdateMeRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{11}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *V1UpdateMeRequest) GetDisplayName() string {
@@ -1128,7 +1271,7 @@ type V1GetUserRequest struct {
 
 func (x *V1GetUserRequest) Reset() {
 	*x = V1GetUserRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[12]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1140,7 +1283,7 @@ func (x *V1GetUserRequest) String() string {
 func (*V1GetUserRequest) ProtoMessage() {}
 
 func (x *V1GetUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[12]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1153,7 +1296,7 @@ func (x *V1GetUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1GetUserRequest.ProtoReflect.Descriptor instead.
 func (*V1GetUserRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{12}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *V1GetUserRequest) GetId() string {
@@ -1173,7 +1316,7 @@ type V1UploadAvatarRequest struct {
 
 func (x *V1UploadAvatarRequest) Reset() {
 	*x = V1UploadAvatarRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[13]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1185,7 +1328,7 @@ func (x *V1UploadAvatarRequest) String() string {
 func (*V1UploadAvatarRequest) ProtoMessage() {}
 
 func (x *V1UploadAvatarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[13]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1198,7 +1341,7 @@ func (x *V1UploadAvatarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1UploadAvatarRequest.ProtoReflect.Descriptor instead.
 func (*V1UploadAvatarRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{13}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *V1UploadAvatarRequest) GetData() []byte {
@@ -1216,7 +1359,7 @@ type V1DeleteAvatarRequest struct {
 
 func (x *V1DeleteAvatarRequest) Reset() {
 	*x = V1DeleteAvatarRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[14]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1228,7 +1371,7 @@ func (x *V1DeleteAvatarRequest) String() string {
 func (*V1DeleteAvatarRequest) ProtoMessage() {}
 
 func (x *V1DeleteAvatarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[14]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1241,7 +1384,7 @@ func (x *V1DeleteAvatarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1DeleteAvatarRequest.ProtoReflect.Descriptor instead.
 func (*V1DeleteAvatarRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{14}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{17}
 }
 
 type V1GetAvatarRequest struct {
@@ -1254,7 +1397,7 @@ type V1GetAvatarRequest struct {
 
 func (x *V1GetAvatarRequest) Reset() {
 	*x = V1GetAvatarRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[15]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1266,7 +1409,7 @@ func (x *V1GetAvatarRequest) String() string {
 func (*V1GetAvatarRequest) ProtoMessage() {}
 
 func (x *V1GetAvatarRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[15]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1279,7 +1422,7 @@ func (x *V1GetAvatarRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1GetAvatarRequest.ProtoReflect.Descriptor instead.
 func (*V1GetAvatarRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{15}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *V1GetAvatarRequest) GetFile() string {
@@ -1305,7 +1448,7 @@ type V1ListListingsRequest struct {
 
 func (x *V1ListListingsRequest) Reset() {
 	*x = V1ListListingsRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[16]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1317,7 +1460,7 @@ func (x *V1ListListingsRequest) String() string {
 func (*V1ListListingsRequest) ProtoMessage() {}
 
 func (x *V1ListListingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[16]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1330,7 +1473,7 @@ func (x *V1ListListingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ListListingsRequest.ProtoReflect.Descriptor instead.
 func (*V1ListListingsRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{16}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *V1ListListingsRequest) GetKind() ListingKind {
@@ -1373,7 +1516,7 @@ type V1ListListingsResponse struct {
 
 func (x *V1ListListingsResponse) Reset() {
 	*x = V1ListListingsResponse{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[17]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1385,7 +1528,7 @@ func (x *V1ListListingsResponse) String() string {
 func (*V1ListListingsResponse) ProtoMessage() {}
 
 func (x *V1ListListingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[17]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1398,7 +1541,7 @@ func (x *V1ListListingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ListListingsResponse.ProtoReflect.Descriptor instead.
 func (*V1ListListingsResponse) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{17}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *V1ListListingsResponse) GetItems() []*Listing {
@@ -1444,7 +1587,7 @@ type V1CreateListingRequest struct {
 
 func (x *V1CreateListingRequest) Reset() {
 	*x = V1CreateListingRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[18]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1456,7 +1599,7 @@ func (x *V1CreateListingRequest) String() string {
 func (*V1CreateListingRequest) ProtoMessage() {}
 
 func (x *V1CreateListingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[18]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1469,7 +1612,7 @@ func (x *V1CreateListingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1CreateListingRequest.ProtoReflect.Descriptor instead.
 func (*V1CreateListingRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{18}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *V1CreateListingRequest) GetKind() ListingKind {
@@ -1530,7 +1673,7 @@ type V1GetListingRequest struct {
 
 func (x *V1GetListingRequest) Reset() {
 	*x = V1GetListingRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[19]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1542,7 +1685,7 @@ func (x *V1GetListingRequest) String() string {
 func (*V1GetListingRequest) ProtoMessage() {}
 
 func (x *V1GetListingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[19]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1555,7 +1698,7 @@ func (x *V1GetListingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1GetListingRequest.ProtoReflect.Descriptor instead.
 func (*V1GetListingRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{19}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *V1GetListingRequest) GetId() string {
@@ -1580,7 +1723,7 @@ type V1UpdateListingRequest struct {
 
 func (x *V1UpdateListingRequest) Reset() {
 	*x = V1UpdateListingRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[20]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1592,7 +1735,7 @@ func (x *V1UpdateListingRequest) String() string {
 func (*V1UpdateListingRequest) ProtoMessage() {}
 
 func (x *V1UpdateListingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[20]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1605,7 +1748,7 @@ func (x *V1UpdateListingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1UpdateListingRequest.ProtoReflect.Descriptor instead.
 func (*V1UpdateListingRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{20}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *V1UpdateListingRequest) GetId() string {
@@ -1666,7 +1809,7 @@ type V1CloseListingRequest struct {
 
 func (x *V1CloseListingRequest) Reset() {
 	*x = V1CloseListingRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[21]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1678,7 +1821,7 @@ func (x *V1CloseListingRequest) String() string {
 func (*V1CloseListingRequest) ProtoMessage() {}
 
 func (x *V1CloseListingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[21]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1691,7 +1834,7 @@ func (x *V1CloseListingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1CloseListingRequest.ProtoReflect.Descriptor instead.
 func (*V1CloseListingRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{21}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *V1CloseListingRequest) GetId() string {
@@ -1711,7 +1854,7 @@ type V1ListMyListingsRequest struct {
 
 func (x *V1ListMyListingsRequest) Reset() {
 	*x = V1ListMyListingsRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[22]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1723,7 +1866,7 @@ func (x *V1ListMyListingsRequest) String() string {
 func (*V1ListMyListingsRequest) ProtoMessage() {}
 
 func (x *V1ListMyListingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[22]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1736,7 +1879,7 @@ func (x *V1ListMyListingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ListMyListingsRequest.ProtoReflect.Descriptor instead.
 func (*V1ListMyListingsRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{22}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *V1ListMyListingsRequest) GetStatus() ListingStatus {
@@ -1755,7 +1898,7 @@ type V1ListMyListingsResponse struct {
 
 func (x *V1ListMyListingsResponse) Reset() {
 	*x = V1ListMyListingsResponse{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[23]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1767,7 +1910,7 @@ func (x *V1ListMyListingsResponse) String() string {
 func (*V1ListMyListingsResponse) ProtoMessage() {}
 
 func (x *V1ListMyListingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[23]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1780,7 +1923,7 @@ func (x *V1ListMyListingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ListMyListingsResponse.ProtoReflect.Descriptor instead.
 func (*V1ListMyListingsResponse) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{23}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *V1ListMyListingsResponse) GetItems() []*Listing {
@@ -1800,7 +1943,7 @@ type V1CreateApplicationRequest struct {
 
 func (x *V1CreateApplicationRequest) Reset() {
 	*x = V1CreateApplicationRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[24]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1812,7 +1955,7 @@ func (x *V1CreateApplicationRequest) String() string {
 func (*V1CreateApplicationRequest) ProtoMessage() {}
 
 func (x *V1CreateApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[24]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1825,7 +1968,7 @@ func (x *V1CreateApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1CreateApplicationRequest.ProtoReflect.Descriptor instead.
 func (*V1CreateApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{24}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *V1CreateApplicationRequest) GetListingId() string {
@@ -1853,7 +1996,7 @@ type V1ListListingApplicationsRequest struct {
 
 func (x *V1ListListingApplicationsRequest) Reset() {
 	*x = V1ListListingApplicationsRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[25]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1865,7 +2008,7 @@ func (x *V1ListListingApplicationsRequest) String() string {
 func (*V1ListListingApplicationsRequest) ProtoMessage() {}
 
 func (x *V1ListListingApplicationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[25]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1878,7 +2021,7 @@ func (x *V1ListListingApplicationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ListListingApplicationsRequest.ProtoReflect.Descriptor instead.
 func (*V1ListListingApplicationsRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{25}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *V1ListListingApplicationsRequest) GetListingId() string {
@@ -1904,7 +2047,7 @@ type V1ApplicationsResponse struct {
 
 func (x *V1ApplicationsResponse) Reset() {
 	*x = V1ApplicationsResponse{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[26]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1916,7 +2059,7 @@ func (x *V1ApplicationsResponse) String() string {
 func (*V1ApplicationsResponse) ProtoMessage() {}
 
 func (x *V1ApplicationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[26]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1929,7 +2072,7 @@ func (x *V1ApplicationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ApplicationsResponse.ProtoReflect.Descriptor instead.
 func (*V1ApplicationsResponse) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{26}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *V1ApplicationsResponse) GetItems() []*Application {
@@ -1948,7 +2091,7 @@ type V1ApplicationIDRequest struct {
 
 func (x *V1ApplicationIDRequest) Reset() {
 	*x = V1ApplicationIDRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[27]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1960,7 +2103,7 @@ func (x *V1ApplicationIDRequest) String() string {
 func (*V1ApplicationIDRequest) ProtoMessage() {}
 
 func (x *V1ApplicationIDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[27]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1973,7 +2116,7 @@ func (x *V1ApplicationIDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ApplicationIDRequest.ProtoReflect.Descriptor instead.
 func (*V1ApplicationIDRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{27}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *V1ApplicationIDRequest) GetId() string {
@@ -1993,7 +2136,7 @@ type V1ListSentApplicationsRequest struct {
 
 func (x *V1ListSentApplicationsRequest) Reset() {
 	*x = V1ListSentApplicationsRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[28]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2005,7 +2148,7 @@ func (x *V1ListSentApplicationsRequest) String() string {
 func (*V1ListSentApplicationsRequest) ProtoMessage() {}
 
 func (x *V1ListSentApplicationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[28]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2018,7 +2161,7 @@ func (x *V1ListSentApplicationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use V1ListSentApplicationsRequest.ProtoReflect.Descriptor instead.
 func (*V1ListSentApplicationsRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{28}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *V1ListSentApplicationsRequest) GetStatus() ApplicationStatus {
@@ -2038,7 +2181,7 @@ type V1ListReceivedApplicationsRequest struct {
 
 func (x *V1ListReceivedApplicationsRequest) Reset() {
 	*x = V1ListReceivedApplicationsRequest{}
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[29]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2050,7 +2193,7 @@ func (x *V1ListReceivedApplicationsRequest) String() string {
 func (*V1ListReceivedApplicationsRequest) ProtoMessage() {}
 
 func (x *V1ListReceivedApplicationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_hbc_v1_hbc_proto_msgTypes[29]
+	mi := &file_api_hbc_v1_hbc_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2063,7 +2206,7 @@ func (x *V1ListReceivedApplicationsRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use V1ListReceivedApplicationsRequest.ProtoReflect.Descriptor instead.
 func (*V1ListReceivedApplicationsRequest) Descriptor() ([]byte, []int) {
-	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{29}
+	return file_api_hbc_v1_hbc_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *V1ListReceivedApplicationsRequest) GetStatus() ApplicationStatus {
@@ -2143,10 +2286,17 @@ const file_api_hbc_v1_hbc_proto_rawDesc = "" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"H\n" +
 	"\x0eV1LoginRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"H\n" +
-	"\x0eV1AuthResponse\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\x12 \n" +
-	"\x04user\x18\x02 \x01(\v2\f.hbc.v1.UserR\x04user\"\x10\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"\xa6\x01\n" +
+	"\x0eV1AuthResponse\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12 \n" +
+	"\x04user\x18\x03 \x01(\v2\f.hbc.v1.UserR\x04user\x12*\n" +
+	"\x11access_expires_in\x18\x04 \x01(\x05R\x0faccessExpiresIn\"7\n" +
+	"\x10V1RefreshRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"6\n" +
+	"\x0fV1LogoutRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x12\n" +
+	"\x10V1LogoutResponse\"\x10\n" +
 	"\x0eV1GetMeRequest\"\x9c\x01\n" +
 	"\x11V1UpdateMeRequest\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12\x1a\n" +
@@ -2232,13 +2382,15 @@ const file_api_hbc_v1_hbc_proto_rawDesc = "" +
 	"\x1aAPPLICATION_STATUS_PENDING\x10\x01\x12\x1f\n" +
 	"\x1bAPPLICATION_STATUS_ACCEPTED\x10\x02\x12\x1f\n" +
 	"\x1bAPPLICATION_STATUS_DECLINED\x10\x03\x12 \n" +
-	"\x1cAPPLICATION_STATUS_WITHDRAWN\x10\x042\xdf\x11\n" +
+	"\x1cAPPLICATION_STATUS_WITHDRAWN\x10\x042\x96\x13\n" +
 	"\x0fHseBusinessClub\x12I\n" +
 	"\x06V1Ping\x12\x15.hbc.v1.V1PingRequest\x1a\x16.hbc.v1.V1PingResponse\"\x10\x82\xd3\xe4\x93\x02\n" +
 	"\x12\b/v1/ping\x12]\n" +
 	"\n" +
 	"V1Register\x12\x19.hbc.v1.V1RegisterRequest\x1a\x16.hbc.v1.V1AuthResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/auth/register\x12T\n" +
-	"\aV1Login\x12\x16.hbc.v1.V1LoginRequest\x1a\x16.hbc.v1.V1AuthResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/auth/login\x12?\n" +
+	"\aV1Login\x12\x16.hbc.v1.V1LoginRequest\x1a\x16.hbc.v1.V1AuthResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/auth/login\x12Z\n" +
+	"\tV1Refresh\x12\x18.hbc.v1.V1RefreshRequest\x1a\x16.hbc.v1.V1AuthResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*\"\x10/v1/auth/refresh\x12Y\n" +
+	"\bV1Logout\x12\x17.hbc.v1.V1LogoutRequest\x1a\x18.hbc.v1.V1LogoutResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/auth/logout\x12?\n" +
 	"\aV1GetMe\x12\x16.hbc.v1.V1GetMeRequest\x1a\f.hbc.v1.User\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/v1/me\x12H\n" +
 	"\n" +
 	"V1UpdateMe\x12\x19.hbc.v1.V1UpdateMeRequest\x1a\f.hbc.v1.User\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\x1a\x06/v1/me\x12K\n" +
@@ -2279,7 +2431,7 @@ func file_api_hbc_v1_hbc_proto_rawDescGZIP() []byte {
 }
 
 var file_api_hbc_v1_hbc_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_api_hbc_v1_hbc_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_api_hbc_v1_hbc_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_api_hbc_v1_hbc_proto_goTypes = []any{
 	(ListingKind)(0),                          // 0: hbc.v1.ListingKind
 	(ListingStatus)(0),                        // 1: hbc.v1.ListingStatus
@@ -2295,38 +2447,41 @@ var file_api_hbc_v1_hbc_proto_goTypes = []any{
 	(*V1RegisterRequest)(nil),                 // 11: hbc.v1.V1RegisterRequest
 	(*V1LoginRequest)(nil),                    // 12: hbc.v1.V1LoginRequest
 	(*V1AuthResponse)(nil),                    // 13: hbc.v1.V1AuthResponse
-	(*V1GetMeRequest)(nil),                    // 14: hbc.v1.V1GetMeRequest
-	(*V1UpdateMeRequest)(nil),                 // 15: hbc.v1.V1UpdateMeRequest
-	(*V1GetUserRequest)(nil),                  // 16: hbc.v1.V1GetUserRequest
-	(*V1UploadAvatarRequest)(nil),             // 17: hbc.v1.V1UploadAvatarRequest
-	(*V1DeleteAvatarRequest)(nil),             // 18: hbc.v1.V1DeleteAvatarRequest
-	(*V1GetAvatarRequest)(nil),                // 19: hbc.v1.V1GetAvatarRequest
-	(*V1ListListingsRequest)(nil),             // 20: hbc.v1.V1ListListingsRequest
-	(*V1ListListingsResponse)(nil),            // 21: hbc.v1.V1ListListingsResponse
-	(*V1CreateListingRequest)(nil),            // 22: hbc.v1.V1CreateListingRequest
-	(*V1GetListingRequest)(nil),               // 23: hbc.v1.V1GetListingRequest
-	(*V1UpdateListingRequest)(nil),            // 24: hbc.v1.V1UpdateListingRequest
-	(*V1CloseListingRequest)(nil),             // 25: hbc.v1.V1CloseListingRequest
-	(*V1ListMyListingsRequest)(nil),           // 26: hbc.v1.V1ListMyListingsRequest
-	(*V1ListMyListingsResponse)(nil),          // 27: hbc.v1.V1ListMyListingsResponse
-	(*V1CreateApplicationRequest)(nil),        // 28: hbc.v1.V1CreateApplicationRequest
-	(*V1ListListingApplicationsRequest)(nil),  // 29: hbc.v1.V1ListListingApplicationsRequest
-	(*V1ApplicationsResponse)(nil),            // 30: hbc.v1.V1ApplicationsResponse
-	(*V1ApplicationIDRequest)(nil),            // 31: hbc.v1.V1ApplicationIDRequest
-	(*V1ListSentApplicationsRequest)(nil),     // 32: hbc.v1.V1ListSentApplicationsRequest
-	(*V1ListReceivedApplicationsRequest)(nil), // 33: hbc.v1.V1ListReceivedApplicationsRequest
-	(*timestamppb.Timestamp)(nil),             // 34: google.protobuf.Timestamp
-	(*httpbody.HttpBody)(nil),                 // 35: google.api.HttpBody
+	(*V1RefreshRequest)(nil),                  // 14: hbc.v1.V1RefreshRequest
+	(*V1LogoutRequest)(nil),                   // 15: hbc.v1.V1LogoutRequest
+	(*V1LogoutResponse)(nil),                  // 16: hbc.v1.V1LogoutResponse
+	(*V1GetMeRequest)(nil),                    // 17: hbc.v1.V1GetMeRequest
+	(*V1UpdateMeRequest)(nil),                 // 18: hbc.v1.V1UpdateMeRequest
+	(*V1GetUserRequest)(nil),                  // 19: hbc.v1.V1GetUserRequest
+	(*V1UploadAvatarRequest)(nil),             // 20: hbc.v1.V1UploadAvatarRequest
+	(*V1DeleteAvatarRequest)(nil),             // 21: hbc.v1.V1DeleteAvatarRequest
+	(*V1GetAvatarRequest)(nil),                // 22: hbc.v1.V1GetAvatarRequest
+	(*V1ListListingsRequest)(nil),             // 23: hbc.v1.V1ListListingsRequest
+	(*V1ListListingsResponse)(nil),            // 24: hbc.v1.V1ListListingsResponse
+	(*V1CreateListingRequest)(nil),            // 25: hbc.v1.V1CreateListingRequest
+	(*V1GetListingRequest)(nil),               // 26: hbc.v1.V1GetListingRequest
+	(*V1UpdateListingRequest)(nil),            // 27: hbc.v1.V1UpdateListingRequest
+	(*V1CloseListingRequest)(nil),             // 28: hbc.v1.V1CloseListingRequest
+	(*V1ListMyListingsRequest)(nil),           // 29: hbc.v1.V1ListMyListingsRequest
+	(*V1ListMyListingsResponse)(nil),          // 30: hbc.v1.V1ListMyListingsResponse
+	(*V1CreateApplicationRequest)(nil),        // 31: hbc.v1.V1CreateApplicationRequest
+	(*V1ListListingApplicationsRequest)(nil),  // 32: hbc.v1.V1ListListingApplicationsRequest
+	(*V1ApplicationsResponse)(nil),            // 33: hbc.v1.V1ApplicationsResponse
+	(*V1ApplicationIDRequest)(nil),            // 34: hbc.v1.V1ApplicationIDRequest
+	(*V1ListSentApplicationsRequest)(nil),     // 35: hbc.v1.V1ListSentApplicationsRequest
+	(*V1ListReceivedApplicationsRequest)(nil), // 36: hbc.v1.V1ListReceivedApplicationsRequest
+	(*timestamppb.Timestamp)(nil),             // 37: google.protobuf.Timestamp
+	(*httpbody.HttpBody)(nil),                 // 38: google.api.HttpBody
 }
 var file_api_hbc_v1_hbc_proto_depIdxs = []int32{
-	34, // 0: hbc.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	37, // 0: hbc.v1.User.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 1: hbc.v1.Listing.kind:type_name -> hbc.v1.ListingKind
 	2,  // 2: hbc.v1.Listing.stage:type_name -> hbc.v1.StartupStage
 	1,  // 3: hbc.v1.Listing.status:type_name -> hbc.v1.ListingStatus
 	4,  // 4: hbc.v1.Listing.author:type_name -> hbc.v1.User
-	34, // 5: hbc.v1.Listing.created_at:type_name -> google.protobuf.Timestamp
-	34, // 6: hbc.v1.Listing.updated_at:type_name -> google.protobuf.Timestamp
-	34, // 7: hbc.v1.Listing.closed_at:type_name -> google.protobuf.Timestamp
+	37, // 5: hbc.v1.Listing.created_at:type_name -> google.protobuf.Timestamp
+	37, // 6: hbc.v1.Listing.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 7: hbc.v1.Listing.closed_at:type_name -> google.protobuf.Timestamp
 	8,  // 8: hbc.v1.Listing.my_application:type_name -> hbc.v1.Application
 	5,  // 9: hbc.v1.Listing.stats:type_name -> hbc.v1.ListingStats
 	0,  // 10: hbc.v1.ListingSummary.kind:type_name -> hbc.v1.ListingKind
@@ -2335,9 +2490,9 @@ var file_api_hbc_v1_hbc_proto_depIdxs = []int32{
 	7,  // 13: hbc.v1.Application.listing:type_name -> hbc.v1.ListingSummary
 	4,  // 14: hbc.v1.Application.applicant:type_name -> hbc.v1.User
 	3,  // 15: hbc.v1.Application.status:type_name -> hbc.v1.ApplicationStatus
-	34, // 16: hbc.v1.Application.created_at:type_name -> google.protobuf.Timestamp
-	34, // 17: hbc.v1.Application.updated_at:type_name -> google.protobuf.Timestamp
-	34, // 18: hbc.v1.Application.decided_at:type_name -> google.protobuf.Timestamp
+	37, // 16: hbc.v1.Application.created_at:type_name -> google.protobuf.Timestamp
+	37, // 17: hbc.v1.Application.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 18: hbc.v1.Application.decided_at:type_name -> google.protobuf.Timestamp
 	4,  // 19: hbc.v1.V1AuthResponse.user:type_name -> hbc.v1.User
 	0,  // 20: hbc.v1.V1ListListingsRequest.kind:type_name -> hbc.v1.ListingKind
 	6,  // 21: hbc.v1.V1ListListingsResponse.items:type_name -> hbc.v1.Listing
@@ -2353,49 +2508,53 @@ var file_api_hbc_v1_hbc_proto_depIdxs = []int32{
 	9,  // 31: hbc.v1.HseBusinessClub.V1Ping:input_type -> hbc.v1.V1PingRequest
 	11, // 32: hbc.v1.HseBusinessClub.V1Register:input_type -> hbc.v1.V1RegisterRequest
 	12, // 33: hbc.v1.HseBusinessClub.V1Login:input_type -> hbc.v1.V1LoginRequest
-	14, // 34: hbc.v1.HseBusinessClub.V1GetMe:input_type -> hbc.v1.V1GetMeRequest
-	15, // 35: hbc.v1.HseBusinessClub.V1UpdateMe:input_type -> hbc.v1.V1UpdateMeRequest
-	16, // 36: hbc.v1.HseBusinessClub.V1GetUser:input_type -> hbc.v1.V1GetUserRequest
-	17, // 37: hbc.v1.HseBusinessClub.V1UploadAvatar:input_type -> hbc.v1.V1UploadAvatarRequest
-	18, // 38: hbc.v1.HseBusinessClub.V1DeleteAvatar:input_type -> hbc.v1.V1DeleteAvatarRequest
-	19, // 39: hbc.v1.HseBusinessClub.V1GetAvatar:input_type -> hbc.v1.V1GetAvatarRequest
-	20, // 40: hbc.v1.HseBusinessClub.V1ListListings:input_type -> hbc.v1.V1ListListingsRequest
-	22, // 41: hbc.v1.HseBusinessClub.V1CreateListing:input_type -> hbc.v1.V1CreateListingRequest
-	23, // 42: hbc.v1.HseBusinessClub.V1GetListing:input_type -> hbc.v1.V1GetListingRequest
-	24, // 43: hbc.v1.HseBusinessClub.V1UpdateListing:input_type -> hbc.v1.V1UpdateListingRequest
-	25, // 44: hbc.v1.HseBusinessClub.V1CloseListing:input_type -> hbc.v1.V1CloseListingRequest
-	26, // 45: hbc.v1.HseBusinessClub.V1ListMyListings:input_type -> hbc.v1.V1ListMyListingsRequest
-	28, // 46: hbc.v1.HseBusinessClub.V1CreateApplication:input_type -> hbc.v1.V1CreateApplicationRequest
-	29, // 47: hbc.v1.HseBusinessClub.V1ListListingApplications:input_type -> hbc.v1.V1ListListingApplicationsRequest
-	31, // 48: hbc.v1.HseBusinessClub.V1AcceptApplication:input_type -> hbc.v1.V1ApplicationIDRequest
-	31, // 49: hbc.v1.HseBusinessClub.V1DeclineApplication:input_type -> hbc.v1.V1ApplicationIDRequest
-	31, // 50: hbc.v1.HseBusinessClub.V1WithdrawApplication:input_type -> hbc.v1.V1ApplicationIDRequest
-	32, // 51: hbc.v1.HseBusinessClub.V1ListSentApplications:input_type -> hbc.v1.V1ListSentApplicationsRequest
-	33, // 52: hbc.v1.HseBusinessClub.V1ListReceivedApplications:input_type -> hbc.v1.V1ListReceivedApplicationsRequest
-	10, // 53: hbc.v1.HseBusinessClub.V1Ping:output_type -> hbc.v1.V1PingResponse
-	13, // 54: hbc.v1.HseBusinessClub.V1Register:output_type -> hbc.v1.V1AuthResponse
-	13, // 55: hbc.v1.HseBusinessClub.V1Login:output_type -> hbc.v1.V1AuthResponse
-	4,  // 56: hbc.v1.HseBusinessClub.V1GetMe:output_type -> hbc.v1.User
-	4,  // 57: hbc.v1.HseBusinessClub.V1UpdateMe:output_type -> hbc.v1.User
-	4,  // 58: hbc.v1.HseBusinessClub.V1GetUser:output_type -> hbc.v1.User
-	4,  // 59: hbc.v1.HseBusinessClub.V1UploadAvatar:output_type -> hbc.v1.User
-	4,  // 60: hbc.v1.HseBusinessClub.V1DeleteAvatar:output_type -> hbc.v1.User
-	35, // 61: hbc.v1.HseBusinessClub.V1GetAvatar:output_type -> google.api.HttpBody
-	21, // 62: hbc.v1.HseBusinessClub.V1ListListings:output_type -> hbc.v1.V1ListListingsResponse
-	6,  // 63: hbc.v1.HseBusinessClub.V1CreateListing:output_type -> hbc.v1.Listing
-	6,  // 64: hbc.v1.HseBusinessClub.V1GetListing:output_type -> hbc.v1.Listing
-	6,  // 65: hbc.v1.HseBusinessClub.V1UpdateListing:output_type -> hbc.v1.Listing
-	6,  // 66: hbc.v1.HseBusinessClub.V1CloseListing:output_type -> hbc.v1.Listing
-	27, // 67: hbc.v1.HseBusinessClub.V1ListMyListings:output_type -> hbc.v1.V1ListMyListingsResponse
-	8,  // 68: hbc.v1.HseBusinessClub.V1CreateApplication:output_type -> hbc.v1.Application
-	30, // 69: hbc.v1.HseBusinessClub.V1ListListingApplications:output_type -> hbc.v1.V1ApplicationsResponse
-	8,  // 70: hbc.v1.HseBusinessClub.V1AcceptApplication:output_type -> hbc.v1.Application
-	8,  // 71: hbc.v1.HseBusinessClub.V1DeclineApplication:output_type -> hbc.v1.Application
-	8,  // 72: hbc.v1.HseBusinessClub.V1WithdrawApplication:output_type -> hbc.v1.Application
-	30, // 73: hbc.v1.HseBusinessClub.V1ListSentApplications:output_type -> hbc.v1.V1ApplicationsResponse
-	30, // 74: hbc.v1.HseBusinessClub.V1ListReceivedApplications:output_type -> hbc.v1.V1ApplicationsResponse
-	53, // [53:75] is the sub-list for method output_type
-	31, // [31:53] is the sub-list for method input_type
+	14, // 34: hbc.v1.HseBusinessClub.V1Refresh:input_type -> hbc.v1.V1RefreshRequest
+	15, // 35: hbc.v1.HseBusinessClub.V1Logout:input_type -> hbc.v1.V1LogoutRequest
+	17, // 36: hbc.v1.HseBusinessClub.V1GetMe:input_type -> hbc.v1.V1GetMeRequest
+	18, // 37: hbc.v1.HseBusinessClub.V1UpdateMe:input_type -> hbc.v1.V1UpdateMeRequest
+	19, // 38: hbc.v1.HseBusinessClub.V1GetUser:input_type -> hbc.v1.V1GetUserRequest
+	20, // 39: hbc.v1.HseBusinessClub.V1UploadAvatar:input_type -> hbc.v1.V1UploadAvatarRequest
+	21, // 40: hbc.v1.HseBusinessClub.V1DeleteAvatar:input_type -> hbc.v1.V1DeleteAvatarRequest
+	22, // 41: hbc.v1.HseBusinessClub.V1GetAvatar:input_type -> hbc.v1.V1GetAvatarRequest
+	23, // 42: hbc.v1.HseBusinessClub.V1ListListings:input_type -> hbc.v1.V1ListListingsRequest
+	25, // 43: hbc.v1.HseBusinessClub.V1CreateListing:input_type -> hbc.v1.V1CreateListingRequest
+	26, // 44: hbc.v1.HseBusinessClub.V1GetListing:input_type -> hbc.v1.V1GetListingRequest
+	27, // 45: hbc.v1.HseBusinessClub.V1UpdateListing:input_type -> hbc.v1.V1UpdateListingRequest
+	28, // 46: hbc.v1.HseBusinessClub.V1CloseListing:input_type -> hbc.v1.V1CloseListingRequest
+	29, // 47: hbc.v1.HseBusinessClub.V1ListMyListings:input_type -> hbc.v1.V1ListMyListingsRequest
+	31, // 48: hbc.v1.HseBusinessClub.V1CreateApplication:input_type -> hbc.v1.V1CreateApplicationRequest
+	32, // 49: hbc.v1.HseBusinessClub.V1ListListingApplications:input_type -> hbc.v1.V1ListListingApplicationsRequest
+	34, // 50: hbc.v1.HseBusinessClub.V1AcceptApplication:input_type -> hbc.v1.V1ApplicationIDRequest
+	34, // 51: hbc.v1.HseBusinessClub.V1DeclineApplication:input_type -> hbc.v1.V1ApplicationIDRequest
+	34, // 52: hbc.v1.HseBusinessClub.V1WithdrawApplication:input_type -> hbc.v1.V1ApplicationIDRequest
+	35, // 53: hbc.v1.HseBusinessClub.V1ListSentApplications:input_type -> hbc.v1.V1ListSentApplicationsRequest
+	36, // 54: hbc.v1.HseBusinessClub.V1ListReceivedApplications:input_type -> hbc.v1.V1ListReceivedApplicationsRequest
+	10, // 55: hbc.v1.HseBusinessClub.V1Ping:output_type -> hbc.v1.V1PingResponse
+	13, // 56: hbc.v1.HseBusinessClub.V1Register:output_type -> hbc.v1.V1AuthResponse
+	13, // 57: hbc.v1.HseBusinessClub.V1Login:output_type -> hbc.v1.V1AuthResponse
+	13, // 58: hbc.v1.HseBusinessClub.V1Refresh:output_type -> hbc.v1.V1AuthResponse
+	16, // 59: hbc.v1.HseBusinessClub.V1Logout:output_type -> hbc.v1.V1LogoutResponse
+	4,  // 60: hbc.v1.HseBusinessClub.V1GetMe:output_type -> hbc.v1.User
+	4,  // 61: hbc.v1.HseBusinessClub.V1UpdateMe:output_type -> hbc.v1.User
+	4,  // 62: hbc.v1.HseBusinessClub.V1GetUser:output_type -> hbc.v1.User
+	4,  // 63: hbc.v1.HseBusinessClub.V1UploadAvatar:output_type -> hbc.v1.User
+	4,  // 64: hbc.v1.HseBusinessClub.V1DeleteAvatar:output_type -> hbc.v1.User
+	38, // 65: hbc.v1.HseBusinessClub.V1GetAvatar:output_type -> google.api.HttpBody
+	24, // 66: hbc.v1.HseBusinessClub.V1ListListings:output_type -> hbc.v1.V1ListListingsResponse
+	6,  // 67: hbc.v1.HseBusinessClub.V1CreateListing:output_type -> hbc.v1.Listing
+	6,  // 68: hbc.v1.HseBusinessClub.V1GetListing:output_type -> hbc.v1.Listing
+	6,  // 69: hbc.v1.HseBusinessClub.V1UpdateListing:output_type -> hbc.v1.Listing
+	6,  // 70: hbc.v1.HseBusinessClub.V1CloseListing:output_type -> hbc.v1.Listing
+	30, // 71: hbc.v1.HseBusinessClub.V1ListMyListings:output_type -> hbc.v1.V1ListMyListingsResponse
+	8,  // 72: hbc.v1.HseBusinessClub.V1CreateApplication:output_type -> hbc.v1.Application
+	33, // 73: hbc.v1.HseBusinessClub.V1ListListingApplications:output_type -> hbc.v1.V1ApplicationsResponse
+	8,  // 74: hbc.v1.HseBusinessClub.V1AcceptApplication:output_type -> hbc.v1.Application
+	8,  // 75: hbc.v1.HseBusinessClub.V1DeclineApplication:output_type -> hbc.v1.Application
+	8,  // 76: hbc.v1.HseBusinessClub.V1WithdrawApplication:output_type -> hbc.v1.Application
+	33, // 77: hbc.v1.HseBusinessClub.V1ListSentApplications:output_type -> hbc.v1.V1ApplicationsResponse
+	33, // 78: hbc.v1.HseBusinessClub.V1ListReceivedApplications:output_type -> hbc.v1.V1ApplicationsResponse
+	55, // [55:79] is the sub-list for method output_type
+	31, // [31:55] is the sub-list for method input_type
 	31, // [31:31] is the sub-list for extension type_name
 	31, // [31:31] is the sub-list for extension extendee
 	0,  // [0:31] is the sub-list for field type_name
@@ -2412,7 +2571,7 @@ func file_api_hbc_v1_hbc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_hbc_v1_hbc_proto_rawDesc), len(file_api_hbc_v1_hbc_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   30,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

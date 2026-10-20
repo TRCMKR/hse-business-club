@@ -37,7 +37,7 @@ func (failingClose) Close(context.Context, uuid.UUID, uuid.UUID) (*listings.List
 func TestSeedRollsBackOnError(t *testing.T) {
 	truncate(t)
 	ctx := context.Background()
-	usersSvc := userssvc.New(userspg.New(pool), userssvc.Bcrypt, memory.New())
+	usersSvc := userssvc.New(userspg.New(pool), userspg.NewRefresh(pool), userssvc.Bcrypt, memory.New())
 	listingsSvc := listingssvc.New(listingspg.New(pool))
 	appsSvc := appssvc.New(appspg.New(pool), adapters.NewListingReader(listingsSvc))
 

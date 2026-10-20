@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -29,13 +30,18 @@ func TestMigrations(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM public.goose_db_version WHERE version_id > 0 AND is_applied").Scan(&applied); err != nil {
 		t.Fatalf("version table: %v", err)
 	}
-	if applied != len(dbtest.Schemas) {
-		t.Fatalf("applied migrations = %d, want %d", applied, len(dbtest.Schemas))
+	files, err := filepath.Glob(filepath.Join(dbtest.MigrationsDir(), "*.sql"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("migration files: %v %v", files, err)
+	}
+	if applied != len(files) {
+		t.Fatalf("applied migrations = %d, want %d", applied, len(files))
 	}
 	tablesExist := func() bool {
 		t.Helper()
 		var ok bool
 		err := pool.QueryRow(ctx, `SELECT to_regclass('users.users') IS NOT NULL
+			AND to_regclass('users.refresh_tokens') IS NOT NULL
 			AND to_regclass('listings.listings') IS NOT NULL
 			AND to_regclass('applications.applications') IS NOT NULL`).Scan(&ok)
 		if err != nil {

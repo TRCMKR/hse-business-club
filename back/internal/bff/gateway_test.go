@@ -50,6 +50,7 @@ func startGateway(t *testing.T) *gatewayEnv {
 	jwt := auth.NewJWT("bff-test-secret-bff-test-secret-xx", time.Hour)
 	e := newEnv(t)
 	e.bff.Issuer = jwt
+	e.bff.AccessTTL = jwt.TTL()
 
 	const anyPort = "127.0.0.1:0" // 8080–8082 may be taken on the machine
 	srv, err := server.New(ctx, config.Server{
@@ -161,9 +162,28 @@ func TestGatewayJSON(t *testing.T) {
 		t.Fatalf("register = %d %s", resp.StatusCode, body)
 	}
 	reg := decodeJSON(t, body)
-	token, _ := reg["token"].(string)
+	token, _ := reg["accessToken"].(string)
 	if _, err := g.jwt.Verify(token); err != nil {
 		t.Fatalf("token from register is invalid: %v", err)
+	}
+	refresh, _ := reg["refreshToken"].(string)
+	if refresh == "" || reg["accessExpiresIn"] != float64(3600) || reg["user"] == nil || len(reg) != 4 {
+		t.Fatalf("register = %s", body)
+	}
+
+	// Refresh and logout are public: no Authorization header.
+	resp, body = g.do(t, http.MethodPost, "/v1/auth/refresh", "", `{"refreshToken":"`+refresh+`"}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("refresh = %d %s", resp.StatusCode, body)
+	}
+	next, _ := decodeJSON(t, body)["refreshToken"].(string)
+	resp, body = g.do(t, http.MethodPost, "/v1/auth/logout", "", `{"refreshToken":"`+next+`"}`)
+	if resp.StatusCode != http.StatusOK || string(body) != "{}" {
+		t.Fatalf("logout = %d %s", resp.StatusCode, body)
+	}
+	resp, body = g.do(t, http.MethodPost, "/v1/auth/refresh", "", `{"refreshToken":"`+next+`"}`)
+	if resp.StatusCode != http.StatusUnauthorized || !reflect.DeepEqual(decodeJSON(t, body), errorJSON(codes.Unauthenticated, msgSessionExpired)) {
+		t.Fatalf("refresh after logout = %d %s", resp.StatusCode, body)
 	}
 
 	anna := g.user(t, nameAnna)
@@ -230,8 +250,8 @@ func TestAllMethodsImplemented(t *testing.T) {
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
 
 	desc := hbcv1.HseBusinessClub_ServiceDesc
-	if len(desc.Methods) != 22 {
-		t.Fatalf("service has %d methods, want 22", len(desc.Methods))
+	if len(desc.Methods) != 24 {
+		t.Fatalf("service has %d methods, want 24", len(desc.Methods))
 	}
 	for _, m := range desc.Methods {
 		err := conn.Invoke(ctx, "/"+desc.ServiceName+"/"+m.MethodName, &emptypb.Empty{}, &emptypb.Empty{})

@@ -36,13 +36,17 @@ type env struct {
 }
 
 type options struct {
-	seed bool
+	seed      bool
+	accessTTL time.Duration
 }
 
 type option func(*options)
 
 // withSeed starts the app with SEED_DEMO_DATA=true.
 func withSeed() option { return func(o *options) { o.seed = true } }
+
+// withAccessTTL starts the app with ACCESS_TTL=d (default 1h).
+func withAccessTTL(d time.Duration) option { return func(o *options) { o.accessTTL = d } }
 
 // newEnv truncates all tables and starts the app on free ports. The app is
 // stopped when the test ends; its logs are printed if the test failed.
@@ -55,7 +59,7 @@ func newEnv(t *testing.T, opts ...option) *env {
 // startApp starts one more app on the current database (no truncate).
 func startApp(t *testing.T, opts ...option) *env {
 	t.Helper()
-	var o options
+	o := options{accessTTL: time.Hour}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -81,7 +85,9 @@ func startApp(t *testing.T, opts ...option) *env {
 			CORSOrigins:     []string{"http://localhost:3000"},
 			ShutdownTimeout: 5 * time.Second,
 		},
-		Auth: config.Auth{JWTSecret: "e2e-secret-e2e-secret-e2e-secret", JWTTTL: time.Hour}, //nolint:gosec // test-only secret
+		Auth: config.Auth{ //nolint:gosec // test-only secret
+			JWTSecret: "e2e-secret-e2e-secret-e2e-secret", AccessTTL: o.accessTTL, RefreshTTL: 720 * time.Hour,
+		},
 		Seed: config.Seed{DemoData: o.seed},
 	}
 	store := memory.New()
@@ -205,29 +211,45 @@ func expectError(t *testing.T, out J, grpcCode int, message string) {
 	}
 }
 
-// register creates a user (password demo1234) and returns the token and the user.
+// authKeys are the keys of V1AuthResponse (SPEC §4.3).
+var authKeys = []string{"accessToken", "refreshToken", "accessExpiresIn", "user"}
+
+// pair is the token pair of an auth response.
+type pair struct{ access, refresh string }
+
+// expectPair checks the shape of an auth response and returns its tokens.
+func expectPair(t *testing.T, what string, out J) pair {
+	t.Helper()
+	expectKeys(t, what, out, authKeys...)
+	p := pair{}
+	p.access, _ = out["accessToken"].(string)
+	p.refresh, _ = out["refreshToken"].(string)
+	if p.access == "" || p.refresh == "" {
+		t.Fatalf("%s: empty token in %v", what, out)
+	}
+	return p
+}
+
+// register creates a user (password demo1234) and returns the access token and the user.
 func (e *env) register(username, displayName string) (string, J) {
 	e.t.Helper()
 	out := e.ok(http.MethodPost, "/v1/auth/register", "", J{
 		"username": username, "password": password, "displayName": displayName,
 	})
-	expectKeys(e.t, "auth response", out, "token", "user")
-	tok, _ := out["token"].(string)
-	if tok == "" {
-		e.t.Fatalf("register %s: empty token", username)
-	}
-	return tok, obj(e.t, out, "user")
+	return expectPair(e.t, "register "+username, out).access, obj(e.t, out, "user")
 }
 
-// login returns a token of username with password demo1234.
+// login returns an access token of username with password demo1234.
 func (e *env) login(username string) string {
 	e.t.Helper()
+	return e.loginPair(username).access
+}
+
+// loginPair signs username in and returns both tokens.
+func (e *env) loginPair(username string) pair {
+	e.t.Helper()
 	out := e.ok(http.MethodPost, "/v1/auth/login", "", J{"username": username, "password": password})
-	tok, _ := out["token"].(string)
-	if tok == "" {
-		e.t.Fatalf("login %s: empty token", username)
-	}
-	return tok
+	return expectPair(e.t, "login "+username, out)
 }
 
 // startup and vacancy are valid create requests.

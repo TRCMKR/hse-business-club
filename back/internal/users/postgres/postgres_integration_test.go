@@ -28,7 +28,7 @@ func setup(t *testing.T) (*postgres.Repository, *pgxpool.Pool) {
 
 func truncate(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	if _, err := pool.Exec(context.Background(), "TRUNCATE users.users"); err != nil {
+	if _, err := pool.Exec(context.Background(), "TRUNCATE users.refresh_tokens, users.users"); err != nil {
 		t.Fatal(err)
 	}
 }
