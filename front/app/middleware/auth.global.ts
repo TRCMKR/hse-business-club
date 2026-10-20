@@ -10,7 +10,15 @@ export default defineNuxtRouteMiddleware((to) => {
 
   // Backend down while checking an existing session: an error page with «Повторить»
   // instead of a misleading login form.
-  if (!auth.user && !isPublic && useAuthUnavailable().value) {
+  const unavailable = useAuthUnavailable();
+  if (!auth.user && !isPublic && unavailable.value) {
+    // On a client-side navigation (e.g. the bottom nav of the 503 page) the flag is a
+    // leftover of the SSR request: re-check the session with a full load of the target.
+    if (import.meta.client && !useNuxtApp().isHydrating) {
+      unavailable.value = false;
+      reloadNuxtApp({ path: to.fullPath, force: true });
+      return abortNavigation();
+    }
     return abortNavigation(createError({ statusCode: 503, statusMessage: 'Сервер временно недоступен', fatal: true }));
   }
 
