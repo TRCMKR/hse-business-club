@@ -45,13 +45,30 @@ func init() {
 }
 
 // queryParser is runtime.DefaultQueryParser with MsgBadRequest as the error text.
+// A parameter with only empty values (`?kind=`, `?page=`) is treated as absent, like
+// `?query=`: the default parser would reject an empty enum name or number.
 type queryParser struct{}
 
 func (queryParser) Parse(msg proto.Message, values url.Values, filter *utilities.DoubleArray) error {
+	values = dropEmpty(values)
 	if err := (&runtime.DefaultQueryParser{}).Parse(msg, values, filter); err != nil {
 		return badRequestError{cause: err}
 	}
 	return nil
+}
+
+// dropEmpty returns values without the keys whose values are all empty strings.
+func dropEmpty(values url.Values) url.Values {
+	out := make(url.Values, len(values))
+	for key, vals := range values {
+		for _, v := range vals {
+			if v != "" {
+				out[key] = vals
+				break
+			}
+		}
+	}
+	return out
 }
 
 // requestMarshaler decodes request bodies with MsgBadRequest as the error text;
@@ -85,7 +102,8 @@ func (m requestMarshaler) Unmarshal(data []byte, v any) error {
 }
 
 // checkEnumNames reports a string value of an enum field (also in lists and nested
-// messages) that is not a name of that enum. Malformed JSON is left to protojson.
+// messages) that is not a name of that enum. Malformed JSON is left to protojson;
+// null means "not set", as in protojson.
 func checkEnumNames(md protoreflect.MessageDescriptor, data []byte) error {
 	var obj map[string]json.RawMessage
 	if json.Unmarshal(data, &obj) != nil {
@@ -107,6 +125,9 @@ func checkEnumNames(md protoreflect.MessageDescriptor, data []byte) error {
 			}
 		}
 		for _, v := range values {
+			if string(v) == "null" {
+				continue
+			}
 			switch {
 			case fd.Enum() != nil:
 				var name string

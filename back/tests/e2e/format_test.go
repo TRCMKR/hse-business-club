@@ -35,3 +35,28 @@ func TestRequestFormatErrors(t *testing.T) {
 		})
 	}
 }
+
+// An empty enum parameter in a query means "no filter"; null for an enum field in a
+// body means "not set" (as in protojson).
+func TestEmptyEnumMeansUnset(t *testing.T) {
+	e := newEnv(t)
+	anna, _ := e.register("anna", "Анна")
+	e.createListing(anna, startup("Стартап для пустого фильтра"))
+
+	all := items(t, e.ok(http.MethodGet, "/v1/listings", anna, nil))
+	if got := items(t, e.ok(http.MethodGet, "/v1/listings?kind=&query=", anna, nil)); len(got) != len(all) {
+		t.Fatalf("?kind= returned %d items, want %d as without the filter", len(got), len(all))
+	}
+	for _, path := range []string{"/v1/me/listings?status=", "/v1/me/applications/sent?status=", "/v1/me/applications/received?status="} {
+		e.ok(http.MethodGet, path, anna, nil)
+	}
+
+	l := e.createListing(anna, J{
+		"kind": "LISTING_KIND_VACANCY", "title": "Вакансия с null-стадией",
+		"description": "Описание вакансии для проверки null", "lookingFor": "Разработчик",
+		"compensation": "Доля", "stage": nil,
+	})
+	if got := str(t, l, "stage"); got != "STARTUP_STAGE_UNSPECIFIED" {
+		t.Fatalf("stage = %q, want STARTUP_STAGE_UNSPECIFIED", got)
+	}
+}
