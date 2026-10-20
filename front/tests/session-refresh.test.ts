@@ -6,7 +6,7 @@ import type { BackendConfig } from '../server/utils/backend';
 import { logoutSession, proxyAuth } from '../server/utils/backend-auth';
 import { forwardToBackend } from '../server/utils/proxy';
 import type { RefreshFn, RefreshOutcome } from '../server/utils/session-refresh';
-import { REFRESH_DEDUP_MS, refreshOnce, resetRefreshFlights, withRefresh } from '../server/utils/session-refresh';
+import { REFRESH_DEDUP_MS, callRefresh, dedupWindowMs, refreshOnce, resetRefreshFlights, withRefresh } from '../server/utils/session-refresh';
 
 const MOCK: BackendConfig = { apiBaseUrl: 'http://127.0.0.1:9', mockApi: true };
 
@@ -331,7 +331,7 @@ describe('withRefresh', () => {
   });
 
   it('refresh backend unavailable → 502, cookies kept', async () => {
-    const res = await run('hbc_access=a; hbc_refresh=r', async () => unauthorized(), async () => ({ ok: false, reason: 'unavailable' }));
+    const res = await run('hbc_access=a; hbc_refresh=r', async () => unauthorized(), async () => ({ ok: false, reason: 'unavailable', status: 502 }));
     expect(res.status).toBe(502);
     expect(parseSetCookies(res)).toEqual([]);
   });
@@ -378,10 +378,71 @@ describe('refreshOnce', () => {
   });
 
   it('does not remember an unreachable backend', async () => {
-    const refresh = vi.fn<RefreshFn>(async () => ({ ok: false, reason: 'unavailable' }));
+    const refresh = vi.fn<RefreshFn>(async () => ({ ok: false, reason: 'unavailable', status: 502 }));
     await refreshOnce(MOCK, 'r1', refresh);
     await Promise.resolve();
     await refreshOnce(MOCK, 'r1', refresh);
     expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not hand out a remembered pair older than half of its access lifetime', async () => {
+    const short: RefreshOutcome = { ok: true, auth: { ...(success.ok ? success.auth : ({} as never)), accessExpiresIn: 1 } };
+    expect(dedupWindowMs(short)).toBe(500);
+    expect(dedupWindowMs(success)).toBe(REFRESH_DEDUP_MS);
+    const refresh = vi.fn<RefreshFn>(async () => short);
+    await refreshOnce(MOCK, 'r1', refresh);
+    advance(400);
+    await refreshOnce(MOCK, 'r1', refresh);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    advance(100);
+    await refreshOnce(MOCK, 'r1', refresh);
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('callRefresh status mapping', () => {
+  const REAL: BackendConfig = { apiBaseUrl: 'http://backend.test', mockApi: false };
+  const answer = (status: number) => vi.stubGlobal('fetch', vi.fn(async () => new Response('{"code":8,"message":"x","details":[]}', { status })));
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    [401, { ok: false, reason: 'unauthenticated' }],
+    [400, { ok: false, reason: 'unauthenticated' }],
+    [429, { ok: false, reason: 'unavailable', status: 503 }],
+    [403, { ok: false, reason: 'unavailable', status: 503 }],
+    [500, { ok: false, reason: 'unavailable', status: 502 }],
+    [503, { ok: false, reason: 'unavailable', status: 502 }],
+  ])('V1Refresh %i → %o', async (status, expected) => {
+    answer(status);
+    expect(await callRefresh(REAL, 'r')).toEqual(expected);
+  });
+
+  it('network error → unavailable 502', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('fetch failed');
+    }));
+    expect(await callRefresh(REAL, 'r')).toEqual({ ok: false, reason: 'unavailable', status: 502 });
+  });
+
+  it.each([[429, 503], [500, 502]])('proxy: V1Refresh %i keeps the cookies and answers %i', async (refreshStatus, clientStatus) => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).endsWith('/v1/auth/refresh')
+      ? new Response('{}', { status: refreshStatus })
+      : new Response('{"code":16,"message":"Требуется вход","details":[]}', { status: 401 }))));
+    const handler = makeApp(REAL);
+    const res = await handler(new Request('http://front.test/api/v1/me', { headers: { cookie: 'hbc_access=a; hbc_refresh=r' } }));
+    expect(res.status).toBe(clientStatus);
+    expect((await res.json()).code).toBe(14);
+    expect(parseSetCookies(res)).toEqual([]);
+  });
+
+  it('proxy: V1Refresh 400 logs out', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).endsWith('/v1/auth/refresh')
+      ? new Response('{}', { status: 400 })
+      : new Response('{}', { status: 401 }))));
+    const res = await makeApp(REAL)(new Request('http://front.test/api/v1/me', { headers: { cookie: 'hbc_access=a; hbc_refresh=r' } }));
+    expect(res.status).toBe(401);
+    expect((await res.json()).message).toBe('Сессия истекла');
+    expect(parseSetCookies(res).map(c => c.name).sort()).toEqual(['hbc_access', 'hbc_refresh']);
   });
 });
