@@ -23,6 +23,8 @@ const (
 	HseBusinessClub_V1Ping_FullMethodName                     = "/hbc.v1.HseBusinessClub/V1Ping"
 	HseBusinessClub_V1Register_FullMethodName                 = "/hbc.v1.HseBusinessClub/V1Register"
 	HseBusinessClub_V1Login_FullMethodName                    = "/hbc.v1.HseBusinessClub/V1Login"
+	HseBusinessClub_V1Refresh_FullMethodName                  = "/hbc.v1.HseBusinessClub/V1Refresh"
+	HseBusinessClub_V1Logout_FullMethodName                   = "/hbc.v1.HseBusinessClub/V1Logout"
 	HseBusinessClub_V1GetMe_FullMethodName                    = "/hbc.v1.HseBusinessClub/V1GetMe"
 	HseBusinessClub_V1UpdateMe_FullMethodName                 = "/hbc.v1.HseBusinessClub/V1UpdateMe"
 	HseBusinessClub_V1GetUser_FullMethodName                  = "/hbc.v1.HseBusinessClub/V1GetUser"
@@ -48,12 +50,17 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login и
-// V1GetAvatar, требуют заголовок Authorization: Bearer <jwt>.
+// Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login,
+// V1Refresh, V1Logout и V1GetAvatar, требуют заголовок Authorization: Bearer <access_token>.
 type HseBusinessClubClient interface {
 	V1Ping(ctx context.Context, in *V1PingRequest, opts ...grpc.CallOption) (*V1PingResponse, error)
 	V1Register(ctx context.Context, in *V1RegisterRequest, opts ...grpc.CallOption) (*V1AuthResponse, error)
 	V1Login(ctx context.Context, in *V1LoginRequest, opts ...grpc.CallOption) (*V1AuthResponse, error)
+	// Обмен refresh-токена на новую пару (ротация: старый refresh отзывается).
+	// Неизвестный, истёкший или уже использованный refresh → Unauthenticated «Сессия истекла».
+	V1Refresh(ctx context.Context, in *V1RefreshRequest, opts ...grpc.CallOption) (*V1AuthResponse, error)
+	// Отзыв refresh-токена (выход). Идемпотентно: неизвестный токен → 200.
+	V1Logout(ctx context.Context, in *V1LogoutRequest, opts ...grpc.CallOption) (*V1LogoutResponse, error)
 	V1GetMe(ctx context.Context, in *V1GetMeRequest, opts ...grpc.CallOption) (*User, error)
 	// Полная замена редактируемых полей профиля.
 	V1UpdateMe(ctx context.Context, in *V1UpdateMeRequest, opts ...grpc.CallOption) (*User, error)
@@ -125,6 +132,26 @@ func (c *hseBusinessClubClient) V1Login(ctx context.Context, in *V1LoginRequest,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(V1AuthResponse)
 	err := c.cc.Invoke(ctx, HseBusinessClub_V1Login_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hseBusinessClubClient) V1Refresh(ctx context.Context, in *V1RefreshRequest, opts ...grpc.CallOption) (*V1AuthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(V1AuthResponse)
+	err := c.cc.Invoke(ctx, HseBusinessClub_V1Refresh_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hseBusinessClubClient) V1Logout(ctx context.Context, in *V1LogoutRequest, opts ...grpc.CallOption) (*V1LogoutResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(V1LogoutResponse)
+	err := c.cc.Invoke(ctx, HseBusinessClub_V1Logout_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -325,12 +352,17 @@ func (c *hseBusinessClubClient) V1ListReceivedApplications(ctx context.Context, 
 // All implementations must embed UnimplementedHseBusinessClubServer
 // for forward compatibility.
 //
-// Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login и
-// V1GetAvatar, требуют заголовок Authorization: Bearer <jwt>.
+// Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login,
+// V1Refresh, V1Logout и V1GetAvatar, требуют заголовок Authorization: Bearer <access_token>.
 type HseBusinessClubServer interface {
 	V1Ping(context.Context, *V1PingRequest) (*V1PingResponse, error)
 	V1Register(context.Context, *V1RegisterRequest) (*V1AuthResponse, error)
 	V1Login(context.Context, *V1LoginRequest) (*V1AuthResponse, error)
+	// Обмен refresh-токена на новую пару (ротация: старый refresh отзывается).
+	// Неизвестный, истёкший или уже использованный refresh → Unauthenticated «Сессия истекла».
+	V1Refresh(context.Context, *V1RefreshRequest) (*V1AuthResponse, error)
+	// Отзыв refresh-токена (выход). Идемпотентно: неизвестный токен → 200.
+	V1Logout(context.Context, *V1LogoutRequest) (*V1LogoutResponse, error)
 	V1GetMe(context.Context, *V1GetMeRequest) (*User, error)
 	// Полная замена редактируемых полей профиля.
 	V1UpdateMe(context.Context, *V1UpdateMeRequest) (*User, error)
@@ -386,6 +418,12 @@ func (UnimplementedHseBusinessClubServer) V1Register(context.Context, *V1Registe
 }
 func (UnimplementedHseBusinessClubServer) V1Login(context.Context, *V1LoginRequest) (*V1AuthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method V1Login not implemented")
+}
+func (UnimplementedHseBusinessClubServer) V1Refresh(context.Context, *V1RefreshRequest) (*V1AuthResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method V1Refresh not implemented")
+}
+func (UnimplementedHseBusinessClubServer) V1Logout(context.Context, *V1LogoutRequest) (*V1LogoutResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method V1Logout not implemented")
 }
 func (UnimplementedHseBusinessClubServer) V1GetMe(context.Context, *V1GetMeRequest) (*User, error) {
 	return nil, status.Error(codes.Unimplemented, "method V1GetMe not implemented")
@@ -515,6 +553,42 @@ func _HseBusinessClub_V1Login_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HseBusinessClubServer).V1Login(ctx, req.(*V1LoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HseBusinessClub_V1Refresh_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(V1RefreshRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HseBusinessClubServer).V1Refresh(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HseBusinessClub_V1Refresh_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HseBusinessClubServer).V1Refresh(ctx, req.(*V1RefreshRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HseBusinessClub_V1Logout_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(V1LogoutRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HseBusinessClubServer).V1Logout(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HseBusinessClub_V1Logout_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HseBusinessClubServer).V1Logout(ctx, req.(*V1LogoutRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -879,6 +953,14 @@ var HseBusinessClub_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "V1Login",
 			Handler:    _HseBusinessClub_V1Login_Handler,
+		},
+		{
+			MethodName: "V1Refresh",
+			Handler:    _HseBusinessClub_V1Refresh_Handler,
+		},
+		{
+			MethodName: "V1Logout",
+			Handler:    _HseBusinessClub_V1Logout_Handler,
 		},
 		{
 			MethodName: "V1GetMe",

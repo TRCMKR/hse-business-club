@@ -43,7 +43,7 @@ entrypoint, см. «Миграции»). При старте: проверка/�
 curl localhost:8080/v1/ping      # {"ok":true}
 curl localhost:8080/readyz       # {"db":"ok","blob":"ok"}
 curl localhost:8080/v1/me        # 401 {"code":16,"message":"Требуется вход","details":[]}
-curl localhost:8080/v1/auth/login -d '{"username":"anna","password":"demo1234"}'   # {token, user}
+curl localhost:8080/v1/auth/login -d '{"username":"anna","password":"demo1234"}'   # {accessToken, refreshToken, accessExpiresIn, user}
 open http://localhost:8081/docs/ # Swagger UI («Try it out» ходит в API через тот же порт)
 curl localhost:8081/metrics      # Prometheus
 ```
@@ -136,7 +136,8 @@ goose CLI запускается через `go run …/cmd/goose@<версия 
 | `POSTGRES_DSN` | — | **обязателен** |
 | `POSTGRES_MAX_CONNS` | `10` | |
 | `JWT_SECRET` | — | **обязателен** |
-| `JWT_TTL` | `24h` | |
+| `ACCESS_TTL` | `15m` | срок access-JWT; > 0 |
+| `REFRESH_TTL` | `720h` | срок refresh-токена (30 дней); > 0 |
 | `CORS_ORIGINS` | `http://localhost:3000` | через запятую |
 | `SEED_DEMO_DATA` | `false` | демо-данные (SPEC §6) |
 | `S3_ENDPOINT` | — | **обязателен**, `host:port` без схемы |
@@ -180,8 +181,14 @@ docker run --rm --network hbc-test-env_default -p 8080:8080 -p 8081:8081 \
   query, не число в `page`/`limit`) — 400 «Некорректный формат запроса». Неизвестные *поля*
   тела игнорируются. Пустой параметр query (`?kind=`, `?status=`, `?page=`) равен
   отсутствующему; `null` у поля тела (в том числе enum) — «не задано».
-- 401 — «Требуется вход» (нет/невалидный токен) или «Неверный логин или пароль» (login);
-  заголовок `WWW-Authenticate: Bearer`.
+- 401 — «Требуется вход» (нет/невалидный/истёкший access-токен), «Неверный логин или пароль»
+  (login) или «Сессия истекла» (refresh: пустой, неизвестный, истёкший, отозванный или
+  повторно использованный refresh-токен); заголовок `WWW-Authenticate: Bearer`.
+- Токены: `register`/`login`/`refresh` отдают `{accessToken, refreshToken, accessExpiresIn,
+  user}`. Refresh ротируется при каждом `POST /v1/auth/refresh`; повторное предъявление уже
+  ротированного токена отзывает всю семью (цепочку этого входа). `POST /v1/auth/logout
+  {refreshToken}` отзывает семью и всегда отвечает `{}`. Refresh и logout — без
+  `Authorization`. В базе — только SHA-256 токена (`users.refresh_tokens`).
 - POST-действия без полей (`accept`, `decline`, `withdraw`, `close`) принимают пустое тело или `{}`.
 
 ## Структура
@@ -193,7 +200,7 @@ docker-entrypoint.sh     entrypoint образа: goose up → exec hbc
 internal/app/            сборка: сервисы, адаптеры, сид, BFF, сервер
 internal/adapters/       стыки контекстов: applications.ListingReader поверх listings.Service
 internal/seed/           демо-данные SPEC §6 через сервисы контекстов
-internal/bff/            реализация hbc.v1 (22 RPC): валидация, композиция, маппинг ошибок
+internal/bff/            реализация hbc.v1 (24 RPC): валидация, композиция, маппинг ошибок
 internal/users|listings|applications/   контексты: порт, domain, service, postgres (своя схема)
 internal/platform/       apperr, config, logger, telemetry, db, auth, blob, server
 pkg/api/hbc/v1/          сгенерированный код + embed swagger

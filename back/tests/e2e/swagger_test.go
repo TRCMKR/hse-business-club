@@ -15,7 +15,7 @@ import (
 )
 
 // Every path and method of hbc.swagger.json (what the frontend client is generated
-// from) is served by the gateway, and only ping/register/login/avatars are public.
+// from) is served by the gateway, and only ping/register/login/refresh/logout/avatars are public.
 func TestSwaggerMatchesRoutes(t *testing.T) {
 	e := newEnv(t)
 	tok, _ := e.register("anna", "Анна")
@@ -28,7 +28,7 @@ func TestSwaggerMatchesRoutes(t *testing.T) {
 	}
 	public := map[string]bool{
 		"GET /v1/ping": true, "POST /v1/auth/register": true, "POST /v1/auth/login": true,
-		"GET /v1/avatars/{file}": true,
+		"POST /v1/auth/refresh": true, "POST /v1/auth/logout": true, "GET /v1/avatars/{file}": true,
 	}
 	param := regexp.MustCompile(`\{[^}]+\}`)
 
@@ -65,7 +65,7 @@ func TestSwaggerMatchesRoutes(t *testing.T) {
 			}
 		}
 	}
-	if n != 22 {
-		t.Errorf("swagger has %d operations, want 22 (SPEC §4.1)", n)
+	if n != 24 {
+		t.Errorf("swagger has %d operations, want 24 (SPEC §4.1)", n)
 	}
 }

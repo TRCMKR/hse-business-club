@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test of the running stack (make up): the main scenario of SPEC §1 through the
-# public API, the photo upload through the real MinIO, and a login through the front
-# (Nitro proxy + httpOnly cookie).
+# public API, access/refresh tokens (rotation, logout), the photo upload through the
+# real MinIO, and a login through the front (Nitro proxy + httpOnly cookies).
 #
 #   API_URL    backend public API     (default http://localhost:8080)
 #   FRONT_URL  front; empty = skip    (default http://localhost:3000)
@@ -80,10 +80,12 @@ check() {
   printf '%s' "$BODY" | jq -e "$1" >/dev/null 2>&1 || fail "$2" "$BODY"
 }
 
-# login USERNAME — sets TOKEN (no subshell: BODY stays available to the caller).
+# login USERNAME — sets TOKEN (access) and REFRESH (no subshell: BODY stays available
+# to the caller).
 login() {
   call 200 POST /v1/auth/login "" "{\"username\":\"$1\",\"password\":\"$PASSWORD\"}"
-  TOKEN="$(field .token)"
+  TOKEN="$(field .accessToken)"
+  REFRESH="$(field .refreshToken)"
 }
 
 echo "Smoke-тест: API $API_URL${FRONT_URL:+, фронт $FRONT_URL}"
@@ -101,7 +103,23 @@ ok
 begin "вход Анны (anna)"
 login anna
 ANNA="$TOKEN"
-check '.user.username == "anna"' "в ответе логина не тот пользователь"
+check '.user.username == "anna" and .accessExpiresIn > 0' "в ответе логина не тот пользователь или нет accessExpiresIn"
+ok
+
+begin "refresh: новая пара токенов, новый access работает"
+call 200 POST /v1/auth/refresh "" "$(jq -nc --arg r "$REFRESH" '{refreshToken: $r}')"
+NEW_ACCESS="$(field .accessToken)"
+NEW_REFRESH="$(field .refreshToken)"
+[[ "$NEW_REFRESH" != "$REFRESH" ]] || fail "refresh-токен не ротирован" "$BODY"
+call 200 GET /v1/me "$NEW_ACCESS"
+check '.username == "anna"' "новый access-токен принадлежит не тому пользователю"
+ANNA="$NEW_ACCESS"
+ok
+
+begin "logout: 200, повторный refresh → 401"
+call 200 POST /v1/auth/logout "" "$(jq -nc --arg r "$NEW_REFRESH" '{refreshToken: $r}')"
+call 401 POST /v1/auth/refresh "" "$(jq -nc --arg r "$NEW_REFRESH" '{refreshToken: $r}')"
+check '.message == "Сессия истекла"' "неожиданный текст ошибки refresh после logout"
 ok
 
 suffix="$(date +%s)-$RANDOM"
@@ -194,15 +212,18 @@ check '.status == "LISTING_STATUS_CLOSED"' "публикация не закры
 ok
 
 if [[ -n "$FRONT_URL" ]]; then
-  begin "фронт: вход через Nitro, httpOnly-cookie, прокси /api/v1/me"
+  begin "фронт: вход через Nitro, httpOnly-cookie hbc_access/hbc_refresh, прокси /api/v1/me"
   jar="$tmp/cookies"
   code="$(curl -sS -o "$tmp/front" -w '%{http_code}' -c "$jar" -D "$tmp/front-headers" --max-time 30 \
     -H 'Content-Type: application/json' --data "{\"username\":\"boris\",\"password\":\"$PASSWORD\"}" \
     "$FRONT_URL/api/auth/login" 2>"$tmp/err")" \
     || fail "фронт недоступен по $FRONT_URL: $(cat "$tmp/err"). Другой адрес — FRONT_URL=..., пропустить — FRONT_URL="
   [[ "$code" == 200 ]] || fail "вход через фронт: ожидался HTTP 200, получен $code" "$(cat "$tmp/front")"
-  grep -qi '^set-cookie: hbc_token=.*httponly' "$tmp/front-headers" || fail "фронт не выставил httpOnly-cookie hbc_token"
-  jq -e '.token == null' "$tmp/front" >/dev/null 2>&1 || fail "фронт вернул JWT в теле ответа (должен быть только в cookie)" "$(cat "$tmp/front")"
+  for cookie in hbc_access hbc_refresh; do
+    grep -qi "^set-cookie: $cookie=.*httponly" "$tmp/front-headers" || fail "фронт не выставил httpOnly-cookie $cookie"
+  done
+  jq -e '.token == null and .accessToken == null and .refreshToken == null' "$tmp/front" >/dev/null 2>&1 \
+    || fail "фронт вернул токен в теле ответа (должен быть только в cookie)" "$(cat "$tmp/front")"
   code="$(curl -sS -o "$tmp/front" -w '%{http_code}' -b "$jar" --max-time 30 "$FRONT_URL/api/v1/me" 2>"$tmp/err")" \
     || fail "запрос /api/v1/me не выполнен: $(cat "$tmp/err")"
   [[ "$code" == 200 ]] || fail "GET /api/v1/me с cookie: ожидался HTTP 200, получен $code" "$(cat "$tmp/front")"

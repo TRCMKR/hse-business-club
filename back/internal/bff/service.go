@@ -5,6 +5,7 @@ package bff
 
 import (
 	"context"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
@@ -22,6 +23,8 @@ type Deps struct {
 	Listings     listings.Service
 	Applications applications.Service
 	Issuer       auth.Issuer
+	// AccessTTL is the lifetime of tokens from Issuer (access_expires_in).
+	AccessTTL time.Duration
 }
 
 // Implementation implements hbcv1.HseBusinessClubServer.
@@ -32,6 +35,7 @@ type Implementation struct {
 	Listings     listings.Service
 	Applications applications.Service
 	Issuer       auth.Issuer
+	AccessTTL    time.Duration
 }
 
 var _ hbcv1.HseBusinessClubServer = (*Implementation)(nil)
@@ -43,6 +47,7 @@ func New(d Deps) *Implementation {
 		Listings:     d.Listings,
 		Applications: d.Applications,
 		Issuer:       d.Issuer,
+		AccessTTL:    d.AccessTTL,
 	}
 }
 
@@ -51,6 +56,8 @@ var publicMethods = []string{
 	hbcv1.HseBusinessClub_V1Ping_FullMethodName,
 	hbcv1.HseBusinessClub_V1Register_FullMethodName,
 	hbcv1.HseBusinessClub_V1Login_FullMethodName,
+	hbcv1.HseBusinessClub_V1Refresh_FullMethodName,
+	hbcv1.HseBusinessClub_V1Logout_FullMethodName,
 	hbcv1.HseBusinessClub_V1GetAvatar_FullMethodName,
 }
 

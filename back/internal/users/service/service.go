@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ import (
 const (
 	MsgInvalidCredentials = "Неверный логин или пароль" //nolint:gosec // user-facing message, not a credential
 	MsgAvatarNotFound     = "Фото не найдено"
+	MsgSessionExpired     = "Сессия истекла"
 	msgInternal           = "Внутренняя ошибка"
 )
 
@@ -46,6 +48,43 @@ type Repository interface {
 	SetAvatarKey(ctx context.Context, id uuid.UUID, key string) (*users.User, error)
 }
 
+// RefreshRepository stores refresh tokens; postgres.RefreshRepository implements it.
+// Errors are *apperr.Error (KindNotFound, KindConflict, KindUnknown).
+type RefreshRepository interface {
+	// InTx runs fn in one transaction; the methods called with fn's ctx use it.
+	// Errors of fn are returned as is.
+	InTx(ctx context.Context, fn func(ctx context.Context) error) error
+	Create(ctx context.Context, t *domain.StoredRefreshToken) (*domain.StoredRefreshToken, error)
+	// GetByHash returns active, revoked and expired tokens alike and locks the row
+	// for the rest of the transaction. KindNotFound if there is none.
+	GetByHash(ctx context.Context, hash []byte) (*domain.StoredRefreshToken, error)
+	RevokeByID(ctx context.Context, id uuid.UUID) error
+	RevokeFamily(ctx context.Context, familyID uuid.UUID) error
+	DeleteExpired(ctx context.Context, userID uuid.UUID, now time.Time) error
+}
+
+// DefaultRefreshTTL is the refresh token lifetime unless WithRefreshTTL is given
+// (REFRESH_TTL default, ARCHITECTURE §5).
+const DefaultRefreshTTL = 720 * time.Hour
+
+// Option configures the Service.
+type Option func(*Service)
+
+// WithRefreshTTL sets the refresh token lifetime (REFRESH_TTL); non-positive values
+// are ignored.
+func WithRefreshTTL(d time.Duration) Option {
+	return func(s *Service) {
+		if d > 0 {
+			s.refreshTTL = d
+		}
+	}
+}
+
+// WithClock sets the current time source (for tests).
+func WithClock(now func() time.Time) Option {
+	return func(s *Service) { s.now = now }
+}
+
 // Hasher hashes and checks passwords.
 type Hasher interface {
 	Hash(password string) (string, error)
@@ -62,9 +101,12 @@ func (bcryptHasher) Check(hash, password string) bool     { return auth.CheckPas
 
 // Service implements users.Service.
 type Service struct {
-	repo   Repository
-	hasher Hasher
-	store  blob.Store
+	repo       Repository
+	tokens     RefreshRepository
+	hasher     Hasher
+	store      blob.Store
+	refreshTTL time.Duration
+	now        func() time.Time
 
 	dummyHash string // hash of a random password, compared on misses
 }
@@ -77,13 +119,20 @@ const fallbackDummyHash = "$2a$10$THdrbhnK4GNQsTumdSCR3.kJ66ed.TkcKVhO50YoT/Q9ZV
 
 // New returns the users service. The hash compared on login misses is computed here,
 // once, so that the first miss costs the same as any other.
-func New(repo Repository, hasher Hasher, store blob.Store) users.Service {
+func New(repo Repository, tokens RefreshRepository, hasher Hasher, store blob.Store, opts ...Option) users.Service {
 	dummy, err := hasher.Hash(uuid.NewString())
 	if err != nil || dummy == "" {
 		logger.L().Error("users: dummy password hash, using the built-in one", zap.Error(err))
 		dummy = fallbackDummyHash
 	}
-	return &Service{repo: repo, hasher: hasher, store: store, dummyHash: dummy}
+	s := &Service{
+		repo: repo, tokens: tokens, hasher: hasher, store: store,
+		refreshTTL: DefaultRefreshTTL, now: time.Now, dummyHash: dummy,
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 // Register implements users.Service.
@@ -218,6 +267,95 @@ func (s *Service) OpenAvatar(ctx context.Context, key string) (*users.Avatar, er
 	}
 	return &users.Avatar{ContentType: domain.AvatarMediaType, Data: data}, nil
 }
+
+// IssueRefresh implements users.Service: a new token in a new family.
+func (s *Service) IssueRefresh(ctx context.Context, userID uuid.UUID) (*users.RefreshToken, error) {
+	return s.issueRefresh(ctx, userID, uuid.New())
+}
+
+// RotateRefresh implements users.Service. In one transaction: find the token by hash
+// (locking it, so concurrent rotations of one token are serialized), reject unknown and
+// expired ones, revoke the whole family on reuse of a revoked token (the revocation is
+// committed, the caller gets 401), otherwise revoke the token, drop the user's expired
+// tokens and issue the next token of the same family.
+func (s *Service) RotateRefresh(ctx context.Context, token string) (uuid.UUID, *users.RefreshToken, error) {
+	if token == "" {
+		return uuid.Nil, nil, sessionExpired()
+	}
+	hash := domain.HashRefreshToken(token)
+	var (
+		userID uuid.UUID
+		next   *users.RefreshToken
+		reused *domain.StoredRefreshToken
+	)
+	err := s.tokens.InTx(ctx, func(ctx context.Context) error {
+		cur, err := s.tokens.GetByHash(ctx, hash)
+		if apperr.KindOf(err) == apperr.KindNotFound {
+			return sessionExpired()
+		}
+		if err != nil {
+			return err
+		}
+		if cur.RevokedAt != nil {
+			reused = cur
+			return s.tokens.RevokeFamily(ctx, cur.FamilyID)
+		}
+		now := s.now()
+		if !now.Before(cur.ExpiresAt) {
+			return sessionExpired()
+		}
+		if err := s.tokens.RevokeByID(ctx, cur.ID); err != nil {
+			return err
+		}
+		if err := s.tokens.DeleteExpired(ctx, cur.UserID, now); err != nil {
+			return err
+		}
+		next, err = s.issueRefresh(ctx, cur.UserID, cur.FamilyID)
+		userID = cur.UserID
+		return err
+	})
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
+	if reused != nil {
+		logger.FromContext(ctx).Warn("users: revoked refresh token reused, family revoked",
+			zap.Stringer("user_id", reused.UserID), zap.Stringer("family_id", reused.FamilyID))
+		return uuid.Nil, nil, sessionExpired()
+	}
+	return userID, next, nil
+}
+
+// RevokeRefresh implements users.Service: revokes the token's family (the whole
+// sign-in). Empty and unknown tokens are not an error.
+func (s *Service) RevokeRefresh(ctx context.Context, token string) error {
+	if token == "" {
+		return nil
+	}
+	cur, err := s.tokens.GetByHash(ctx, domain.HashRefreshToken(token))
+	if apperr.KindOf(err) == apperr.KindNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return s.tokens.RevokeFamily(ctx, cur.FamilyID)
+}
+
+func (s *Service) issueRefresh(ctx context.Context, userID, familyID uuid.UUID) (*users.RefreshToken, error) {
+	token, hash, err := domain.NewRefreshToken()
+	if err != nil {
+		return nil, apperr.Wrap(apperr.KindUnknown, msgInternal, err)
+	}
+	stored, err := s.tokens.Create(ctx, &domain.StoredRefreshToken{
+		UserID: userID, FamilyID: familyID, Hash: hash, ExpiresAt: s.now().Add(s.refreshTTL),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &users.RefreshToken{Token: token, ExpiresAt: stored.ExpiresAt}, nil
+}
+
+func sessionExpired() error { return apperr.New(apperr.KindUnauthenticated, MsgSessionExpired) }
 
 func (s *Service) deleteObject(ctx context.Context, key string) {
 	if err := s.store.Delete(ctx, key); err != nil {

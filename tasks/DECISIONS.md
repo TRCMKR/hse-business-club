@@ -151,3 +151,8 @@
 - **Документы:** `back/api/hbc/v1/hbc.proto`, `SPEC.md` §2.3, §3, §4.1–4.3, §5,
   `back/ARCHITECTURE.md` §2, §5, §6a; задачи `tasks/B7-refresh-tokens.md`,
   `tasks/F9-refresh-tokens-front.md`, `tasks/B8-mockery.md`.
+## 2026-10-20 07:23 — по отчёту B7
+
+- Logout отзывает всю семью refresh-токенов входа (строже SPEC — принято; SPEC §2.3/§4.1,
+  ARCHITECTURE §2 уточнены). `access_expires_in` — из `bff.Deps.AccessTTL`, интерфейс
+  `auth.Issuer` не расширяется. Пустой refresh: logout → 200, refresh → 401.

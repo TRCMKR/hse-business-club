@@ -36,7 +36,8 @@ func TestLoadDefaults(t *testing.T) {
 		{"CORSOrigins", strings.Join(cfg.Server.CORSOrigins, ","), "http://localhost:3000"},
 		{"ShutdownTimeout", cfg.Server.ShutdownTimeout, 10 * time.Second},
 		{"MaxConns", cfg.DB.MaxConns, int32(10)},
-		{"JWTTTL", cfg.Auth.JWTTTL, 24 * time.Hour},
+		{"AccessTTL", cfg.Auth.AccessTTL, 15 * time.Minute},
+		{"RefreshTTL", cfg.Auth.RefreshTTL, 720 * time.Hour},
 		{"Bucket", cfg.Blob.Bucket, "hbc-avatars"},
 		{"UseSSL", cfg.Blob.UseSSL, false},
 		{"Region", cfg.Blob.Region, "us-east-1"},
@@ -56,7 +57,8 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadOverrides(t *testing.T) {
 	setRequired(t)
 	t.Setenv("CORS_ORIGINS", "http://a.test,http://b.test")
-	t.Setenv("JWT_TTL", "1h")
+	t.Setenv("ACCESS_TTL", "1h")
+	t.Setenv("REFRESH_TTL", "48h")
 	t.Setenv("S3_USE_SSL", "true")
 	t.Setenv("OTEL_TRACES_SAMPLER_ARG", "0.25")
 
@@ -67,7 +69,7 @@ func TestLoadOverrides(t *testing.T) {
 	if got := cfg.Server.CORSOrigins; len(got) != 2 || got[1] != "http://b.test" {
 		t.Errorf("CORSOrigins = %v", got)
 	}
-	if cfg.Auth.JWTTTL != time.Hour || !cfg.Blob.UseSSL || cfg.Telemetry.SamplerRatio != 0.25 {
+	if cfg.Auth.AccessTTL != time.Hour || cfg.Auth.RefreshTTL != 48*time.Hour || !cfg.Blob.UseSSL || cfg.Telemetry.SamplerRatio != 0.25 {
 		t.Errorf("overrides not applied: %+v", cfg)
 	}
 }
@@ -97,7 +99,9 @@ func TestLoadInvalid(t *testing.T) {
 		"sampler range":      {"OTEL_TRACES_SAMPLER_ARG": "2"},
 		"short prod secret":  {"APP_ENV": config.EnvProduction, "JWT_SECRET": "short"},
 		"zero max conns":     {"POSTGRES_MAX_CONNS": "0"},
-		"malformed duration": {"JWT_TTL": "forever"},
+		"malformed duration": {"ACCESS_TTL": "forever"},
+		"zero access ttl":    {"ACCESS_TTL": "0s"},
+		"negative refresh":   {"REFRESH_TTL": "-1h"},
 	}
 	for name, vars := range tests {
 		t.Run(name, func(t *testing.T) {

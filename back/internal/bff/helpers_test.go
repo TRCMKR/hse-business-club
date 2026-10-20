@@ -3,6 +3,7 @@ package bff
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -24,6 +25,7 @@ const (
 	badID         = "bad"
 	tagGo         = "Go"
 	jpegType      = "image/jpeg"
+	testAccessTTL = 15 * time.Minute
 )
 
 // env is a BFF wired to in-memory fakes.
@@ -40,7 +42,7 @@ func newEnv(t *testing.T) *env {
 	c, cl := &calls{}, &clock{}
 	ls := newFakeListings(c, cl)
 	e := &env{calls: c, users: newFakeUsers(c, cl), listings: ls, apps: newFakeApplications(c, cl, ls)}
-	e.bff = New(Deps{Users: e.users, Listings: e.listings, Applications: e.apps, Issuer: fakeIssuer{}})
+	e.bff = New(Deps{Users: e.users, Listings: e.listings, Applications: e.apps, Issuer: fakeIssuer{}, AccessTTL: testAccessTTL})
 	return e
 }
 

@@ -56,9 +56,10 @@ func New(ctx context.Context, cfg *config.Config, d Deps) (*App, error) {
 		return nil, err
 	}
 
-	jwt := auth.NewJWT(cfg.Auth.JWTSecret, cfg.Auth.JWTTTL)
+	jwt := auth.NewJWT(cfg.Auth.JWTSecret, cfg.Auth.AccessTTL)
 
-	usersSvc := userssvc.New(userspg.New(d.Pool), userssvc.Bcrypt, d.Blob)
+	usersSvc := userssvc.New(userspg.New(d.Pool), userspg.NewRefresh(d.Pool), userssvc.Bcrypt, d.Blob,
+		userssvc.WithRefreshTTL(cfg.Auth.RefreshTTL))
 	listingsSvc := listingssvc.New(listingspg.New(d.Pool))
 	applicationsSvc := appssvc.New(appspg.New(d.Pool), adapters.NewListingReader(listingsSvc))
 
@@ -75,6 +76,7 @@ func New(ctx context.Context, cfg *config.Config, d Deps) (*App, error) {
 		Listings:     listingsSvc,
 		Applications: applicationsSvc,
 		Issuer:       jwt,
+		AccessTTL:    jwt.TTL(),
 	})
 
 	srv, err := server.New(ctx, cfg.Server, d.Log, d.Telemetry, jwt, impl)

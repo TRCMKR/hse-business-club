@@ -8,7 +8,7 @@
   "tags": [
     {
       "name": "HseBusinessClub",
-      "description": "Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login и\nV1GetAvatar, требуют заголовок Authorization: Bearer \u003cjwt\u003e.\n\n---------- Служебное ----------"
+      "description": "Единственный сервис модуля. Все методы, кроме V1Ping, V1Register, V1Login,\nV1Refresh, V1Logout и V1GetAvatar, требуют заголовок Authorization: Bearer \u003caccess_token\u003e.\n\n---------- Служебное ----------"
     }
   ],
   "consumes": [
@@ -96,6 +96,72 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/v1V1LoginRequest"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "summary": "Обмен refresh-токена на новую пару (ротация: старый refresh отзывается).\nНеизвестный, истёкший или уже использованный refresh → Unauthenticated «Сессия истекла».",
+        "operationId": "HseBusinessClub_V1Refresh",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1AuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1V1RefreshRequest"
+            }
+          }
+        ],
+        "tags": [
+          "HseBusinessClub"
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "summary": "Отзыв refresh-токена (выход). Идемпотентно: неизвестный токен → 200.",
+        "operationId": "HseBusinessClub_V1Logout",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1V1LogoutResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1V1LogoutRequest"
             }
           }
         ],
@@ -1125,11 +1191,21 @@
     "v1V1AuthResponse": {
       "type": "object",
       "properties": {
-        "token": {
-          "type": "string"
+        "accessToken": {
+          "type": "string",
+          "description": "Короткоживущий JWT для заголовка Authorization: Bearer."
+        },
+        "refreshToken": {
+          "type": "string",
+          "description": "Долгоживущий непрозрачный токен для V1Refresh/V1Logout. Хранится только в httpOnly-cookie."
         },
         "user": {
           "$ref": "#/definitions/v1User"
+        },
+        "accessExpiresIn": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Срок жизни access_token в секундах."
         }
       }
     },
@@ -1209,11 +1285,30 @@
         }
       }
     },
+    "v1V1LogoutRequest": {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string"
+        }
+      }
+    },
+    "v1V1LogoutResponse": {
+      "type": "object"
+    },
     "v1V1PingResponse": {
       "type": "object",
       "properties": {
         "ok": {
           "type": "boolean"
+        }
+      }
+    },
+    "v1V1RefreshRequest": {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string"
         }
       }
     },

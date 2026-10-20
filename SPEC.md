@@ -87,7 +87,7 @@
 |---|---|
 | Все методы, кроме ping/register/login/refresh/logout/avatars, требуют валидный access-токен | `Unauthenticated` (401) «Требуется вход» |
 | Refresh-токен неизвестен, истёк, отозван или уже использован (ротация) | `Unauthenticated` (401) «Сессия истекла»; повторное использование уже ротированного токена отзывает всю цепочку (семью) токенов этого входа |
-| Logout с неизвестным refresh-токеном | 200 (идемпотентно) |
+| Logout с неизвестным/пустым refresh-токеном | 200 (идемпотентно); известный токен отзывает всю семью входа |
 | Нельзя откликнуться на свою публикацию | `FailedPrecondition` (400) «Нельзя откликнуться на свою публикацию» |
 | Нельзя откликнуться на закрытую публикацию | `FailedPrecondition` (400) «Публикация закрыта» |
 | Нельзя откликнуться повторно, пока есть отклик в статусе pending/accepted/declined | `AlreadyExists` (409) «Вы уже откликались на эту публикацию» |
@@ -254,7 +254,7 @@ FK между схемами нет. Статусы и виды хранятся
 | `POST /v1/auth/register` | V1Register | все | регистрация → `{accessToken, refreshToken, user, accessExpiresIn}` |
 | `POST /v1/auth/login` | V1Login | все | вход → `{accessToken, refreshToken, user, accessExpiresIn}` |
 | `POST /v1/auth/refresh` | V1Refresh | все | обмен refresh-токена на новую пару (ротация) |
-| `POST /v1/auth/logout` | V1Logout | все | отзыв refresh-токена (идемпотентно) |
+| `POST /v1/auth/logout` | V1Logout | все | выход: отзыв всей семьи refresh-токенов этого входа (идемпотентно) |
 | `GET /v1/me` | V1GetMe | auth | текущий пользователь |
 | `PUT /v1/me` | V1UpdateMe | auth | обновить профиль (полная замена редактируемых полей) |
 | `GET /v1/users/{id}` | V1GetUser | auth | публичный профиль |
