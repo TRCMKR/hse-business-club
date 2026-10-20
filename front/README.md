@@ -16,7 +16,9 @@ NUXT_MOCK_API=true npm run dev   # без бэкенда: in-memory mock API с 
 (на странице входа есть кнопки «Войти как …»).
 
 Проверки: `npm run lint` (eslint + stylelint + tsc), `npm run test` (vitest),
-`npm run build`, `docker build .`.
+`npm run e2e` (Playwright: основной сценарий SPEC §1, состояния, axe — против mock API на
+prod-сборке, порт 13100, системный Chrome; в `npm run test` не входит), `npm run build`,
+`docker build .`.
 
 ## Переменные окружения
 
@@ -133,7 +135,10 @@ tests/                    — vitest
   (`sm`/`md`/`lg` → flex-колонка с отступами).
 
 Скриншоты (375 и 1280 px, светлая и тёмная тема): `docs/screenshots/`, «до» F8 —
-`docs/screenshots/before/`.
+`docs/screenshots/before/`. Сняты на живом бэкенде со свежим сидом, пользователь `anna`:
+`login`, `feed`, `listing` (чужая), `listing-owner`, `listing-applications`, `listing-new`,
+`me`, `me-listings`, `me-applications` (полученные), `user`, `not-found`; тёмная тема —
+`login-dark`, `feed-dark`, `listing-dark`, `me-applications-dark`.
 
 ## Соглашения для экранов (F1–F5)
 
