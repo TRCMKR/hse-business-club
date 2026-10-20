@@ -1,313 +1,648 @@
 package bff
 
 import (
+	"errors"
 	"fmt"
-	"maps"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 
 	"github.com/trcmkr/hse-business-club/back/internal/applications"
+	"github.com/trcmkr/hse-business-club/back/internal/listings"
+	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
+	"github.com/trcmkr/hse-business-club/back/internal/users"
 	hbcv1 "github.com/trcmkr/hse-business-club/back/pkg/api/hbc/v1"
 )
 
+const (
+	nameVera     = "vera"
+	compensation = "Доля"
+	errDB        = "pgx: broken pipe"
+)
+
+// feedFilter is the ListActive filter of a request without page/limit (defaults 1/20).
+func feedFilter(kind listings.Kind) listings.ListFilter {
+	return listings.ListFilter{Kind: kind, Page: defaultPage, Limit: defaultLimit}
+}
+
+func listingPage(f listings.ListFilter, total int, ls ...*listings.Listing) *listings.Page {
+	return &listings.Page{Items: ls, Total: total, Page: f.Page, Limit: f.Limit}
+}
+
+func noStats() map[uuid.UUID]applications.Stats { return map[uuid.UUID]applications.Stats{} }
+
+func listingIDs(items []*hbcv1.Listing) []string {
+	out := make([]string, 0, len(items))
+	for _, l := range items {
+		out = append(out, l.GetId())
+	}
+	return out
+}
+
 func TestV1ListListingsComposition(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna, boris := e.user(t, nameAnna), e.user(t, nameBoris)
-	fin := e.startup(t, anna.ID, titleFinTrack)
-	closed := e.vacancy(t, anna.ID, "Closed vacancy")
-	e.closeListing(t, closed)
-	own := e.vacancy(t, boris.ID, "Boris vacancy")
-	app := e.apply(t, fin, boris.ID)
+	anna, boris := newUser(nameAnna), newUser(nameBoris)
+	fin := newStartup(anna.ID, titleFinTrack)
+	own := newVacancy(boris.ID, "Boris vacancy")
+	own.CreatedAt = baseTime.Add(time.Minute)
+	app := newApp(fin, boris.ID)
 
-	resp, err := e.bff.V1ListListings(as(boris.ID), &hbcv1.V1ListListingsRequest{})
-	wantOK(t, err)
-	if resp.GetTotal() != 2 || resp.GetPage() != 1 || resp.GetLimit() != 20 || len(resp.GetItems()) != 2 {
-		t.Fatalf("resp = total %d page %d limit %d items %d", resp.GetTotal(), resp.GetPage(), resp.GetLimit(), len(resp.GetItems()))
-	}
-	mine, foreign := resp.GetItems()[0], resp.GetItems()[1] // newest first
+	t.Run("own and foreign", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		f := feedFilter("")
+		e.listings.EXPECT().ListActive(mock.Anything, f).Return(listingPage(f, 2, own, fin), nil).Once()
+		e.expectUsers(1, boris, anna) // authors and me (the applicant of myApplication)
+		e.apps.EXPECT().GetMineForListings(mock.Anything, boris.ID, []uuid.UUID{fin.ID}).
+			Return(map[uuid.UUID]*applications.Application{fin.ID: app}, nil).Once()
+		// No key for own: zero stats, not null.
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{own.ID}).Return(noStats(), nil).Once()
 
-	if mine.GetId() != own.ID.String() || !mine.GetIsMine() || mine.GetMyApplication() != nil {
-		t.Fatalf("own listing = %v", mine)
-	}
-	if s := mine.GetStats(); s == nil || s.GetTotal() != 0 {
-		t.Fatalf("own listing stats = %v, want zero stats", s)
-	}
-	if mine.GetAuthor().GetUsername() != nameBoris || mine.GetKind() != hbcv1.ListingKind_LISTING_KIND_VACANCY ||
-		mine.GetCompensation() != "Доля" || mine.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_UNSPECIFIED {
-		t.Fatalf("own listing = %v", mine)
-	}
+		resp, err := e.bff.V1ListListings(as(boris.ID), &hbcv1.V1ListListingsRequest{})
+		wantOK(t, err)
+		require.EqualValues(t, 2, resp.GetTotal())
+		require.EqualValues(t, defaultPage, resp.GetPage())
+		require.EqualValues(t, defaultLimit, resp.GetLimit())
+		require.Equal(t, []string{own.ID.String(), fin.ID.String()}, listingIDs(resp.GetItems())) // port order
+		mine, foreign := resp.GetItems()[0], resp.GetItems()[1]
 
-	if foreign.GetId() != fin.ID.String() || foreign.GetIsMine() || foreign.GetStats() != nil {
-		t.Fatalf("foreign listing = %v", foreign)
-	}
-	if foreign.GetAuthor().GetUsername() != nameAnna || foreign.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_MVP ||
-		foreign.GetStatus() != hbcv1.ListingStatus_LISTING_STATUS_ACTIVE || foreign.GetClosedAt() != nil ||
-		foreign.GetLookingFor() != lookingForCTO || strings.Join(foreign.GetTags(), ",") != tagGo ||
-		foreign.GetCreatedAt().AsTime() != fin.CreatedAt || foreign.GetUpdatedAt().AsTime() != fin.UpdatedAt {
-		t.Fatalf("foreign listing = %v", foreign)
-	}
-	my := foreign.GetMyApplication()
-	if my.GetId() != app.ID.String() || my.GetStatus() != hbcv1.ApplicationStatus_APPLICATION_STATUS_PENDING ||
-		my.GetApplicant().GetUsername() != nameBoris || my.GetListing().GetId() != fin.ID.String() ||
-		my.GetListing().GetAuthor().GetUsername() != nameAnna || my.GetDecidedAt() != nil {
-		t.Fatalf("myApplication = %v", my)
-	}
+		require.True(t, mine.GetIsMine())
+		require.Nil(t, mine.GetMyApplication())
+		require.NotNil(t, mine.GetStats())
+		require.Zero(t, mine.GetStats().GetTotal())
+		if mine.GetAuthor().GetUsername() != nameBoris || mine.GetKind() != hbcv1.ListingKind_LISTING_KIND_VACANCY ||
+			mine.GetCompensation() != compensation || mine.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_UNSPECIFIED {
+			t.Fatalf("own listing = %v", mine)
+		}
 
-	// A withdrawn application is not "mine" any more.
-	e.setStatus(t, app, applications.StatusWithdrawn)
-	resp, err = e.bff.V1ListListings(as(boris.ID), &hbcv1.V1ListListingsRequest{Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP})
-	wantOK(t, err)
-	if len(resp.GetItems()) != 1 || resp.GetItems()[0].GetMyApplication() != nil {
-		t.Fatalf("startup feed after withdraw = %v", resp.GetItems())
-	}
+		require.False(t, foreign.GetIsMine())
+		require.Nil(t, foreign.GetStats())
+		if foreign.GetAuthor().GetUsername() != nameAnna || foreign.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_MVP ||
+			foreign.GetStatus() != hbcv1.ListingStatus_LISTING_STATUS_ACTIVE || foreign.GetClosedAt() != nil ||
+			foreign.GetLookingFor() != lookingForCTO || strings.Join(foreign.GetTags(), ",") != tagGo ||
+			foreign.GetCreatedAt().AsTime() != fin.CreatedAt || foreign.GetUpdatedAt().AsTime() != fin.UpdatedAt {
+			t.Fatalf("foreign listing = %v", foreign)
+		}
+		my := foreign.GetMyApplication()
+		if my.GetId() != app.ID.String() || my.GetStatus() != hbcv1.ApplicationStatus_APPLICATION_STATUS_PENDING ||
+			my.GetApplicant().GetUsername() != nameBoris || my.GetListing().GetId() != fin.ID.String() ||
+			my.GetListing().GetAuthor().GetUsername() != nameAnna || my.GetDecidedAt() != nil {
+			t.Fatalf("myApplication = %v", my)
+		}
+	})
+
+	// No application of mine (none or withdrawn: the context leaves them out): null
+	// myApplication; no own listings: StatsForListings is not called.
+	t.Run("no application", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		f := feedFilter(listings.KindStartup)
+		e.listings.EXPECT().ListActive(mock.Anything, f).Return(listingPage(f, 1, fin), nil).Once()
+		e.expectUsers(1, anna, boris)
+		e.apps.EXPECT().GetMineForListings(mock.Anything, boris.ID, []uuid.UUID{fin.ID}).
+			Return(map[uuid.UUID]*applications.Application{}, nil).Once()
+
+		resp, err := e.bff.V1ListListings(as(boris.ID), &hbcv1.V1ListListingsRequest{Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP})
+		wantOK(t, err)
+		require.Len(t, resp.GetItems(), 1)
+		require.Nil(t, resp.GetItems()[0].GetMyApplication())
+	})
+
+	// Only own listings: GetMineForListings is not called and me is asked for once.
+	t.Run("only own", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		f := feedFilter("")
+		e.listings.EXPECT().ListActive(mock.Anything, f).Return(listingPage(f, 1, own), nil).Once()
+		e.expectUsers(1, boris)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{own.ID}).
+			Return(map[uuid.UUID]applications.Stats{own.ID: {Pending: 2, Total: 2}}, nil).Once()
+
+		resp, err := e.bff.V1ListListings(as(boris.ID), &hbcv1.V1ListListingsRequest{})
+		wantOK(t, err)
+		require.EqualValues(t, 2, resp.GetItems()[0].GetStats().GetPending())
+	})
 }
 
 func TestV1ListListingsParams(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna := e.user(t, nameAnna)
-	for _, title := range []string{"Alpha", "Beta", "Gamma"} {
-		e.startup(t, anna.ID, title)
-	}
+	anna := newUser(nameAnna)
+	alpha, beta, gamma := newStartup(anna.ID, "Alpha"), newStartup(anna.ID, "Beta"), newStartup(anna.ID, "Gamma")
 	ctx := as(anna.ID)
 
-	resp, err := e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{Query: "beta"})
-	wantOK(t, err)
-	if resp.GetTotal() != 1 || resp.GetItems()[0].GetTitle() != "Beta" {
-		t.Fatalf("query result = %v", resp)
-	}
+	// kind, query, page and limit go to the context as is; the response keeps the
+	// port's order and paging.
+	t.Run("passed to the context", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		f := listings.ListFilter{Kind: listings.KindStartup, Query: "beta", Page: 2, Limit: 3}
+		e.listings.EXPECT().ListActive(mock.Anything, f).Return(listingPage(f, 6, gamma, alpha, beta), nil).Once()
+		e.expectUsers(1, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, sameIDs(gamma.ID, alpha.ID, beta.ID)).Return(noStats(), nil).Once()
 
-	resp, err = e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{Page: 2, Limit: 2})
-	wantOK(t, err)
-	if resp.GetTotal() != 3 || resp.GetPage() != 2 || resp.GetLimit() != 2 || len(resp.GetItems()) != 1 || resp.GetItems()[0].GetTitle() != "Alpha" {
-		t.Fatalf("page 2 = %v", resp)
-	}
+		resp, err := e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{
+			Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP, Query: "beta", Page: 2, Limit: 3,
+		})
+		wantOK(t, err)
+		require.EqualValues(t, 6, resp.GetTotal())
+		require.EqualValues(t, 2, resp.GetPage())
+		require.EqualValues(t, 3, resp.GetLimit())
+		require.Equal(t, []string{gamma.ID.String(), alpha.ID.String(), beta.ID.String()}, listingIDs(resp.GetItems()))
+	})
 
-	_, err = e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{Limit: 51})
-	wantStatus(t, err, codes.InvalidArgument, fmsgLimit)
+	t.Run("empty page", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		f := feedFilter(listings.KindVacancy)
+		e.listings.EXPECT().ListActive(mock.Anything, f).Return(listingPage(f, 0), nil).Once()
+		// Nothing to compose: no other port calls.
 
-	e.calls.reset()
-	_, err = e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{Kind: 99})
-	wantStatus(t, err, codes.InvalidArgument, msgBadRequest)
-	e.noCalls(t)
+		resp, err := e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{Kind: hbcv1.ListingKind_LISTING_KIND_VACANCY})
+		wantOK(t, err)
+		require.NotNil(t, resp.GetItems())
+		require.Empty(t, resp.GetItems())
+	})
+
+	// Page/limit ranges are the context's rule: 51 is passed and its error returned.
+	t.Run("limit out of range", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().ListActive(mock.Anything, listings.ListFilter{Page: defaultPage, Limit: 51}).
+			Return(nil, apperr.Validation("limit", cmsgLimit)).Once()
+
+		_, err := e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{Limit: 51})
+		wantStatus(t, err, codes.InvalidArgument, cmsgLimit)
+	})
+
+	t.Run("bad kind", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t) // no expectations: ports are not called
+		_, err := e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{Kind: 99})
+		wantStatus(t, err, codes.InvalidArgument, msgBadRequest)
+	})
+
+	t.Run(caseInternal, func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().ListActive(mock.Anything, mock.Anything).Return(nil, errors.New(errDB)).Once()
+
+		_, err := e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{})
+		wantStatus(t, err, codes.Internal, msgInternal)
+	})
+
+	t.Run("compose fails", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		f := feedFilter("")
+		e.listings.EXPECT().ListActive(mock.Anything, f).Return(listingPage(f, 1, alpha), nil).Once()
+		e.users.EXPECT().GetMany(mock.Anything, mock.Anything).Return(nil, errors.New(errDB)).Once()
+
+		_, err := e.bff.V1ListListings(ctx, &hbcv1.V1ListListingsRequest{})
+		wantStatus(t, err, codes.Internal, msgInternal)
+	})
 }
 
-// TestV1ListListingsBatches: the number of port calls does not depend on the page size.
+// TestV1ListListingsBatches: the number of port calls does not depend on the page
+// size (B4): one ListActive, then one batch per port for any number of items.
 func TestV1ListListingsBatches(t *testing.T) {
 	t.Parallel()
 
-	countCalls := func(n int) map[string]int {
-		e := newEnv(t)
-		me := e.user(t, "myself")
-		for i := range n {
-			author := e.user(t, fmt.Sprintf("author%d", i))
-			l := e.startup(t, author.ID, "Foreign listing")
-			if i%2 == 0 {
-				e.apply(t, l, me.ID)
+	for _, n := range []int{1, 25} { // 2 and 50 items
+		t.Run(fmt.Sprintf("N=%d", n), func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			me := newUser("myself")
+			people := []*users.User{me}
+			var (
+				items             []*listings.Listing
+				foreignIDs, myIDs []uuid.UUID
+			)
+			mine := map[uuid.UUID]*applications.Application{}
+			stats := noStats()
+			for i := range n {
+				author := newUser(fmt.Sprintf("author%d", i))
+				people = append(people, author)
+				foreign, own := newStartup(author.ID, "Foreign listing"), newStartup(me.ID, "My listing")
+				items = append(items, foreign, own)
+				foreignIDs, myIDs = append(foreignIDs, foreign.ID), append(myIDs, own.ID)
+				if i%2 == 0 {
+					mine[foreign.ID] = newApp(foreign, me.ID)
+					stats[own.ID] = applications.Stats{Pending: 1, Total: 1}
+				}
 			}
-			e.startup(t, me.ID, "My listing")
-		}
-		e.calls.reset()
-		resp, err := e.bff.V1ListListings(as(me.ID), &hbcv1.V1ListListingsRequest{Limit: 50})
-		wantOK(t, err)
-		if len(resp.GetItems()) != min(2*n, 50) {
-			t.Fatalf("items = %d", len(resp.GetItems()))
-		}
-		return e.calls.snapshot()
-	}
 
-	one, many := countCalls(1), countCalls(25)
-	want := map[string]int{
-		"Listings.ListActive":             1,
-		"Users.GetMany":                   1,
-		"Applications.GetMineForListings": 1,
-		"Applications.StatsForListings":   1,
-	}
-	if !maps.Equal(one, want) || !maps.Equal(many, want) {
-		t.Fatalf("port calls: N=1 %v, N=25 %v, want %v", one, many, want)
+			f := listings.ListFilter{Page: defaultPage, Limit: 50}
+			e.listings.EXPECT().ListActive(mock.Anything, f).Return(listingPage(f, len(items), items...), nil).Once()
+			// Every author once (me is the author of n listings and the applicant).
+			e.users.EXPECT().GetMany(mock.Anything, sameIDs(userIDs(people...)...)).Return(byID(people...), nil).Once()
+			e.apps.EXPECT().GetMineForListings(mock.Anything, me.ID, sameIDs(foreignIDs...)).Return(mine, nil).Once()
+			e.apps.EXPECT().StatsForListings(mock.Anything, sameIDs(myIDs...)).Return(stats, nil).Once()
+
+			resp, err := e.bff.V1ListListings(as(me.ID), &hbcv1.V1ListListingsRequest{Limit: 50})
+			wantOK(t, err)
+			require.Len(t, resp.GetItems(), 2*n)
+
+			e.listings.AssertNumberOfCalls(t, "ListActive", 1)
+			e.users.AssertNumberOfCalls(t, "GetMany", 1)
+			e.apps.AssertNumberOfCalls(t, "GetMineForListings", 1)
+			e.apps.AssertNumberOfCalls(t, "StatsForListings", 1)
+
+			withApp := 0
+			for i, l := range resp.GetItems() {
+				require.Equal(t, items[i].ID.String(), l.GetId())
+				require.NotNil(t, l.GetAuthor())
+				require.Equal(t, i%2 == 1, l.GetIsMine())
+				require.Equal(t, l.GetIsMine(), l.GetStats() != nil)
+				if l.GetMyApplication() != nil {
+					withApp++
+				}
+			}
+			require.Equal(t, len(mine), withApp)
+		})
 	}
 }
 
 func TestV1CreateListing(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna := e.user(t, nameAnna)
+	anna := newUser(nameAnna)
 	ctx := as(anna.ID)
 
-	l, err := e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{
-		Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP, Title: titleFinTrack, Description: "Учёт финансов",
-		LookingFor: lookingForCTO, Tags: []string{"Go", lookingForCTO}, Stage: hbcv1.StartupStage_STARTUP_STAGE_IDEA,
+	t.Run("startup", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		l := newStartup(anna.ID, titleFinTrack)
+		l.Stage, l.Tags = listings.StageIdea, []string{tagGo, lookingForCTO}
+		e.listings.EXPECT().Create(mock.Anything, listings.CreateParams{
+			AuthorID: anna.ID, Kind: listings.KindStartup, Title: titleFinTrack, Description: l.Description,
+			LookingFor: lookingForCTO, Tags: []string{tagGo, lookingForCTO}, Stage: listings.StageIdea,
+		}).Return(l, nil).Once()
+		e.expectUsers(1, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{l.ID}).Return(noStats(), nil).Once()
+
+		got, err := e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{
+			Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP, Title: titleFinTrack, Description: l.Description,
+			LookingFor: lookingForCTO, Tags: []string{tagGo, lookingForCTO}, Stage: hbcv1.StartupStage_STARTUP_STAGE_IDEA,
+		})
+		wantOK(t, err)
+		if !got.GetIsMine() || got.GetAuthor().GetId() != anna.ID.String() || got.GetStats() == nil || got.GetMyApplication() != nil ||
+			got.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_IDEA || got.GetStatus() != hbcv1.ListingStatus_LISTING_STATUS_ACTIVE ||
+			got.GetClosedAt() != nil || got.GetTitle() != titleFinTrack || got.GetId() != l.ID.String() {
+			t.Fatalf("listing = %v", got)
+		}
 	})
-	wantOK(t, err)
-	if !l.GetIsMine() || l.GetAuthor().GetId() != anna.ID.String() || l.GetStats() == nil || l.GetMyApplication() != nil ||
-		l.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_IDEA || l.GetStatus() != hbcv1.ListingStatus_LISTING_STATUS_ACTIVE ||
-		l.GetClosedAt() != nil || l.GetTitle() != titleFinTrack {
-		t.Fatalf("listing = %v", l)
+
+	t.Run("vacancy", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		l := newVacancy(anna.ID, "Designer")
+		e.listings.EXPECT().Create(mock.Anything, listings.CreateParams{
+			AuthorID: anna.ID, Kind: listings.KindVacancy, Title: l.Title, Compensation: compensation,
+		}).Return(l, nil).Once()
+		e.expectUsers(1, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{l.ID}).Return(noStats(), nil).Once()
+
+		got, err := e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{
+			Kind: hbcv1.ListingKind_LISTING_KIND_VACANCY, Title: l.Title, Compensation: compensation,
+		})
+		wantOK(t, err)
+		require.Equal(t, hbcv1.ListingKind_LISTING_KIND_VACANCY, got.GetKind())
+		require.Equal(t, compensation, got.GetCompensation())
+	})
+
+	// Shape errors are answered without calling ports (no expectations).
+	for _, tt := range []struct {
+		name string
+		req  *hbcv1.V1CreateListingRequest
+		msg  string
+	}{
+		{"no kind", &hbcv1.V1CreateListingRequest{Title: "No kind"}, msgKindRequired},
+		{"unknown kind", &hbcv1.V1CreateListingRequest{Kind: 7, Title: "Bad kind"}, msgKindRequired},
+		{"unknown stage", &hbcv1.V1CreateListingRequest{Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP, Stage: 9}, msgBadRequest},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := newEnv(t).bff.V1CreateListing(ctx, tt.req)
+			wantStatus(t, err, codes.InvalidArgument, tt.msg)
+		})
 	}
 
-	e.calls.reset()
-	_, err = e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{Title: "No kind"})
-	wantStatus(t, err, codes.InvalidArgument, msgKindRequired)
-	_, err = e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{Kind: 7, Title: "Bad kind"})
-	wantStatus(t, err, codes.InvalidArgument, msgKindRequired)
-	_, err = e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP, Stage: 9})
-	wantStatus(t, err, codes.InvalidArgument, msgBadRequest)
-	e.noCalls(t)
-
 	// Content rules come from the context as is.
-	_, err = e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP, Title: titleFinTrack})
-	wantStatus(t, err, codes.InvalidArgument, fmsgStageRequired)
-	_, err = e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{Kind: hbcv1.ListingKind_LISTING_KIND_VACANCY, Title: "ab"})
-	wantStatus(t, err, codes.InvalidArgument, fmsgTitle)
+	for _, tt := range []struct {
+		name string
+		err  error
+		code codes.Code
+		msg  string
+	}{
+		{"stage required", apperr.Validation("stage", cmsgStageRequired), codes.InvalidArgument, cmsgStageRequired},
+		{"short title", apperr.Validation("title", cmsgTitle), codes.InvalidArgument, cmsgTitle},
+		{caseInternal, errors.New(errDB), codes.Internal, msgInternal},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			e.listings.EXPECT().Create(mock.Anything, mock.Anything).Return(nil, tt.err).Once()
+
+			_, err := e.bff.V1CreateListing(ctx, &hbcv1.V1CreateListingRequest{Kind: hbcv1.ListingKind_LISTING_KIND_STARTUP, Title: "ab"})
+			wantStatus(t, err, tt.code, tt.msg)
+		})
+	}
 }
 
 func TestV1GetListing(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna, boris, vera, gleb, dina := e.user(t, nameAnna), e.user(t, nameBoris), e.user(t, "vera"), e.user(t, "gleb"), e.user(t, "dina")
-	fin := e.startup(t, anna.ID, titleFinTrack)
-	e.setStatus(t, e.apply(t, fin, boris.ID), applications.StatusAccepted)
-	e.setStatus(t, e.apply(t, fin, vera.ID), applications.StatusDeclined)
-	e.setStatus(t, e.apply(t, fin, gleb.ID), applications.StatusWithdrawn)
-	e.apply(t, fin, dina.ID)
+	anna, boris := newUser(nameAnna), newUser(nameBoris)
+	fin := newStartup(anna.ID, titleFinTrack)
+	req := &hbcv1.V1GetListingRequest{Id: fin.ID.String()}
 
-	// Author: stats without withdrawn, no myApplication.
-	l, err := e.bff.V1GetListing(as(anna.ID), &hbcv1.V1GetListingRequest{Id: fin.ID.String()})
-	wantOK(t, err)
-	s := l.GetStats()
-	if !l.GetIsMine() || l.GetMyApplication() != nil || s.GetPending() != 1 || s.GetAccepted() != 1 || s.GetDeclined() != 1 || s.GetTotal() != 3 {
-		t.Fatalf("author view = %v", l)
-	}
+	// Author: stats as the context counts them, no myApplication.
+	t.Run("author", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().Get(mock.Anything, fin.ID).Return(fin, nil).Once()
+		e.expectUsers(1, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{fin.ID}).
+			Return(map[uuid.UUID]applications.Stats{fin.ID: {Pending: 1, Accepted: 1, Declined: 1, Total: 3}}, nil).Once()
+
+		l, err := e.bff.V1GetListing(as(anna.ID), req)
+		wantOK(t, err)
+		s := l.GetStats()
+		if !l.GetIsMine() || l.GetMyApplication() != nil || s.GetPending() != 1 || s.GetAccepted() != 1 || s.GetDeclined() != 1 || s.GetTotal() != 3 {
+			t.Fatalf("author view = %v", l)
+		}
+	})
 
 	// Applicant: myApplication, no stats.
-	l, err = e.bff.V1GetListing(as(boris.ID), &hbcv1.V1GetListingRequest{Id: fin.ID.String()})
-	wantOK(t, err)
-	if l.GetIsMine() || l.GetStats() != nil || l.GetMyApplication().GetStatus() != hbcv1.ApplicationStatus_APPLICATION_STATUS_ACCEPTED ||
-		l.GetMyApplication().GetDecidedAt() == nil {
-		t.Fatalf("applicant view = %v", l)
-	}
+	t.Run("applicant", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().Get(mock.Anything, fin.ID).Return(fin, nil).Once()
+		e.expectUsers(1, anna, boris)
+		app := withStatus(newApp(fin, boris.ID), applications.StatusAccepted)
+		e.apps.EXPECT().GetMineForListings(mock.Anything, boris.ID, []uuid.UUID{fin.ID}).
+			Return(map[uuid.UUID]*applications.Application{fin.ID: app}, nil).Once()
 
-	// Withdrawn applicant: no myApplication.
-	l, err = e.bff.V1GetListing(as(gleb.ID), &hbcv1.V1GetListingRequest{Id: fin.ID.String()})
-	wantOK(t, err)
-	if l.GetMyApplication() != nil {
-		t.Fatalf("withdrawn applicant view = %v", l)
-	}
+		l, err := e.bff.V1GetListing(as(boris.ID), req)
+		wantOK(t, err)
+		if l.GetIsMine() || l.GetStats() != nil || l.GetMyApplication().GetStatus() != hbcv1.ApplicationStatus_APPLICATION_STATUS_ACCEPTED ||
+			l.GetMyApplication().GetDecidedAt() == nil || l.GetMyApplication().GetApplicant().GetUsername() != nameBoris {
+			t.Fatalf("applicant view = %v", l)
+		}
+	})
 
-	// Closed listings are visible too.
-	e.closeListing(t, fin)
-	l, err = e.bff.V1GetListing(as(boris.ID), &hbcv1.V1GetListingRequest{Id: fin.ID.String()})
-	wantOK(t, err)
-	if l.GetStatus() != hbcv1.ListingStatus_LISTING_STATUS_CLOSED || l.GetClosedAt() == nil {
-		t.Fatalf("closed listing = %v", l)
-	}
+	// Closed listings are visible too; a withdrawn applicant gets no myApplication.
+	t.Run("closed", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().Get(mock.Anything, fin.ID).Return(closed(fin), nil).Once()
+		e.expectUsers(1, anna, boris)
+		e.apps.EXPECT().GetMineForListings(mock.Anything, boris.ID, []uuid.UUID{fin.ID}).
+			Return(map[uuid.UUID]*applications.Application{}, nil).Once()
 
-	e.calls.reset()
-	_, err = e.bff.V1GetListing(as(boris.ID), &hbcv1.V1GetListingRequest{Id: "nope"})
-	wantStatus(t, err, codes.NotFound, msgListingNotFound)
-	e.noCalls(t)
-	_, err = e.bff.V1GetListing(as(boris.ID), &hbcv1.V1GetListingRequest{Id: boris.ID.String()})
-	wantStatus(t, err, codes.NotFound, msgListingNotFound)
+		l, err := e.bff.V1GetListing(as(boris.ID), req)
+		wantOK(t, err)
+		if l.GetStatus() != hbcv1.ListingStatus_LISTING_STATUS_CLOSED || l.GetClosedAt() == nil || l.GetMyApplication() != nil {
+			t.Fatalf("closed listing = %v", l)
+		}
+	})
+
+	t.Run("bad id", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t) // no expectations: ports are not called
+		_, err := e.bff.V1GetListing(as(boris.ID), &hbcv1.V1GetListingRequest{Id: "nope"})
+		wantStatus(t, err, codes.NotFound, msgListingNotFound)
+	})
+
+	t.Run("unknown id", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().Get(mock.Anything, boris.ID).Return(nil, errOf(apperr.KindNotFound, msgListingNotFound)).Once()
+
+		_, err := e.bff.V1GetListing(as(boris.ID), &hbcv1.V1GetListingRequest{Id: boris.ID.String()})
+		wantStatus(t, err, codes.NotFound, msgListingNotFound)
+	})
+}
+
+// TestComposeListingErrors: a failing batch of the composition is Internal.
+func TestComposeListingErrors(t *testing.T) {
+	t.Parallel()
+	anna, boris := newUser(nameAnna), newUser(nameBoris)
+	fin := newStartup(anna.ID, titleFinTrack)
+	boom := errors.New(errDB)
+
+	for _, tt := range []struct {
+		name   string
+		me     uuid.UUID
+		expect func(e *env)
+	}{
+		{"users", boris.ID, func(e *env) {
+			e.users.EXPECT().GetMany(mock.Anything, mock.Anything).Return(nil, boom).Once()
+		}},
+		{"my applications", boris.ID, func(e *env) {
+			e.expectUsers(1, anna, boris)
+			e.apps.EXPECT().GetMineForListings(mock.Anything, boris.ID, mock.Anything).Return(nil, boom).Once()
+		}},
+		{"stats", anna.ID, func(e *env) {
+			e.expectUsers(1, anna)
+			e.apps.EXPECT().StatsForListings(mock.Anything, mock.Anything).Return(nil, boom).Once()
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			e.listings.EXPECT().Get(mock.Anything, fin.ID).Return(fin, nil).Once()
+			tt.expect(e)
+
+			_, err := e.bff.V1GetListing(as(tt.me), &hbcv1.V1GetListingRequest{Id: fin.ID.String()})
+			wantStatus(t, err, codes.Internal, msgInternal)
+		})
+	}
 }
 
 func TestV1UpdateListing(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna, boris := e.user(t, nameAnna), e.user(t, nameBoris)
-	fin := e.startup(t, anna.ID, titleFinTrack)
+	anna, boris := newUser(nameAnna), newUser(nameBoris)
+	fin := newStartup(anna.ID, titleFinTrack)
 	req := &hbcv1.V1UpdateListingRequest{
 		Id: fin.ID.String(), Title: "FinTrack 2", Description: "Новое описание", LookingFor: "Дизайнер",
-		Tags: []string{"Design"}, Stage: hbcv1.StartupStage_STARTUP_STAGE_LAUNCHED,
+		Tags: []string{"Design"}, Stage: hbcv1.StartupStage_STARTUP_STAGE_LAUNCHED, Compensation: compensation,
+	}
+	params := listings.UpdateParams{
+		Title: req.GetTitle(), Description: req.GetDescription(), LookingFor: req.GetLookingFor(),
+		Tags: req.GetTags(), Stage: listings.StageLaunched, Compensation: compensation,
 	}
 
-	l, err := e.bff.V1UpdateListing(as(anna.ID), req)
-	wantOK(t, err)
-	if l.GetTitle() != "FinTrack 2" || l.GetLookingFor() != "Дизайнер" || l.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_LAUNCHED ||
-		l.GetKind() != hbcv1.ListingKind_LISTING_KIND_STARTUP || !l.GetIsMine() || l.GetStats() == nil {
-		t.Fatalf("listing = %v", l)
+	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		updated := *fin
+		updated.Title, updated.Description, updated.LookingFor = params.Title, params.Description, params.LookingFor
+		updated.Tags, updated.Stage = params.Tags, params.Stage
+		e.listings.EXPECT().Update(mock.Anything, fin.ID, anna.ID, params).Return(&updated, nil).Once()
+		e.expectUsers(1, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{fin.ID}).Return(noStats(), nil).Once()
+
+		l, err := e.bff.V1UpdateListing(as(anna.ID), req)
+		wantOK(t, err)
+		if l.GetTitle() != params.Title || l.GetLookingFor() != params.LookingFor || l.GetStage() != hbcv1.StartupStage_STARTUP_STAGE_LAUNCHED ||
+			l.GetKind() != hbcv1.ListingKind_LISTING_KIND_STARTUP || !l.GetIsMine() || l.GetStats() == nil {
+			t.Fatalf("listing = %v", l)
+		}
+	})
+
+	for _, tt := range []struct {
+		name string
+		err  error
+		code codes.Code
+		msg  string
+	}{
+		{"not the author", errOf(apperr.KindForbidden, cmsgForbiddenEdit), codes.PermissionDenied, cmsgForbiddenEdit},
+		{"closed", errOf(apperr.KindPrecondition, cmsgListingClosed), codes.FailedPrecondition, cmsgListingClosed},
+		{"unknown listing", errOf(apperr.KindNotFound, msgListingNotFound), codes.NotFound, msgListingNotFound},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			e.listings.EXPECT().Update(mock.Anything, fin.ID, boris.ID, params).Return(nil, tt.err).Once()
+
+			_, err := e.bff.V1UpdateListing(as(boris.ID), req)
+			wantStatus(t, err, tt.code, tt.msg)
+		})
 	}
 
-	_, err = e.bff.V1UpdateListing(as(boris.ID), req)
-	wantStatus(t, err, codes.PermissionDenied, fmsgForbiddenEdit)
-
-	e.closeListing(t, fin)
-	_, err = e.bff.V1UpdateListing(as(anna.ID), req)
-	wantStatus(t, err, codes.FailedPrecondition, fmsgListingClosed)
-
-	e.calls.reset()
-	_, err = e.bff.V1UpdateListing(as(anna.ID), &hbcv1.V1UpdateListingRequest{Id: "x"})
-	wantStatus(t, err, codes.NotFound, msgListingNotFound)
-	_, err = e.bff.V1UpdateListing(as(anna.ID), &hbcv1.V1UpdateListingRequest{Id: fin.ID.String(), Stage: 42})
-	wantStatus(t, err, codes.InvalidArgument, msgBadRequest)
-	e.noCalls(t)
+	// Shape errors: no port calls (no expectations).
+	t.Run("bad id", func(t *testing.T) {
+		t.Parallel()
+		_, err := newEnv(t).bff.V1UpdateListing(as(anna.ID), &hbcv1.V1UpdateListingRequest{Id: "x"})
+		wantStatus(t, err, codes.NotFound, msgListingNotFound)
+	})
+	t.Run("bad stage", func(t *testing.T) {
+		t.Parallel()
+		_, err := newEnv(t).bff.V1UpdateListing(as(anna.ID), &hbcv1.V1UpdateListingRequest{Id: fin.ID.String(), Stage: 42})
+		wantStatus(t, err, codes.InvalidArgument, msgBadRequest)
+	})
 }
 
 func TestV1CloseListing(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna, boris := e.user(t, nameAnna), e.user(t, nameBoris)
-	fin := e.startup(t, anna.ID, titleFinTrack)
+	anna, boris := newUser(nameAnna), newUser(nameBoris)
+	fin := newStartup(anna.ID, titleFinTrack)
+	req := &hbcv1.V1CloseListingRequest{Id: fin.ID.String()}
 
-	_, err := e.bff.V1CloseListing(as(boris.ID), &hbcv1.V1CloseListingRequest{Id: fin.ID.String()})
-	wantStatus(t, err, codes.PermissionDenied, fmsgForbiddenEdit)
+	t.Run("not the author", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().Close(mock.Anything, fin.ID, boris.ID).Return(nil, errOf(apperr.KindForbidden, cmsgForbiddenEdit)).Once()
 
-	var closedAt string
-	for range 2 { // idempotent
-		l, err := e.bff.V1CloseListing(as(anna.ID), &hbcv1.V1CloseListingRequest{Id: fin.ID.String()})
-		wantOK(t, err)
-		if l.GetStatus() != hbcv1.ListingStatus_LISTING_STATUS_CLOSED || l.GetClosedAt() == nil {
-			t.Fatalf("listing = %v", l)
+		_, err := e.bff.V1CloseListing(as(boris.ID), req)
+		wantStatus(t, err, codes.PermissionDenied, cmsgForbiddenEdit)
+	})
+
+	// Idempotent: the context returns the same closed listing, the BFF passes it.
+	t.Run("idempotent", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		c := closed(fin)
+		e.listings.EXPECT().Close(mock.Anything, fin.ID, anna.ID).Return(c, nil).Twice()
+		e.expectUsers(2, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{fin.ID}).Return(noStats(), nil).Twice()
+
+		for range 2 {
+			l, err := e.bff.V1CloseListing(as(anna.ID), req)
+			wantOK(t, err)
+			require.Equal(t, hbcv1.ListingStatus_LISTING_STATUS_CLOSED, l.GetStatus())
+			require.Equal(t, *c.ClosedAt, l.GetClosedAt().AsTime())
 		}
-		if closedAt != "" && l.GetClosedAt().AsTime().String() != closedAt {
-			t.Fatal("repeated close changed closedAt")
-		}
-		closedAt = l.GetClosedAt().AsTime().String()
-	}
+	})
 
-	_, err = e.bff.V1CloseListing(as(anna.ID), &hbcv1.V1CloseListingRequest{Id: "x"})
-	wantStatus(t, err, codes.NotFound, msgListingNotFound)
+	t.Run("bad id", func(t *testing.T) {
+		t.Parallel()
+		_, err := newEnv(t).bff.V1CloseListing(as(anna.ID), &hbcv1.V1CloseListingRequest{Id: "x"})
+		wantStatus(t, err, codes.NotFound, msgListingNotFound)
+	})
 }
 
 func TestV1ListMyListings(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	anna, boris := e.user(t, nameAnna), e.user(t, nameBoris)
-	a1 := e.startup(t, anna.ID, "First")
-	a2 := e.vacancy(t, anna.ID, "Second")
-	e.startup(t, boris.ID, "Foreign")
-	e.apply(t, a1, boris.ID)
-	e.closeListing(t, a2)
+	anna := newUser(nameAnna)
+	a1, a2 := newStartup(anna.ID, "First"), closed(newVacancy(anna.ID, "Second"))
+	ctx := as(anna.ID)
 
-	resp, err := e.bff.V1ListMyListings(as(anna.ID), &hbcv1.V1ListMyListingsRequest{})
-	wantOK(t, err)
-	items := resp.GetItems()
-	if len(items) != 2 || items[0].GetId() != a2.ID.String() || items[1].GetId() != a1.ID.String() {
-		t.Fatalf("items = %v", items)
-	}
-	for _, l := range items {
-		if !l.GetIsMine() || l.GetStats() == nil {
-			t.Fatalf("listing without stats: %v", l)
+	// Stats for every own listing (zero when the context has no key); port order kept.
+	t.Run("all", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().ListByAuthor(mock.Anything, anna.ID, listings.Status("")).Return([]*listings.Listing{a2, a1}, nil).Once()
+		e.expectUsers(1, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{a2.ID, a1.ID}).
+			Return(map[uuid.UUID]applications.Stats{a1.ID: {Pending: 1, Total: 1}}, nil).Once()
+
+		resp, err := e.bff.V1ListMyListings(ctx, &hbcv1.V1ListMyListingsRequest{})
+		wantOK(t, err)
+		items := resp.GetItems()
+		require.Equal(t, []string{a2.ID.String(), a1.ID.String()}, listingIDs(items))
+		for _, l := range items {
+			if !l.GetIsMine() || l.GetStats() == nil || l.GetMyApplication() != nil {
+				t.Fatalf("own listing = %v", l)
+			}
 		}
-	}
-	if items[1].GetStats().GetPending() != 1 || items[1].GetStats().GetTotal() != 1 {
-		t.Fatalf("stats = %v", items[1].GetStats())
-	}
+		require.Zero(t, items[0].GetStats().GetTotal())
+		require.EqualValues(t, 1, items[1].GetStats().GetPending())
+		require.EqualValues(t, 1, items[1].GetStats().GetTotal())
+		require.Equal(t, hbcv1.ListingStatus_LISTING_STATUS_CLOSED, items[0].GetStatus())
+	})
 
-	resp, err = e.bff.V1ListMyListings(as(anna.ID), &hbcv1.V1ListMyListingsRequest{Status: hbcv1.ListingStatus_LISTING_STATUS_ACTIVE})
-	wantOK(t, err)
-	if len(resp.GetItems()) != 1 || resp.GetItems()[0].GetId() != a1.ID.String() {
-		t.Fatalf("active items = %v", resp.GetItems())
-	}
+	t.Run("status filter", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().ListByAuthor(mock.Anything, anna.ID, listings.StatusActive).Return([]*listings.Listing{a1}, nil).Once()
+		e.expectUsers(1, anna)
+		e.apps.EXPECT().StatsForListings(mock.Anything, []uuid.UUID{a1.ID}).Return(noStats(), nil).Once()
 
-	resp, err = e.bff.V1ListMyListings(as(e.user(t, "vera").ID), &hbcv1.V1ListMyListingsRequest{})
-	wantOK(t, err)
-	if resp.GetItems() == nil || len(resp.GetItems()) != 0 {
-		t.Fatalf("empty list = %v", resp.GetItems())
-	}
+		resp, err := e.bff.V1ListMyListings(ctx, &hbcv1.V1ListMyListingsRequest{Status: hbcv1.ListingStatus_LISTING_STATUS_ACTIVE})
+		wantOK(t, err)
+		require.Equal(t, []string{a1.ID.String()}, listingIDs(resp.GetItems()))
+	})
 
-	_, err = e.bff.V1ListMyListings(as(anna.ID), &hbcv1.V1ListMyListingsRequest{Status: 5})
-	wantStatus(t, err, codes.InvalidArgument, msgBadRequest)
+	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		e.listings.EXPECT().ListByAuthor(mock.Anything, anna.ID, listings.StatusClosed).Return(nil, nil).Once()
+
+		resp, err := e.bff.V1ListMyListings(ctx, &hbcv1.V1ListMyListingsRequest{Status: hbcv1.ListingStatus_LISTING_STATUS_CLOSED})
+		wantOK(t, err)
+		require.NotNil(t, resp.GetItems())
+		require.Empty(t, resp.GetItems())
+	})
+
+	t.Run("bad status", func(t *testing.T) {
+		t.Parallel()
+		_, err := newEnv(t).bff.V1ListMyListings(ctx, &hbcv1.V1ListMyListingsRequest{Status: 5})
+		wantStatus(t, err, codes.InvalidArgument, msgBadRequest)
+	})
+
+	for _, tt := range []struct {
+		name   string
+		expect func(e *env)
+	}{
+		{"list fails", func(e *env) {
+			e.listings.EXPECT().ListByAuthor(mock.Anything, anna.ID, listings.Status("")).Return(nil, errors.New(errDB)).Once()
+		}},
+		{"compose fails", func(e *env) {
+			e.listings.EXPECT().ListByAuthor(mock.Anything, anna.ID, listings.Status("")).Return([]*listings.Listing{a1}, nil).Once()
+			e.users.EXPECT().GetMany(mock.Anything, mock.Anything).Return(nil, errors.New(errDB)).Once()
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			tt.expect(e)
+			_, err := e.bff.V1ListMyListings(ctx, &hbcv1.V1ListMyListingsRequest{})
+			wantStatus(t, err, codes.Internal, msgInternal)
+		})
+	}
 }

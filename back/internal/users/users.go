@@ -67,7 +67,7 @@ type Service interface {
 	// «Сессия истекла» при неизвестном/истёкшем/отозванном; повторное использование уже
 	// ротированного токена отзывает всю семью.
 	RotateRefresh(ctx context.Context, token string) (userID uuid.UUID, next *RefreshToken, err error)
-	// Идемпотентно: неизвестный токен — не ошибка.
+	// Отзывает всю семью токена (выход). Идемпотентно: неизвестный токен — не ошибка.
 	RevokeRefresh(ctx context.Context, token string) error
 }
 

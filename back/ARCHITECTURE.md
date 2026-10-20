@@ -437,8 +437,10 @@ back/
 Unit-тесты BFF и сервисов контекстов используют моки интерфейсов (портов, репозиториев,
 `blob.Store`, `auth.Issuer/Verifier`, `applications.ListingReader`, `users/service.Hasher`),
 сгенерированные **mockery v3** по `back/.mockery.yml` в пакеты `internal/<pkg>/mocks`
-(`MockUsersService` и т. п., `with-expecter: true`, testify). Моки коммитятся; `make
-generate-mocks` не должен давать диффа; `golangci-lint` исключает `mocks/`. Рукописные
+(`Mock<Interface>`: `users/mocks.MockService`, `users/service/mocks.MockRepository` и т. п.;
+шаблон testify, expecter `EXPECT()` — в v3 он всегда включён, бывший `with-expecter: true`).
+Моки коммитятся; `make generate-mocks` не должен давать диффа; `golangci-lint` исключает
+`mocks/`. Рукописные
 in-memory фейки в unit-тестах не используются; поведение БД проверяют integration-тесты на
 реальном Postgres (`dbtest`), сквозное — `tests/e2e`.
 
