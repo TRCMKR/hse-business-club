@@ -24,9 +24,9 @@
 | I1 | merged | task/I1 | opus | 03:28 | 04:05 | tasks/reports/I1.md | принять (6 не блокирующих) |
 | I2 | merged | task/I2 | opus | 04:11 | 04:35 | tasks/reports/I2.md | принять (3 фактические правки README внесены) |
 | I3 | merged | task/I3 | opus | 05:18 | 06:41 | tasks/reports/I3.md | принять с правками → внесены; слит с B6; выкладку делает пользователь |
-| B7 | review | task/B7 | opus | 07:02 | 07:23 | tasks/reports/B7.md | в работе |
+| B7 | merged | task/B7 | opus | 07:02 | 07:23 | tasks/reports/B7.md | принять (9 не блокирующих → B8/README) |
 | F9 | rework | task/F9 | opus | 07:02 | 07:20 | tasks/reports/F9.md | итерация 1: принять с 2 мелкими правками; живая проверка после merge B7 |
-| B8 | queued | task/B8 | | | | | после merge B7 |
+| B8 | running | task/B8 | opus | 07:29 | | | |
 | B6 | merged | task/B6 | opus | 05:32 | 06:09 | tasks/reports/B6.md | принять → правка entrypoint → смержено |
 
 ## Журнал событий
@@ -92,6 +92,7 @@
 - 07:20 — F9: исполнитель закончил (359 unit, 34 Playwright с TTL 1s). Запущен ревьюер (mock; живой бэк — после B7).
 - 07:23 — B7: исполнитель закончил (5 коммитов; test-all зелёный; smoke 18/18 с фронтом F9). Запущен ревьюер. Logout отзывает семью — принято в SPEC.
 - 07:27 — F9: ревью принят (обходы прокси закрыты, single-flight один refresh на 5 параллельных, фото 1,4 МБ повторяется); 2 мелкие правки + живая проверка после B7.
+- 07:29 — B7: ревью принят (10 параллельных refresh → 1 успех + семья отозвана; smoke 17/17); merge в main. Запущен B8 (mockery). F9 — merge main и живая проверка.
 
 ## Время по волнам
 
