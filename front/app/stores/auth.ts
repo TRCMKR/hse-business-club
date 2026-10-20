@@ -4,6 +4,12 @@ import { getApi } from '~~/api/client';
 import { getErrorStatus } from '~/utils/errors';
 import type { LoginInput, RegisterInput, User } from '~~/api/types';
 
+/**
+ * SSR could not check the session because the backend is unreachable (not a 401).
+ * Set by `plugins/auth.server.ts`, read by `middleware/auth.global.ts`; per request.
+ */
+export const useAuthUnavailable = () => useState<boolean>('auth-unavailable', () => false);
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
 

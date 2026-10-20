@@ -11,6 +11,8 @@
     "./app/**/*",
     "./api/**/*",
     "./tests/**/*",
+    "./e2e/**/*",
+    "./playwright.config.ts",
     "./*.d.ts"
   ]
 }

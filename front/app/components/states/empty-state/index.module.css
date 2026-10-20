@@ -16,7 +16,7 @@
   box-shadow: inset 0 0 0 1px var(--color-focus);
   color: var(--color-accent-text);
   display: flex;
-  font-size: 32px;
+  font-size: var(--font-size-page-title-lg);
   height: 72px;
   justify-content: center;
   line-height: 1;

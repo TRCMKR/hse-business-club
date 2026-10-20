@@ -14,9 +14,10 @@ const props = {
   modelValue: prop<string>().required(),
   tabs: prop<TabItem[]>().required(),
   /**
-   * When set, tab ids are `${idPrefix}-tab-${value}` and aria-controls points to
-   * `${idPrefix}-panel-${value}` — give the page's panel that id and
-   * `role="tabpanel"` + `aria-labelledby` = tab id.
+   * When set, tab ids are `${idPrefix}-tab-${value}` and the selected tab's aria-controls
+   * points to `${idPrefix}-panel-${value}` — give the page's (single) panel that id and
+   * `role="tabpanel"` + `aria-labelledby` = tab id. Inactive tabs have no aria-controls:
+   * pages render only the active panel, and a reference to a missing id is invalid.
    */
   idPrefix: prop<string>().optional(),
   ariaLabel: prop<string>().optional(),
@@ -58,7 +59,7 @@ export const Tabs = defineComponent((props: TabsProps, { emit }) => {
             type={'button'}
             role={'tab'}
             id={props.idPrefix ? `${props.idPrefix}-tab-${t.value}` : undefined}
-            aria-controls={props.idPrefix ? `${props.idPrefix}-panel-${t.value}` : undefined}
+            aria-controls={props.idPrefix && selected ? `${props.idPrefix}-panel-${t.value}` : undefined}
             aria-selected={selected ? 'true' : 'false'}
             tabindex={selected ? 0 : -1}
             class={[styles.tab, selected && styles.active]}

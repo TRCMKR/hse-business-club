@@ -1,5 +1,5 @@
 import { AUTH_COOKIE } from '~~/api/constants';
-import { useAuthStore } from '~/stores/auth';
+import { useAuthStore, useAuthUnavailable } from '~/stores/auth';
 
 /** SSR: resolve the current user once per request if the auth cookie is present. */
 export default defineNuxtPlugin({
@@ -11,6 +11,8 @@ export default defineNuxtPlugin({
       return;
     }
     const auth = useAuthStore();
+    // Composables before the first `await`: the Nuxt context is gone after it.
+    const unavailable = useAuthUnavailable();
     try {
       const user = await auth.fetchMe();
       if (!user) {
@@ -18,8 +20,10 @@ export default defineNuxtPlugin({
         cookie.value = null;
       }
     } catch (error) {
-      // Backend down: render as anonymous; the middleware sends the user to /login.
+      // Backend down: the session may well be valid — do not send the user to /login
+      // (the middleware shows a 503 error page with «Повторить» instead).
       console.error('[auth] fetchMe failed', error);
+      unavailable.value = true;
     }
   },
 });

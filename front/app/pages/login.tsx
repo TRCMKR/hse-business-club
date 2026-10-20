@@ -52,7 +52,19 @@ export default defineComponent({
 
     const onSubmit = handleSubmit(values => signIn(values));
 
+    // Double click / Enter while a sign-in is in flight is ignored.
+    const onFormSubmit = (e: Event) => {
+      e.preventDefault();
+      if (busy.value) {
+        return;
+      }
+      void onSubmit(e);
+    };
+
     const loginAs = async (login: string) => {
+      if (busy.value) {
+        return;
+      }
       demoLoading.value = login;
       try {
         await signIn({ username: login, password: DEMO_PASSWORD });
@@ -66,7 +78,7 @@ export default defineComponent({
         <h1 class={styles.title}>{'Вход'}</h1>
         <p class={styles.lead}>{'Публикуйте стартапы и вакансии, находите команду в клубе.'}</p>
 
-        <form class={styles.form} onSubmit={onSubmit} novalidate>
+        <form class={styles.form} onSubmit={onFormSubmit} novalidate>
           <Input
             label={'Логин'}
             name={'username'}

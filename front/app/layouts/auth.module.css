@@ -9,11 +9,12 @@
 
 /* Navy band with the club name; the form card overlaps its bottom edge. */
 .hero {
-  --glow-1: radial-gradient(520px 260px at 85% 0%, rgb(97 148 255 / 35%), transparent 70%);
-  --glow-2: radial-gradient(420px 220px at 0% 100%, rgb(31 62 140 / 45%), transparent 70%);
+  background: var(--gradient-hero-glow-1), var(--gradient-hero-glow-2), var(--color-hero-bg);
 
-  background: var(--glow-1), var(--glow-2), var(--color-navy-deep);
+  /* Dark theme: the band is close to the page bg — a light edge separates them. */
+  border-bottom: 1px solid var(--color-hero-border);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  box-shadow: var(--shadow-md);
   display: flex;
   justify-content: center;
   padding: calc(env(safe-area-inset-top) + 40px) 16px 96px;
@@ -39,10 +40,10 @@
 
 .mark {
   background: var(--gradient-accent);
-  border: 1px solid rgb(255 255 255 / 16%);
+  border: 1px solid var(--color-border-inverse);
   border-radius: var(--radius-md);
   color: var(--color-text-inverse);
-  font-size: 15px;
+  font-size: var(--font-size-nav);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.02em;
   line-height: 1;
@@ -50,14 +51,14 @@
 }
 
 .title {
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
 }
 
 .subtitle {
   color: var(--color-nav-text);
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 

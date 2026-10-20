@@ -17,9 +17,12 @@ const TO_ENUM: Record<Exclude<StatusFilterValue, ''>, ApplicationStatus> = {
   withdrawn: ApplicationStatus.APPLICATION_STATUS_WITHDRAWN,
 };
 
+// A Set, not `in TO_ENUM`: `in` also matches prototype keys (`?status=constructor`).
+const KNOWN_VALUES = new Set<string>(Object.keys(TO_ENUM));
+
 export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
   { value: '', label: 'Все' },
-  { value: 'pending', label: 'На рассмотрении' },
+  { value: 'pending', label: 'Ожидающие' },
   { value: 'accepted', label: 'Принятые' },
   { value: 'declined', label: 'Отклонённые' },
   { value: 'withdrawn', label: 'Отозванные' },
@@ -32,7 +35,7 @@ export function parseStatusQuery(raw: unknown): StatusFilterValue {
     return '';
   }
   const normalized = value.toLowerCase();
-  return normalized in TO_ENUM ? (normalized as StatusFilterValue) : '';
+  return KNOWN_VALUES.has(normalized) ? (normalized as StatusFilterValue) : '';
 }
 
 /** Filter value → API enum (undefined = no filter). */

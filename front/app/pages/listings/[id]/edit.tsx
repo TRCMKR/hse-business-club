@@ -17,7 +17,7 @@ const canEdit = (listing: Listing) => listing.isMine && listing.status === Listi
 
 export default defineComponent({
   name: 'ListingEditPage',
-  setup() {
+  async setup() {
     useHead({ title: 'Редактирование' });
 
     const api = getApi();
@@ -25,17 +25,11 @@ export default defineComponent({
     const id = computed(() => String(route.params.id));
     const listingUrl = computed(() => `/listings/${id.value}`);
 
-    const { data, error, status, refresh } = useAsyncData(
+    const asyncData = useAsyncData(
       () => `listing:${id.value}`,
       () => api.listings.get(id.value),
     );
-
-    // 404 from the API → error page (same as the listing page).
-    watch(error, (e) => {
-      if (getErrorStatus(e) === 404) {
-        showError({ statusCode: 404, statusMessage: 'Публикация не найдена', fatal: true });
-      }
-    }, { immediate: true });
+    const { data, error, status, refresh } = asyncData;
 
     // Not the author or already closed → back to the listing with a toast. Done on the
     // client so the toast is visible; SSR renders the loading state meanwhile.
@@ -47,6 +41,13 @@ export default defineComponent({
         }
       }, { immediate: true });
     });
+
+    // Every composable is registered above: after `await` the Nuxt context is gone.
+    // 404 → error page with a 404 HTTP status on SSR (not a skeleton, then an error).
+    await asyncData;
+    if (getErrorStatus(error.value) === 404) {
+      throw createError({ statusCode: 404, statusMessage: 'Публикация не найдена', fatal: true });
+    }
 
     const submit = async (values: ListingFormState) => {
       const updated = await api.listings.update(id.value, toUpdateRequest(values));

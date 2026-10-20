@@ -32,6 +32,9 @@ beforeEach(() => {
 describe('applications/status filter helpers', () => {
   it('parses the `status` query and maps it to the API enum', () => {
     expect(parseStatusQuery('pending')).toBe('pending');
+    expect(parseStatusQuery('constructor')).toBe('');
+    expect(parseStatusQuery('__proto__')).toBe('');
+    expect(parseStatusQuery('toString')).toBe('');
     expect(parseStatusQuery('ACCEPTED')).toBe('accepted');
     expect(parseStatusQuery(['withdrawn', 'pending'])).toBe('withdrawn');
     expect(parseStatusQuery('bogus')).toBe('');

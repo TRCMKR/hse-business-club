@@ -6,18 +6,21 @@
 
 .main {
   flex: 1;
-  padding: calc(env(safe-area-inset-top) + 16px) 0 calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
+
+  /* Bottom: tab bar + FAB (its 16px offset + height) + 32px clearance below the last card. */
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--space-4) + var(--fab-h) + var(--space-8));
+  padding-top: calc(var(--safe-top) + var(--space-4));
 }
 
 @media (width >= 768px) {
   .main {
-    padding: 32px 0 64px;
+    padding: var(--space-8) 0 64px;
   }
 }
 
 .container {
   margin: 0 auto;
   max-width: var(--container);
-  padding: 0 max(16px, env(safe-area-inset-left));
+  padding: 0 max(var(--space-4), var(--safe-left));
   width: 100%;
 }

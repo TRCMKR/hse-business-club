@@ -158,6 +158,22 @@ describe('profile/ProfileForm', () => {
     expect(w.emitted('saved')?.[0]).toEqual([saved]);
   });
 
+  it('a second submit while saving is ignored', async () => {
+    let resolve!: (u: ReturnType<typeof makeUser>) => void;
+    users.updateMe.mockReturnValue(new Promise((r) => {
+      resolve = r;
+    }));
+    const w = await mountSuspended(ProfileForm, { props: { user: makeUser() } });
+    await w.find('form').trigger('submit');
+    await vi.waitFor(() => expect(users.updateMe).toHaveBeenCalledTimes(1));
+    await w.find('form').trigger('submit');
+    await w.find('form').trigger('submit');
+    await flushPromises();
+    expect(users.updateMe).toHaveBeenCalledTimes(1);
+    resolve(makeUser());
+    await vi.waitFor(() => expect(w.emitted('saved')).toHaveLength(1));
+  });
+
   it('does not submit an invalid form', async () => {
     const w = await mountSuspended(ProfileForm, { props: { user: makeUser() } });
     await w.find('input[name="displayName"]').setValue('   ');

@@ -14,7 +14,7 @@ describe('cards/ApplicationCard', () => {
     expect(text).toContain('Борис Иванов');
     expect(text).toContain('Backend-разработчик');
     expect(text).toContain('Хочу в команду.');
-    expect(text).toContain('На рассмотрении');
+    expect(text).toContain('Ожидает');
     const hrefs = w.findAll('a').map(a => a.attributes('href'));
     expect(hrefs).toContain('/users/u-boris');
     expect(hrefs).toContain('/listings/l-1');

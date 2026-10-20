@@ -24,10 +24,13 @@ export const TabBar = defineComponent(() => {
             <span class={styles.icon}>
               <Icon name={item.icon} size={24} />
               {item.badge && badge.value > 0 && (
-                <span class={styles.counter} aria-label={`новых: ${badge.value}`}>{badge.value}</span>
+                <span class={styles.counter} aria-hidden={'true'}>{badge.value}</span>
               )}
             </span>
             <span class={styles.label}>{item.shortLabel}</span>
+            {item.badge && badge.value > 0 && (
+              <span class={'visually-hidden'}>{`, новых: ${badge.value}`}</span>
+            )}
           </NuxtLink>
         );
       })}

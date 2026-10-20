@@ -16,7 +16,9 @@ NUXT_MOCK_API=true npm run dev   # без бэкенда: in-memory mock API с 
 (на странице входа есть кнопки «Войти как …»).
 
 Проверки: `npm run lint` (eslint + stylelint + tsc), `npm run test` (vitest),
-`npm run build`, `docker build .`.
+`npm run e2e` (Playwright: основной сценарий SPEC §1, состояния, axe — против mock API на
+prod-сборке, порт 13100, системный Chrome; в `npm run test` не входит), `npm run build`,
+`docker build .`.
 
 ## Переменные окружения
 
@@ -105,9 +107,23 @@ tests/                    — vitest
 синий акцент для действий, жёлтый дозированно, шрифт Montserrat (`@nuxt/fonts`, Google,
 веса 400–700, cyrillic + latin, `font-display: swap`). Логотип и блоки сайта не используются.
 
-- Все цвета, радиусы и тени — CSS-переменные в `app/assets/css/main.css`; компоненты
-  используют только токены (без hex в модулях). Тёмная тема — `prefers-color-scheme: dark`
-  переопределяет те же переменные (navy-поверхности).
+- Цвета, градиенты, тени, радиусы и размеры шрифта — CSS-переменные в
+  `app/assets/css/main.css`; в `*.module.css` нет hex/`rgb()` и числовых `font-size`
+  (проверка: `grep -rnE 'rgb\(|#[0-9a-f]{3,8}\b|font-size: *[0-9]' app --include='*.module.css'`
+  → пусто). Геометрия (высоты, отступы мелких элементов) может быть в px. Тёмная тема —
+  `prefers-color-scheme: dark` переопределяет те же переменные (navy-поверхности);
+  `theme-color` задан двумя `<meta media>` (`#f4f6fb` / `#06081c`). Тосты `vue-sonner`
+  перекрашены токенами в `main.css`.
+- Шрифт: `--font-family` = `'Montserrat', 'Montserrat Fallback: Arial', …` — второе
+  семейство генерирует `@nuxt/fonts` (метрически подогнанный Arial), без сдвига вёрстки
+  при подмене шрифта.
+- Рамка полей ввода `--color-border-strong` — ≥ 3:1 к фону и поверхности в обеих темах
+  (WCAG 1.4.11); декоративная рамка при hover карточки — `--color-border-hover`.
+- Фокус: глобальный `:focus-visible` (2px `--color-accent-text`); на navy-панелях —
+  белый (`--color-nav-focus`); элементы с `outline: none` используют `--shadow-focus-ring`
+  (поля — `--shadow-focus` + синяя рамка).
+- `prefers-reduced-motion: reduce` гасит анимации и переходы; skeleton вместо
+  «перелива» мягко пульсирует прозрачностью (индикатор загрузки остаётся).
 - Текст на фоне: `--color-text*` (≥ 4.5:1 в обеих темах). Синий текст и ссылки —
   `--color-accent-text`, а не `--color-accent` (тот — для заливок кнопок и рамок).
 - Primary-кнопка — `--gradient-accent`; secondary — прозрачная с синей рамкой.
@@ -119,7 +135,10 @@ tests/                    — vitest
   (`sm`/`md`/`lg` → flex-колонка с отступами).
 
 Скриншоты (375 и 1280 px, светлая и тёмная тема): `docs/screenshots/`, «до» F8 —
-`docs/screenshots/before/`.
+`docs/screenshots/before/`. Сняты на живом бэкенде со свежим сидом, пользователь `anna`:
+`login`, `feed`, `listing` (чужая), `listing-owner`, `listing-applications`, `listing-new`,
+`me`, `me-listings`, `me-applications` (полученные), `user`, `not-found`; тёмная тема —
+`login-dark`, `feed-dark`, `listing-dark`, `me-applications-dark`.
 
 ## Соглашения для экранов (F1–F5)
 
@@ -130,10 +149,22 @@ tests/                    — vitest
   `useAsyncData('key', () => api.listings.get(id))` — SSR получает данные с cookie
   пользователя, клиент гидрируется без повторного запроса.
 - Мутации: `try { await api.applications.accept(id) } catch (e) { toast.error(getErrorMessage(e)) }`.
-- Нет объекта → `throw createError({ statusCode: 404 })` — покажет `app/error.tsx`.
+- Нет объекта → `throw createError({ statusCode: 404, statusMessage: 'Публикация не найдена', fatal: true })`
+  в `async setup()` после `await` данных — покажет `app/error.tsx` (заголовок — `statusMessage`,
+  если он на русском), и SSR сразу ответит HTTP 404, без скелетона и «прыжка» после гидрации.
+- **В `async setup()` все композаблы вызываются до первого `await`**: `useHead`, `useRoute`,
+  `useRouter`, `useAsyncData`, `onMounted`, `watch`, сторы. После `await` контекст Nuxt/Vue
+  потерян: на SSR это 500 («nuxt instance unavailable»), на клиенте — молча не
+  зарегистрированные хуки. Образец — `pages/listings/[id]/applications.tsx`:
+  `const a = useAsyncData(...); …; await a; if (404) throw createError(...)`.
+- Ошибки `useAsyncData` — обёртка Nuxt (`statusCode` 500 при обрыве сети) с исходной ошибкой
+  в `cause`; `getErrorMessage`/`getErrorStatus` разворачивают её сами — передавайте `error.value` как есть.
 - Текущий пользователь — `useAuthStore().user`; после изменения профиля — `setUser(user)`.
 - `login`/`register`/`logout` и истёкшая сессия вызывают `clearNuxtData()`: кэш
   `useAsyncData` не переживает смену пользователя. Не храните пользовательские данные в
   других глобальных местах (модульные переменные, `useState`) — иначе их тоже нужно чистить.
+  Исключение — общий `useState`, который сам привязан к `userId` и сбрасывается при его смене
+  (бейдж откликов `composables/useApplicationsBadge.ts`: в состоянии хранится `userId`, и при
+  несовпадении с `useAuthStore().user?.id` значение считается пустым).
 - Новые маршруты по умолчанию требуют входа (`middleware/auth.global.ts`), публичные —
   только `/login` и `/register`.
