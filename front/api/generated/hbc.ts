@@ -349,8 +349,16 @@ export interface V1V1ApplicationsResponse {
 }
 
 export interface V1V1AuthResponse {
-  token?: string;
+  /** Короткоживущий JWT для заголовка Authorization: Bearer. */
+  accessToken?: string;
+  /** Долгоживущий непрозрачный токен для V1Refresh/V1Logout. Хранится только в httpOnly-cookie. */
+  refreshToken?: string;
   user?: V1User;
+  /**
+   * Срок жизни access_token в секундах.
+   * @format int32
+   */
+  accessExpiresIn?: number;
 }
 
 export interface V1V1CreateListingRequest {
@@ -383,8 +391,18 @@ export interface V1V1LoginRequest {
   password?: string;
 }
 
+export interface V1V1LogoutRequest {
+  refreshToken?: string;
+}
+
+export type V1V1LogoutResponse = object;
+
 export interface V1V1PingResponse {
   ok?: boolean;
+}
+
+export interface V1V1RefreshRequest {
+  refreshToken?: string;
 }
 
 export interface V1V1RegisterRequest {
@@ -647,6 +665,52 @@ export class Api<
     ) =>
       this.request<V1V1AuthResponse, RpcStatus>({
         path: `/v1/auth/login`,
+        method: "POST",
+        body: body,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags HseBusinessClub
+     * @name HseBusinessClubV1Refresh
+     * @summary Обмен refresh-токена на новую пару (ротация: старый refresh отзывается). Неизвестный, истёкший или уже использованный refresh → Unauthenticated «Сессия истекла».
+     * @request POST:/v1/auth/refresh
+     * @secure
+     */
+    hseBusinessClubV1Refresh: (
+      body: V1V1RefreshRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<V1V1AuthResponse, RpcStatus>({
+        path: `/v1/auth/refresh`,
+        method: "POST",
+        body: body,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags HseBusinessClub
+     * @name HseBusinessClubV1Logout
+     * @summary Отзыв refresh-токена (выход). Идемпотентно: неизвестный токен → 200.
+     * @request POST:/v1/auth/logout
+     * @secure
+     */
+    hseBusinessClubV1Logout: (
+      body: V1V1LogoutRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<V1V1LogoutResponse, RpcStatus>({
+        path: `/v1/auth/logout`,
         method: "POST",
         body: body,
         secure: true,

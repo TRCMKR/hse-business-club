@@ -2,6 +2,8 @@
 # Main scenario (SPEC §1) through the Nitro proxy: anna publishes → boris applies →
 # anna accepts → boris sees "accepted". Run against `NUXT_MOCK_API=true npm run dev`
 # (or a real backend). Usage: scripts/mock-smoke.sh [http://localhost:3000]
+# With SMOKE_ACCESS_TTL=<seconds> (server started with NUXT_MOCK_ACCESS_TTL=<seconds>s, or
+# a backend with that ACCESS_TTL) it also checks refresh, reuse detection and logout.
 set -euo pipefail
 
 BASE="${1:-http://localhost:3000}/api"
@@ -10,9 +12,9 @@ trap 'rm -rf "$TMP"' EXIT
 JSON=(-H 'content-type: application/json')
 field() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
-echo '1. anna logs in (cookie is httpOnly, body has no token)'
-curl -sf -c "$TMP/anna" "${JSON[@]}" -d '{"username":"anna","password":"demo1234"}' -D "$TMP/h" "$BASE/auth/login" | field '"token" in d, d["user"]["username"]'
-grep -i '^set-cookie' "$TMP/h"
+echo '1. anna logs in (two httpOnly cookies, body has only the user)'
+curl -sf -c "$TMP/anna" "${JSON[@]}" -d '{"username":"anna","password":"demo1234"}' -D "$TMP/h" "$BASE/auth/login" | field 'sorted(d.keys()), d["user"]["username"]'
+grep -i '^set-cookie' "$TMP/h" | sed -E 's/(hbc_[a-z]+=)[^;]+/\1<…>/'
 
 echo '2. wrong password → 401'
 curl -s -o /dev/null -w '%{http_code}\n' "${JSON[@]}" -d '{"username":"anna","password":"nope1234"}' "$BASE/auth/login"
@@ -52,5 +54,29 @@ URL=$(curl -sf -b "$TMP/boris" "${JSON[@]}" -d "{\"data\":\"$PNG\"}" "$BASE/v1/m
 echo "   $URL"
 curl -s -D - -o /dev/null "$BASE$URL" | grep -iE '^(HTTP|content-type|cache-control)'
 
-echo '10. logout clears the cookie'
-curl -s -D - -o /dev/null -b "$TMP/anna" -X POST "$BASE/auth/logout" | grep -i '^set-cookie'
+if [[ -n "${SMOKE_ACCESS_TTL:-}" ]]; then
+  PAUSE=$(python3 -c "print(float('$SMOKE_ACCESS_TTL') + 0.5)")
+  cp "$TMP/anna" "$TMP/anna-old"
+  echo "10. access expires (sleep ${PAUSE}s) → request still 200, both cookies rotated"
+  sleep "$PAUSE"
+  curl -s -o /dev/null -w '   %{http_code}\n' -b "$TMP/anna" -c "$TMP/anna" -D "$TMP/h" "$BASE/v1/me"
+  grep -ic '^set-cookie: hbc_\(access\|refresh\)=' "$TMP/h" | sed 's/^/   rotated cookies: /'
+
+  echo '11. the old refresh token after the 5 s dedup window → 401 «Сессия истекла», cookies cleared'
+  sleep 5.5
+  curl -s -w ' %{http_code}\n' -b "$TMP/anna-old" -D "$TMP/h" "$BASE/v1/me"
+  grep -i '^set-cookie' "$TMP/h" | sed 's/^/   /'
+  echo '   reuse revoked the family: the rotated pair is dead too after expiry'
+  sleep "$PAUSE"
+  curl -s -o /dev/null -w '   %{http_code}\n' -b "$TMP/anna" "$BASE/v1/me"
+
+  echo '12. logout revokes refresh: the old cookies do not revive the session'
+  curl -sf -c "$TMP/boris" "${JSON[@]}" -d '{"username":"boris","password":"demo1234"}' "$BASE/auth/login" >/dev/null
+  cp "$TMP/boris" "$TMP/boris-old"
+  curl -s -D - -o /dev/null -b "$TMP/boris" -X POST "$BASE/auth/logout" | grep -i '^set-cookie' | sed 's/^/   /'
+  sleep "$PAUSE"
+  curl -s -w ' %{http_code}\n' -b "$TMP/boris-old" "$BASE/v1/me"
+else
+  echo '10. logout clears both cookies'
+  curl -s -D - -o /dev/null -b "$TMP/anna" -X POST "$BASE/auth/logout" | grep -i '^set-cookie'
+fi

@@ -21,6 +21,7 @@ import {
   newId,
   nextSeq,
 } from './state';
+import { authenticateAccess, issueSession, revokeRefresh, rotateRefresh } from './sessions';
 import { activeApplicationOf, toApplication, toListing, toUser } from './serialize';
 import {
   AVATAR_MAX_BYTES,
@@ -115,9 +116,18 @@ function filterByStatus(items: ApplicationRecord[], raw: string | undefined): Ap
 
 // ---------- auth ----------
 
-function authResponse(user: UserRecord) {
-  // Mock token = username (the real backend issues a JWT).
-  return { token: user.username, user: toUser(user) };
+/** `V1AuthResponse`; a new token family. */
+function authResponse(state: MockState, user: UserRecord) {
+  return authBody(user, issueSession(state, user));
+}
+
+function authBody(user: UserRecord, pair: ReturnType<typeof issueSession>) {
+  return {
+    accessToken: pair.accessToken,
+    refreshToken: pair.refreshToken,
+    user: toUser(user),
+    accessExpiresIn: pair.accessExpiresIn,
+  };
 }
 
 function register(ctx: Context) {
@@ -143,7 +153,7 @@ function register(ctx: Context) {
     updatedAt: at,
   };
   ctx.state.users.set(user.id, user);
-  return authResponse(user);
+  return authResponse(ctx.state, user);
 }
 
 function login(ctx: Context) {
@@ -152,7 +162,26 @@ function login(ctx: Context) {
   if (!user || user.password !== readString(body, 'password')) {
     throw unauthenticated(MSG.wrongCredentials);
   }
-  return authResponse(user);
+  return authResponse(ctx.state, user);
+}
+
+function refresh(ctx: Context) {
+  const { user, pair } = rotateRefresh(ctx.state, readString(asBody(ctx.req.body), 'refreshToken'));
+  return authBody(user, pair);
+}
+
+function logout(ctx: Context) {
+  revokeRefresh(ctx.state, readString(asBody(ctx.req.body), 'refreshToken'));
+  return {};
+}
+
+/** Issues a session without a password check (test helper). */
+export function issueSessionFor(state: MockState, username: string) {
+  const user = findUserByUsername(state, username);
+  if (!user) {
+    throw new Error(`mock user not found: ${username}`);
+  }
+  return issueSession(state, user);
 }
 
 // ---------- users ----------
@@ -387,6 +416,8 @@ export const ROUTES: Route[] = [
   route('GET', '/v1/ping', false, () => ({ ok: true })),
   route('POST', '/v1/auth/register', false, register),
   route('POST', '/v1/auth/login', false, login),
+  route('POST', '/v1/auth/refresh', false, refresh),
+  route('POST', '/v1/auth/logout', false, logout),
   route('GET', '/v1/me', true, ctx => toUser(ctx.viewer)),
   route('PUT', '/v1/me', true, updateMe),
   route('GET', '/v1/users/:id', true, getUser),
@@ -455,9 +486,5 @@ export function resolve(method: string, path: string): { route: Route, params: R
 }
 
 export function authenticate(state: MockState, token: string | null): UserRecord {
-  const user = token ? findUserByUsername(state, token) : undefined;
-  if (!user) {
-    throw unauthenticated();
-  }
-  return user;
+  return authenticateAccess(state, token);
 }

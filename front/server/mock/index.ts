@@ -7,16 +7,23 @@ import { MockError, internal } from './errors';
 import { buildFixtureState } from './fixtures';
 import type { MockState } from './state';
 import type { Context } from './routes';
-import { RawResponse, authenticate, resolve } from './routes';
+import { RawResponse, authenticate, issueSessionFor, resolve } from './routes';
 
 export type { MockRequest, MockResponse } from './types';
 export { DEMO_PASSWORD } from './fixtures';
+export { accessTtlMs, parseDuration } from './sessions';
 
 let state: MockState = buildFixtureState();
 
-/** Rebuilds the state from fixtures (fresh UUIDs). */
+/** Rebuilds the state from fixtures (fresh UUIDs) and drops all tokens. */
 export function resetMockState(): void {
   state = buildFixtureState();
+}
+
+/** Test helper: a fresh session (new token family) for a fixture user, no password check. */
+export function issueMockSession(username: string): { accessToken: string, refreshToken: string } {
+  const { accessToken, refreshToken } = issueSessionFor(state, username);
+  return { accessToken, refreshToken };
 }
 
 export function handleMock(req: MockRequest): MockResponse {

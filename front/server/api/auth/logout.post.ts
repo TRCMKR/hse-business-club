@@ -1,4 +1,3 @@
-export default defineEventHandler((event) => {
-  clearAuthToken(event);
-  return {};
-});
+import { logoutSession } from '../../utils/backend-auth';
+
+export default defineEventHandler(event => logoutSession(event, useRuntimeConfig(event)));

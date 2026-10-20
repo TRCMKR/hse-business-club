@@ -4,7 +4,7 @@ import { BaseService } from './base';
 
 /**
  * Auth goes through the Nitro routes `/api/auth/*` (not the `/v1/auth/*` proxy):
- * they put the JWT into the httpOnly cookie `hbc_token` and return only `{ user }`.
+ * they keep the access and refresh tokens in httpOnly cookies and return only `{ user }`.
  * Client-only: never call these during SSR.
  */
 export class AuthService extends BaseService {

@@ -12,6 +12,7 @@ import type {
   V1ListingStats,
   V1ListingSummary,
   V1User,
+  V1V1AuthResponse,
 } from './generated/hbc';
 import {
   V1ApplicationStatus,
@@ -63,6 +64,12 @@ export interface ListingsPage {
 
 /** grpc-gateway error body (SPEC §4.2). */
 export type ApiErrorBody = Required<Pick<RpcStatus, 'code' | 'message'>> & Pick<RpcStatus, 'details'>;
+
+/**
+ * `V1Login` / `V1Register` / `V1Refresh` response. Server-only: the Nitro routes keep the
+ * tokens in httpOnly cookies and hand the browser only `{ user }`.
+ */
+export type AuthResponse = Required<Omit<V1V1AuthResponse, 'user'>> & { user: User };
 
 export interface ListingInput {
   kind: V1ListingKind

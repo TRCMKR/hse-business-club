@@ -16,7 +16,7 @@ NUXT_MOCK_API=true npm run dev   # без бэкенда: in-memory mock API с 
 (на странице входа есть кнопки «Войти как …»).
 
 Проверки: `npm run lint` (eslint + stylelint + tsc), `npm run test` (vitest),
-`npm run e2e` (Playwright: основной сценарий SPEC §1, состояния, axe — против mock API на
+`npm run e2e` (Playwright: основной сценарий SPEC §1, состояния, refresh-сессия, axe — против mock API с access TTL 1s на
 prod-сборке, порт 13100, системный Chrome; в `npm run test` не входит), `npm run build`,
 `docker build .`.
 
@@ -26,21 +26,39 @@ prod-сборке, порт 13100, системный Chrome; в `npm run test` 
 |---|---|---|
 | `NUXT_API_BASE_URL` | `http://localhost:8080` | адрес бэкенда для Nitro-прокси и SSR |
 | `NUXT_MOCK_API` | `false` | `true` — mock API вместо бэкенда |
-| `NUXT_COOKIE_SECURE` | `false` | `true` ставит флаг `Secure` у cookie `hbc_token`. Включать, когда фронт отдаётся через HTTPS-прокси; по умолчанию выключено, потому что compose открывает фронт по `http://localhost:3000`, а Safari не сохраняет Secure-cookie на HTTP |
+| `NUXT_COOKIE_SECURE` | `false` | `true` ставит флаг `Secure` у cookie `hbc_access` и `hbc_refresh`. Включать, когда фронт отдаётся через HTTPS-прокси; по умолчанию выключено, потому что compose открывает фронт по `http://localhost:3000`, а Safari не сохраняет Secure-cookie на HTTP |
+| `NUXT_MOCK_ACCESS_TTL` | `15m` | срок access-токена в mock-режиме (`500ms`, `1s`, `15m`, `2h`, число — секунды); e2e запускаются с `1s` |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` в Docker | порт Nitro |
 
 ## Как устроено общение с API
 
 ```
-браузер ── /api/auth/{login,register,logout} ──► Nitro: кладёт JWT в httpOnly cookie hbc_token
-браузер ── /api/v1/** ──► Nitro-прокси (server/api/[...].ts) ── Authorization: Bearer <cookie> ──► бэкенд /v1/**
-SSR ──────────────────────────────────────────── Authorization из cookie запроса ──► бэкенд /v1/**
+браузер ── /api/auth/{login,register} ──► Nitro: access + refresh в httpOnly cookie hbc_access / hbc_refresh, в ответе {user}
+браузер ── /api/auth/logout ──► Nitro: V1Logout(refresh) + очистка обеих cookie
+браузер ── /api/v1/** ──► Nitro-прокси ── Authorization: Bearer <hbc_access> ──► бэкенд /v1/**
+                                         └─ 401 → V1Refresh(hbc_refresh) → новые cookie → повтор запроса
+SSR ── event.context.hbc (server/plugins/backend-context.ts) ── тот же механизм ──► бэкенд /v1/**
 ```
 
-- JWT никогда не попадает в JS: `/api/auth/*` возвращают только `{ user }`. Прокси
-  канонизирует путь (percent-decode сегментов, схлопывание `//`, без завершающего `/`,
+- Токены никогда не попадают в JS: `/api/auth/*` возвращают только `{ user }`, в
+  клиентском бандле нет имён cookie (код приложения знает только тип
+  `api/backend-context.ts`). Обе cookie — `HttpOnly; SameSite=Lax; Path=/; Max-Age=30 дней`,
+  `Secure` по `NUXT_COOKIE_SECURE`. Срок access контролирует бэкенд (401), а не cookie.
+- **Refresh** — `server/utils/session-refresh.ts#withRefresh(event, config, call)`, общий
+  для прокси (`server/utils/proxy.ts`) и SSR:
+  - запрос с access из cookie; при 401 и наличии `hbc_refresh` — один `POST /v1/auth/refresh`,
+    новые cookie, повтор исходного запроса один раз (тело буферизуется — фото до ~7 МБ JSON);
+  - есть только refresh-cookie → сразу refresh, без лишнего 401;
+  - single-flight: результат refresh запоминается по значению старого refresh-токена на 5 с
+    в рамках процесса — параллельные запросы страницы (и SSR, и клиент) получают одну и ту же
+    новую пару, бэкенд не видит повторного использования и не отзывает семью;
+  - refresh отклонён → обе cookie очищаются, клиенту 401 `{code:16, message:'Сессия истекла'}`;
+    бэкенд недоступен → 502, cookie не трогаются;
+  - внутри одного запроса новая пара берётся из `event.context`, поэтому все вызовы одного
+    SSR-рендера после refresh идут уже с новым access.
+- Прокси канонизирует путь (percent-decode сегментов, схлопывание `//`, без завершающего `/`,
   `.`/`..` и битый `%` → 404) и закрывает всё поддерево `/v1/auth/**` (404) —
-  `server/utils/proxy-path.ts`.
+  `server/utils/proxy-path.ts`. Cookie браузера и его `Authorization` на бэкенд не уходят.
 - Ошибки бэкенда приходят как есть: HTTP-статус + `{ code, message, details }`;
   `message` готов к показу (`getErrorMessage(error)` из `~/utils/errors`).
 - Фото: `avatarSrc(user)` = `'/api' + user.avatarUrl` — файл отдаётся прокси с исходными
@@ -51,10 +69,14 @@ SSR ─────────────────────────�
 ### Mock-режим
 
 `NUXT_MOCK_API=true`: прокси и `/api/auth/*` вызывают `server/mock` (все 22 эндпоинта,
-фикстуры SPEC §6, правила SPEC §2.3, форма ответов и ошибок SPEC §4.2). Токен = username,
-пароль демо-аккаунтов — `demo1234` (как на бэкенде). Состояние в памяти процесса —
-сброс перезапуском. SSR в mock-режиме ходит в тот же прокси in-process.
-Основной сценарий SPEC §1 через curl: `scripts/mock-smoke.sh [http://localhost:3000]`.
+фикстуры SPEC §6, правила SPEC §2.3, форма ответов и ошибок SPEC §4.2) in-process.
+Access и refresh — случайные строки; access живёт `NUXT_MOCK_ACCESS_TTL` (по умолчанию 15m),
+refresh — 30 дней с ротацией: повтор уже использованного refresh отзывает всю семью
+(SPEC §2.3), logout отзывает refresh. Пароль демо-аккаунтов — `demo1234` (как на бэкенде).
+Состояние в памяти процесса — сброс перезапуском. Для тестов: `issueMockSession(username)`.
+Основной сценарий SPEC §1 через curl: `scripts/mock-smoke.sh [http://localhost:3000]`;
+с `SMOKE_ACCESS_TTL=1` (сервер с `NUXT_MOCK_ACCESS_TTL=1s`) скрипт проверяет ещё refresh,
+обнаружение повторного использования и logout.
 
 ### Генерация клиента
 
@@ -83,7 +105,9 @@ api/
   services/*.ts           — тонкие обёртки над generated
 server/
   api/auth/*.post.ts      — login/register/logout + cookie
-  api/[...].ts            — прокси /api/v1/** (или mock)
+  api/[...].ts            — прокси /api/v1/** (или mock), refresh при 401
+  plugins/backend-context.ts — event.context.hbc для SSR (тот же refresh)
+  utils/                  — auth-cookie, backend, session-refresh, proxy, proxy-path
   mock/                   — in-memory mock API
 app/
   layouts/{default,auth}.tsx
