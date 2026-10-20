@@ -1,5 +1,39 @@
+# Local env files (secrets); examples are tracked
 .env
 .env.*
 !.env.example
+
+# Local compose overrides (e.g. other host ports); docker compose picks
+# docker-compose.override.yaml up automatically
+docker-compose.override.yaml
+docker-compose.override.yml
+*.override.yaml
+*.override.yml
+
+# Dependencies and build outputs (front/ and back/ have their own .gitignore too)
+node_modules/
+.output/
+.nuxt/
+.nitro/
+.data/
+.cache/
+/back/bin/
+/back/build/
+
+# Test artifacts
+coverage.out
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# Generated galleries and logs
+gallery.html
+*.log
+logs/
+
+# Editors and OS
 .idea/
+.vscode/
+.fleet/
 .DS_Store
