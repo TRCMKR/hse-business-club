@@ -1,5 +1,5 @@
-// Package db provides the pgx connection pool, per-context schema migrations
-// and a transaction helper.
+// Package db provides the pgx connection pool and a transaction helper. Schema
+// migrations live in back/migrations and are applied by goose, not by this package.
 package db
 
 import (

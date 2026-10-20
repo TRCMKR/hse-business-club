@@ -3,7 +3,6 @@ package postgres
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"time"
@@ -19,14 +18,9 @@ import (
 	"github.com/trcmkr/hse-business-club/back/internal/platform/db"
 )
 
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// Schema is the Postgres schema of the applications context.
+// Schema is the Postgres schema of the applications context (created by
+// back/migrations, applied by goose outside the application).
 const Schema = "applications"
-
-// Migrator applies the applications context migrations.
-var Migrator = db.Migrator{Schema: Schema, FS: migrations, Dir: "migrations"}
 
 const (
 	uniqueViolation = "23505"

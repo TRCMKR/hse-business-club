@@ -3,7 +3,6 @@ package postgres
 
 import (
 	"context"
-	"embed"
 	"errors"
 
 	"github.com/google/uuid"
@@ -12,15 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/trcmkr/hse-business-club/back/internal/platform/apperr"
-	"github.com/trcmkr/hse-business-club/back/internal/platform/db"
 	"github.com/trcmkr/hse-business-club/back/internal/users"
 )
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// Migrator applies the users context migrations into schema "users".
-var Migrator = db.Migrator{Schema: "users", FS: migrations, Dir: "migrations"}
 
 // Messages of errors returned by the repository.
 const (
