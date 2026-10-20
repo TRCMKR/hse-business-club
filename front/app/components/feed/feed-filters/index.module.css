@@ -50,7 +50,7 @@
 }
 
 .clear:focus-visible {
-  box-shadow: var(--shadow-focus);
+  box-shadow: var(--shadow-focus-ring);
   outline: none;
 }
 

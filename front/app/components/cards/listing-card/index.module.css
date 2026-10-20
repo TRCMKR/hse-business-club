@@ -43,7 +43,7 @@
 }
 
 .link:focus-visible::after {
-  box-shadow: var(--shadow-focus);
+  box-shadow: var(--shadow-focus-ring);
 }
 
 .lookingFor {

@@ -42,7 +42,10 @@ export const AppHeader = defineComponent(() => {
             >
               {item.label}
               {item.badge && badge.value > 0 && (
-                <span class={styles.counter} aria-label={`новых: ${badge.value}`}>{badge.value}</span>
+                <>
+                  <span class={styles.counter} aria-hidden={'true'}>{badge.value}</span>
+                  <span class={'visually-hidden'}>{`, новых: ${badge.value}`}</span>
+                </>
               )}
             </NuxtLink>
           ))}
