@@ -70,10 +70,36 @@ func TestRequestParseErrors(t *testing.T) {
 	if code, _, body := do(t, http.MethodPost, e.public.URL+"/v1/auth/login", tok, `{"extra":true}`); code != http.StatusNotImplemented {
 		t.Fatalf("unknown field = %d %s, want 501 from the stub", code, body)
 	}
-	// Known enum names (snake_case keys too) and enum numbers pass.
-	for _, body := range []string{`{"kind":"LISTING_KIND_STARTUP","stage":"STARTUP_STAGE_MVP"}`, `{"kind":1,"stage":3}`, `{"looking_for":"x","kind":"LISTING_KIND_VACANCY"}`} {
+	// Known enum names (snake_case keys too), enum numbers and null (= not set) pass.
+	for _, body := range []string{
+		`{"kind":"LISTING_KIND_STARTUP","stage":"STARTUP_STAGE_MVP"}`,
+		`{"kind":1,"stage":3}`,
+		`{"looking_for":"x","kind":"LISTING_KIND_VACANCY"}`,
+		`{"kind":"LISTING_KIND_VACANCY","stage":null}`,
+		`{"kind":null,"stage":null,"tags":null}`,
+	} {
 		if code, _, resp := do(t, http.MethodPost, e.public.URL+"/v1/listings", tok, body); code != http.StatusNotImplemented {
 			t.Fatalf("POST /v1/listings %s = %d %s, want 501 from the stub", body, code, resp)
+		}
+	}
+}
+
+// An empty query parameter means "no filter", like an absent one.
+func TestEmptyQueryParams(t *testing.T) {
+	e := start(t, nil)
+	tok, err := e.jwt.Issue([16]byte{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		"/v1/listings?kind=",
+		"/v1/listings?kind=&query=&page=&limit=",
+		"/v1/me/listings?status=",
+		"/v1/me/applications/sent?status=",
+		"/v1/me/applications/received?status=",
+	} {
+		if code, _, body := do(t, http.MethodGet, e.public.URL+path, tok, ""); code != http.StatusNotImplemented {
+			t.Fatalf("GET %s = %d %s, want 501 from the stub", path, code, body)
 		}
 	}
 }

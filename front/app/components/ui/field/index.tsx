@@ -20,15 +20,19 @@ export const fieldIds = (id: string) => ({
   error: `${id}-error`,
 });
 
+/** The hint is hidden while there is an error: validation errors repeat the hint's rule. */
 export const describedBy = (id: string, p: { hint?: string, error?: string }) => {
   const ids = fieldIds(id);
-  const list = [p.error ? ids.error : '', p.hint ? ids.hint : ''].filter(Boolean);
-  return list.length ? list.join(' ') : undefined;
+  if (p.error) {
+    return ids.error;
+  }
+  return p.hint ? ids.hint : undefined;
 };
 
 /**
  * Label + control + hint/error layout shared by Input, Textarea, Select, ChipsInput.
  * Slot `aside` renders on the right of the hint row (e.g. a character counter).
+ * An error replaces the hint (it repeats the same rule, e.g. «Пароль: от 8 до 72 символов»).
  */
 export const Field = defineComponent((props: FieldProps, { slots }) => {
   return () => {
@@ -47,7 +51,7 @@ export const Field = defineComponent((props: FieldProps, { slots }) => {
           <div class={styles.meta}>
             <div class={styles.messages}>
               {props.error && <p id={ids.error} class={styles.error} role={'alert'}>{props.error}</p>}
-              {props.hint && <p id={ids.hint} class={styles.hint}>{props.hint}</p>}
+              {props.hint && !props.error && <p id={ids.hint} class={styles.hint}>{props.hint}</p>}
             </div>
             {aside}
           </div>

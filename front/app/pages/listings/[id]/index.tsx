@@ -126,7 +126,7 @@ export default defineComponent({
           setResponseStatus(event, 404);
         }
         return (
-          <ErrorState title={'Публикация не найдена'} message={'Возможно, ссылка устарела или публикацию удалили.'}>
+          <ErrorState headingLevel={1} title={'Публикация не найдена'} message={'Возможно, ссылка устарела или публикацию удалили.'}>
             {{ actions: () => <Button to={'/'} variant={'secondary'}>{'В ленту'}</Button> }}
           </ErrorState>
         );
@@ -134,6 +134,7 @@ export default defineComponent({
       if (loadError.value) {
         return (
           <ErrorState
+            headingLevel={1}
             message={getErrorMessage(loadError.value)}
             retry
             retrying={status.value === 'pending'}

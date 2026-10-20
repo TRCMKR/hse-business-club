@@ -25,6 +25,15 @@ export default defineComponent((props: Props) => {
   const title = computed(() => getUserStatusMessage(props.error)
     ?? (is404.value ? 'Страница не найдена' : 'Что-то пошло не так'));
 
+  const text = computed(() => {
+    if (is404.value) {
+      return 'Возможно, ссылка устарела или в ней опечатка.';
+    }
+    return props.error.statusCode === 503
+      ? 'Попробуйте обновить страницу через минуту.'
+      : 'Мы уже знаем о проблеме. Попробуйте ещё раз чуть позже.';
+  });
+
   useHead({ title: computed(() => (is404.value ? title.value : 'Ошибка')) });
 
   // 503 (backend was down during SSR): the session is re-checked only by a full load.
@@ -41,11 +50,7 @@ export default defineComponent((props: Props) => {
         </div>
         <div class={styles.code}>{props.error.statusCode || 500}</div>
         <h1 class={styles.title}>{title.value}</h1>
-        <p class={styles.text}>
-          {is404.value
-            ? 'Возможно, ссылка устарела или в ней опечатка.'
-            : 'Мы уже знаем о проблеме. Попробуйте ещё раз чуть позже.'}
-        </p>
+        <p class={styles.text}>{text.value}</p>
         <div class={styles.actions}>
           {!is404.value && <Button onClick={retry}>{'Повторить'}</Button>}
           <Button variant={is404.value ? 'primary' : 'secondary'} onClick={goFeed}>{'В ленту'}</Button>

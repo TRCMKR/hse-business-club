@@ -30,6 +30,11 @@ type Deps struct {
 // Run seeds the demo data when users.users is empty and skips otherwise. It holds
 // a Postgres advisory lock for the duration, so concurrent starts seed once.
 // It reports whether the data was loaded.
+//
+// The services commit each call on their own, so a failure in the middle would
+// leave partial data and the next start would skip the seed (users is no longer
+// empty). Run therefore deletes everything it has created before returning the
+// error: the next start seeds again from scratch.
 func Run(ctx context.Context, pool *pgxpool.Pool, log *zap.Logger, d Deps) (bool, error) {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
@@ -54,7 +59,13 @@ func Run(ctx context.Context, pool *pgxpool.Pool, log *zap.Logger, d Deps) (bool
 		return false, nil
 	}
 
-	if err := Load(ctx, d); err != nil {
+	var c created
+	if err := load(ctx, d, &c); err != nil {
+		if rbErr := c.rollback(context.WithoutCancel(ctx), conn); rbErr != nil {
+			log.Error("demo data rollback failed: run with an empty database (make reset)", zap.Error(rbErr))
+		} else {
+			log.Warn("demo data rolled back after an error", zap.Error(err))
+		}
 		return false, err
 	}
 	log.Info("demo data loaded",
@@ -65,8 +76,47 @@ func Run(ctx context.Context, pool *pgxpool.Pool, log *zap.Logger, d Deps) (bool
 	return true, nil
 }
 
-// Load creates the demo data unconditionally (Run checks for an empty database).
+// created collects the ids of the records made by load, for the rollback.
+type created struct {
+	users, listings []uuid.UUID
+}
+
+// rollback deletes the created records in one transaction. Applications of the
+// seed are all on the seed listings, so they are found by listing_id.
+func (c *created) rollback(ctx context.Context, conn *pgxpool.Conn) error {
+	if len(c.users) == 0 && len(c.listings) == 0 {
+		return nil
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("seed: rollback: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	for _, q := range []struct {
+		sql string
+		ids []uuid.UUID
+	}{
+		{"DELETE FROM applications.applications WHERE listing_id = ANY($1)", c.listings},
+		{"DELETE FROM listings.listings WHERE id = ANY($1)", c.listings},
+		{"DELETE FROM users.users WHERE id = ANY($1)", c.users},
+	} {
+		if _, err := tx.Exec(ctx, q.sql, q.ids); err != nil {
+			return fmt.Errorf("seed: rollback: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("seed: rollback: %w", err)
+	}
+	return nil
+}
+
+// Load creates the demo data unconditionally (Run checks for an empty database
+// and rolls back a partial load).
 func Load(ctx context.Context, d Deps) error {
+	return load(ctx, d, &created{})
+}
+
+func load(ctx context.Context, d Deps, c *created) error {
 	userIDs := make(map[string]uuid.UUID, len(demoUsers))
 	for _, u := range demoUsers {
 		created, err := d.Users.Register(ctx, users.RegisterParams{
@@ -75,6 +125,7 @@ func Load(ctx context.Context, d Deps) error {
 		if err != nil {
 			return fmt.Errorf("seed: register %s: %w", u.Username, err)
 		}
+		c.users = append(c.users, created.ID)
 		if _, err := d.Users.UpdateProfile(ctx, created.ID, users.UpdateProfileParams{
 			DisplayName: u.DisplayName,
 			Headline:    u.Headline,
@@ -102,6 +153,7 @@ func Load(ctx context.Context, d Deps) error {
 		if err != nil {
 			return fmt.Errorf("seed: listing %q: %w", l.Title, err)
 		}
+		c.listings = append(c.listings, created.ID)
 		listingIDs[i] = created.ID
 	}
 
