@@ -94,9 +94,11 @@ goose CLI запускается через `go run …/cmd/goose@<версия 
 `postgres://hbc:hbc@localhost:5433/hbc`. Другая база: `POSTGRES_DSN=… make migration-status`.
 
 **В контейнере** (compose, стенд): образ содержит бинарник `goose` (собран в builder-стадии
-той же версией) и `/app/migrations`. Entrypoint `docker-entrypoint.sh` ждёт БД до 30 с
-(`MIGRATIONS_WAIT_SECONDS`), выполняет `goose up` и делает `exec hbc` — приложение получает
-PID 1 и SIGTERM. Повторный старт пишет `goose: no migrations to run`; ошибка миграции или
+той же версией) и `/app/migrations` (другой путь — `MIGRATIONS_DIR`). Entrypoint
+`docker-entrypoint.sh` ждёт БД до 30 с (`MIGRATIONS_WAIT_SECONDS`; SIGTERM в это время
+завершает контейнер сразу, кодом 143), выполняет `goose up` и делает `exec hbc` — приложение
+получает PID 1 и SIGTERM. Отказ сервера (неверный пароль, нет базы или роли) — выход сразу,
+без ожидания. Повторный старт пишет `goose: no migrations to run`; ошибка миграции или
 недоступная БД — контейнер завершается с кодом 1, `hbc` не стартует. Отдельного шага
 миграций в `docker-compose.yaml` и при деплое не нужно.
 
