@@ -17,7 +17,7 @@
   font-weight: var(--font-weight-medium);
   gap: 2px;
   margin-left: -6px;
-  min-height: 36px;
+  min-height: var(--control-h-xs);
   padding: 0 var(--space-2) 0 2px;
   text-decoration: none;
 }
@@ -43,7 +43,7 @@
 }
 
 .title {
-  font-size: 24px;
+  font-size: var(--font-size-page-title);
   font-weight: var(--font-weight-bold);
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
@@ -67,6 +67,6 @@
   }
 
   .title {
-    font-size: 32px;
+    font-size: var(--font-size-page-title-lg);
   }
 }

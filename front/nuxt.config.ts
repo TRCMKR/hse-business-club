@@ -22,7 +22,9 @@ export default defineNuxtConfig({
       title: 'Бизнес-клуб ВШЭ — стартапы и вакансии',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'theme-color', content: '#ffffff' },
+        // Matches --color-bg of each theme (assets/css/main.css).
+        { name: 'theme-color', content: '#f4f6fb', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#06081c', media: '(prefers-color-scheme: dark)' },
       ],
     },
   },

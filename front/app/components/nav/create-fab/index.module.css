@@ -1,24 +1,27 @@
 .fab {
   align-items: center;
   background: var(--gradient-accent);
-  border: 1px solid rgb(255 255 255 / 14%);
-  border-radius: 999px;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
-  box-shadow:
-    0 10px 28px rgb(31 62 140 / 40%),
-    0 2px 6px rgb(6 8 28 / 20%);
+  border: 1px solid var(--color-border-inverse);
+  border-radius: var(--radius-full);
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--space-4));
+  box-shadow: var(--shadow-fab);
   color: var(--color-text-inverse);
   display: inline-flex;
-  font-size: 15px;
+  font-size: var(--font-size-nav);
   font-weight: var(--font-weight-semibold);
   gap: 6px;
-  height: 52px;
+  height: var(--fab-h);
   padding: 0 20px 0 16px;
   position: fixed;
-  right: 16px;
+  right: var(--space-4);
   text-decoration: none;
   transition: transform var(--duration-fast) var(--ease);
   z-index: 39;
+}
+
+.fab:focus-visible {
+  outline-color: var(--color-accent-text);
+  outline-offset: 3px;
 }
 
 .fab:active {

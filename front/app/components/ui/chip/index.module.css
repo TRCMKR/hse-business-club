@@ -68,7 +68,12 @@
   position: absolute;
 }
 
+.remove:focus-visible {
+  opacity: 1;
+  outline-offset: 0;
+}
+
 .remove:hover {
-  background: rgb(127 127 127 / 20%);
+  background: var(--color-icon-hover);
   opacity: 1;
 }

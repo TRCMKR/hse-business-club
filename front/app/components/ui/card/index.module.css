@@ -63,7 +63,7 @@
 
 @media (hover: hover) {
   .interactive:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--color-border-hover);
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
   }

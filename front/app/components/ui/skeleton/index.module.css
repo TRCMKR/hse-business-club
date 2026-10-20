@@ -11,11 +11,22 @@
   width: 100%;
 }
 
+/*
+ * Reduced motion: no sliding highlight, but keep a slow opacity pulse so the bone still
+ * reads as «loading». `!important` + class specificity beats the global 0.01ms rule.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .bone {
+    animation: pulse 2.4s ease-in-out infinite !important;
+    background: var(--sk);
+  }
+}
+
 .circle {
   border-radius: 50%;
   flex-shrink: 0;
-  height: 40px;
-  width: 40px;
+  height: var(--space-10);
+  width: var(--space-10);
 }
 
 .lines {
@@ -32,5 +43,16 @@
 
   to {
     background-position: -100% 0;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
   }
 }
