@@ -50,6 +50,9 @@ env:
     SEED_DEMO_DATA: "true"
     LOG_LEVEL: info
     POSTGRES_MAX_CONNS: "5"
+    # docker-entrypoint.sh waits this long for the DB before `goose up` (default 30).
+    # On the first `kamal setup` the db accessory runs initdb on a busy 1-CPU host.
+    MIGRATIONS_WAIT_SECONDS: "60"
     # Soft Go heap limit below the container limit: GC works harder instead of OOM.
     GOMEMLIMIT: 250MiB
   secret:
@@ -104,7 +107,7 @@ ssh:
 # so 1 = the current and one previous version (enough for `kamal rollback`).
 retain_containers: 1
 
-# First boot: PostgreSQL initdb, the entrypoint waits for the DB (up to ~30 s), applies
+# First boot: PostgreSQL initdb, the entrypoint waits for the DB (up to 60 s), applies
 # goose migrations, seeds demo data; the first HEALTHCHECK runs after 10 s.
 deploy_timeout: 120
 
