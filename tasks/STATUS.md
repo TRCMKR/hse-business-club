@@ -24,7 +24,7 @@
 | I1 | merged | task/I1 | opus | 03:28 | 04:05 | tasks/reports/I1.md | принять (6 не блокирующих) |
 | I2 | merged | task/I2 | opus | 04:11 | 04:35 | tasks/reports/I2.md | принять (3 фактические правки README внесены) |
 | I3 | merged | task/I3 | opus | 05:18 | 06:41 | tasks/reports/I3.md | принять с правками → внесены; слит с B6; выкладку делает пользователь |
-| B7 | running | task/B7 | opus | 07:02 | | | |
+| B7 | review | task/B7 | opus | 07:02 | 07:23 | tasks/reports/B7.md | в работе |
 | F9 | review | task/F9 | opus | 07:02 | 07:20 | tasks/reports/F9.md | в работе |
 | B8 | queued | task/B8 | | | | | после merge B7 |
 | B6 | merged | task/B6 | opus | 05:32 | 06:09 | tasks/reports/B6.md | принять → правка entrypoint → смержено |
@@ -90,6 +90,7 @@
 - 06:41 — I3: слит с main (B6), amd64-сборка бэка с goose проверена (48 МБ), `MIGRATIONS_WAIT_SECONDS=60`; merge в main. `.env.deploy` скопирован в main-дерево (gitignored). `make deploy-config` на main: ok. Все 20 задач в main; выкладка — за пользователем.
 - 07:02 — по запросу пользователя: access+refresh токены (B7 бэк ‖ F9 фронт), unit-тесты на mockery (B8 после B7). Контракт proto, SPEC, ARCHITECTURE обновлены (`3293387`). Запущены B7 и F9.
 - 07:20 — F9: исполнитель закончил (359 unit, 34 Playwright с TTL 1s). Запущен ревьюер (mock; живой бэк — после B7).
+- 07:23 — B7: исполнитель закончил (5 коммитов; test-all зелёный; smoke 18/18 с фронтом F9). Запущен ревьюер. Logout отзывает семью — принято в SPEC.
 
 ## Время по волнам
 
