@@ -130,10 +130,22 @@ tests/                    — vitest
   `useAsyncData('key', () => api.listings.get(id))` — SSR получает данные с cookie
   пользователя, клиент гидрируется без повторного запроса.
 - Мутации: `try { await api.applications.accept(id) } catch (e) { toast.error(getErrorMessage(e)) }`.
-- Нет объекта → `throw createError({ statusCode: 404 })` — покажет `app/error.tsx`.
+- Нет объекта → `throw createError({ statusCode: 404, statusMessage: 'Публикация не найдена', fatal: true })`
+  в `async setup()` после `await` данных — покажет `app/error.tsx` (заголовок — `statusMessage`,
+  если он на русском), и SSR сразу ответит HTTP 404, без скелетона и «прыжка» после гидрации.
+- **В `async setup()` все композаблы вызываются до первого `await`**: `useHead`, `useRoute`,
+  `useRouter`, `useAsyncData`, `onMounted`, `watch`, сторы. После `await` контекст Nuxt/Vue
+  потерян: на SSR это 500 («nuxt instance unavailable»), на клиенте — молча не
+  зарегистрированные хуки. Образец — `pages/listings/[id]/applications.tsx`:
+  `const a = useAsyncData(...); …; await a; if (404) throw createError(...)`.
+- Ошибки `useAsyncData` — обёртка Nuxt (`statusCode` 500 при обрыве сети) с исходной ошибкой
+  в `cause`; `getErrorMessage`/`getErrorStatus` разворачивают её сами — передавайте `error.value` как есть.
 - Текущий пользователь — `useAuthStore().user`; после изменения профиля — `setUser(user)`.
 - `login`/`register`/`logout` и истёкшая сессия вызывают `clearNuxtData()`: кэш
   `useAsyncData` не переживает смену пользователя. Не храните пользовательские данные в
   других глобальных местах (модульные переменные, `useState`) — иначе их тоже нужно чистить.
+  Исключение — общий `useState`, который сам привязан к `userId` и сбрасывается при его смене
+  (бейдж откликов `composables/useApplicationsBadge.ts`: в состоянии хранится `userId`, и при
+  несовпадении с `useAuthStore().user?.id` значение считается пустым).
 - Новые маршруты по умолчанию требуют входа (`middleware/auth.global.ts`), публичные —
   только `/login` и `/register`.
