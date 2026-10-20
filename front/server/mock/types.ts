@@ -9,7 +9,7 @@ export interface MockRequest {
   path: string
   /** Parsed query string (single values). */
   query: Record<string, string | undefined>
-  /** Bearer token from the cookie (in mock mode token = username), or null. */
+  /** Access token (`Authorization: Bearer`, from the `hbc_access` cookie), or null. */
   token: string | null
   /** Parsed JSON body (undefined for GET / empty body). */
   body: unknown

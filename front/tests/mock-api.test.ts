@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEMO_PASSWORD, handleMock, resetMockState } from '../server/mock';
+import { DEMO_PASSWORD, handleMock, issueMockSession, resetMockState } from '../server/mock';
 import type { MockResponse } from '../server/mock';
 import type { Application, Listing, ListingsPage, User } from '../api/types';
 
@@ -25,8 +25,9 @@ function ok<T>(res: MockResponse): T {
   return res.body as T;
 }
 
+/** Access token of a fresh session. */
 function login(username: string): string {
-  return ok<{ token: string }>(call('POST', '/v1/auth/login', { body: { username, password: DEMO_PASSWORD } })).token;
+  return issueMockSession(username).accessToken;
 }
 
 function feed(token: string, query: Record<string, string> = {}): ListingsPage {
@@ -246,14 +247,19 @@ describe('mock API', () => {
     const noToken = call('GET', '/v1/me');
     expect(noToken.status).toBe(401);
     expect(noToken.body).toMatchObject({ code: 16 });
+    expect(call('GET', '/v1/me', { token: 'anna' }).status).toBe(401);
     expect(call('GET', '/v1/me', { token: 'ghost' }).status).toBe(401);
+    const viaLogin = ok<{ accessToken: string }>(
+      call('POST', '/v1/auth/login', { body: { username: 'anna', password: DEMO_PASSWORD } }),
+    );
+    expect(ok<User>(call('GET', '/v1/me', { token: viaLogin.accessToken })).username).toBe('anna');
     expect(call('GET', '/v1/ping')).toEqual({ status: 200, body: { ok: true } });
 
-    const reg = ok<{ token: string, user: User }>(call('POST', '/v1/auth/register', {
+    const reg = ok<{ accessToken: string, user: User }>(call('POST', '/v1/auth/register', {
       body: { username: 'NewUser', password: 'secret123', displayName: 'Новичок' },
     }));
     expect(reg.user.username).toBe('newuser');
-    expect(ok<User>(call('GET', '/v1/me', { token: reg.token })).displayName).toBe('Новичок');
+    expect(ok<User>(call('GET', '/v1/me', { token: reg.accessToken })).displayName).toBe('Новичок');
     expect(call('POST', '/v1/auth/login', { body: { username: 'newuser', password: 'secret123' } }).status).toBe(200);
     expect(call('POST', '/v1/auth/register', { body: { username: 'anna', password: 'secret123', displayName: 'A' } }).body)
       .toEqual({ code: 6, message: 'Логин уже занят', details: [] });
@@ -304,7 +310,7 @@ describe('strict routing', () => {
   });
 
   it('malformed percent-encoding in a param → 404, not 500', () => {
-    const res = handleMock({ method: 'GET', path: '/v1/listings/%E0%A4%A', query: {}, token: 'anna', body: undefined });
+    const res = handleMock({ method: 'GET', path: '/v1/listings/%E0%A4%A', query: {}, token: issueMockSession('anna').accessToken, body: undefined });
     expect(res.status).toBe(404);
   });
 });

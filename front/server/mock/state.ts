@@ -3,6 +3,7 @@
  * see serialize.ts for the conversion.
  */
 import { randomUUID } from 'node:crypto';
+import type { AccessTokenRecord, RefreshTokenRecord } from './sessions';
 
 export type ListingKind = 'LISTING_KIND_UNSPECIFIED' | 'LISTING_KIND_STARTUP' | 'LISTING_KIND_VACANCY';
 export type ListingStatus = 'LISTING_STATUS_UNSPECIFIED' | 'LISTING_STATUS_ACTIVE' | 'LISTING_STATUS_CLOSED';
@@ -100,6 +101,10 @@ export interface MockState {
   listings: Map<string, ListingRecord>
   applications: Map<string, ApplicationRecord>
   avatars: Map<string, AvatarFile>
+  /** Access token → record (SPEC §4.3). */
+  accessTokens: Map<string, AccessTokenRecord>
+  /** Refresh token → record. */
+  refreshTokens: Map<string, RefreshTokenRecord>
   seq: number
 }
 
@@ -111,6 +116,8 @@ export function createEmptyState(): MockState {
     listings: new Map(),
     applications: new Map(),
     avatars: new Map(),
+    accessTokens: new Map(),
+    refreshTokens: new Map(),
     seq: 0,
   };
 }
