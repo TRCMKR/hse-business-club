@@ -113,9 +113,33 @@ build:
 tidy:
 	go mod tidy
 
+# Migrations: goose SQL in ./migrations (YYYYMMDDHHMMSS_<name>.sql), version table
+# public.goose_db_version. The goose CLI runs via `go run` at the version from go.mod
+# (no global install), with Postgres as the only driver. DSN: POSTGRES_DSN (.env) or
+# the compose test env (start it with `make test-env-up`).
+MIGRATION_FOLDER = $(CURDIR)/migrations
+GOOSE_VERSION    = $(shell go list -m -f '{{.Version}}' github.com/pressly/goose/v3)
+GOOSE_TAGS       = no_clickhouse no_libsql no_mssql no_mysql no_sqlite3 no_vertica no_ydb
+GOOSE           ?= go run -tags '$(GOOSE_TAGS)' github.com/pressly/goose/v3/cmd/goose@$(GOOSE_VERSION)
+POSTGRES_DSN    ?= $(TEST_POSTGRES_DSN)
+
 .PHONY: migration-create
-## creates a SQL migration: make migration-create ctx=users name=init
+## creates a SQL migration in ./migrations: make migration-create name=add_listing_views
 migration-create:
-	@test -n "$(ctx)" || (echo "ctx is required: make migration-create ctx=users name=init" && exit 1)
-	@test -n "$(name)" || (echo "name is required: make migration-create ctx=users name=init" && exit 1)
-	go run github.com/pressly/goose/v3/cmd/goose@v3.27.0 -dir internal/$(ctx)/postgres/migrations -s create $(name) sql
+	@test -n "$(name)" || (echo "name is required: make migration-create name=add_listing_views" && exit 1)
+	$(GOOSE) -dir "$(MIGRATION_FOLDER)" create $(name) sql
+
+.PHONY: migration-up
+## applies all pending migrations to POSTGRES_DSN
+migration-up:
+	$(GOOSE) -dir "$(MIGRATION_FOLDER)" postgres "$(POSTGRES_DSN)" up
+
+.PHONY: migration-down
+## rolls back the latest migration on POSTGRES_DSN
+migration-down:
+	$(GOOSE) -dir "$(MIGRATION_FOLDER)" postgres "$(POSTGRES_DSN)" down
+
+.PHONY: migration-status
+## prints the migration status of POSTGRES_DSN
+migration-status:
+	$(GOOSE) -dir "$(MIGRATION_FOLDER)" postgres "$(POSTGRES_DSN)" status

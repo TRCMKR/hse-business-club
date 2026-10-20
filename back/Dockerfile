@@ -12,6 +12,14 @@ ENV CGO_ENABLED=0 \
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
+# goose CLI for the entrypoint, at the version from go.mod, Postgres driver only.
+# `go install pkg@version` resolves its own module graph, hence GOFLAGS is cleared.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOFLAGS= GOBIN=/out go install -trimpath -ldflags "-s -w" \
+      -tags "no_clickhouse no_libsql no_mssql no_mysql no_sqlite3 no_vertica no_ydb" \
+      "github.com/pressly/goose/v3/cmd/goose@$(go list -m -f '{{.Version}}' github.com/pressly/goose/v3)"
+
 COPY . .
 
 ARG VERSION=dev
@@ -31,7 +39,9 @@ RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g 10001 hbc \
     && adduser -S -D -H -u 10001 -G hbc hbc
 
-COPY --from=builder /out/hbc /usr/local/bin/hbc
+COPY --from=builder /out/hbc /out/goose /usr/local/bin/
+COPY migrations/ /app/migrations/
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 USER hbc:hbc
 
@@ -44,4 +54,5 @@ ENV HTTP_ADDR=:8080
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
     CMD port="${HTTP_ADDR##*:}"; wget -q -O /dev/null "http://127.0.0.1:${port:-8080}/healthz" || exit 1
 
-ENTRYPOINT ["/usr/local/bin/hbc"]
+# Applies /app/migrations (goose up, waiting up to 30 s for the database), then execs hbc.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

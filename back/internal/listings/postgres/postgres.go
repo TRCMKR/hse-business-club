@@ -3,7 +3,6 @@ package postgres
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"strings"
@@ -17,14 +16,9 @@ import (
 	"github.com/trcmkr/hse-business-club/back/internal/platform/db"
 )
 
-// Schema is the Postgres schema of the listings context.
+// Schema is the Postgres schema of the listings context (created by
+// back/migrations, applied by goose outside the application).
 const Schema = "listings"
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// Migrator applies the listings migrations into the "listings" schema.
-var Migrator = db.Migrator{Schema: Schema, FS: migrations, Dir: "migrations"}
 
 // Queries use schema-qualified names: the runtime pool keeps the default search_path.
 const (

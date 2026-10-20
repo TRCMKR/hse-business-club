@@ -5,48 +5,86 @@ package db_test
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
-	"testing/fstest"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 
 	"github.com/trcmkr/hse-business-club/back/internal/platform/db"
 	"github.com/trcmkr/hse-business-club/back/internal/platform/db/dbtest"
 )
 
-func TestMigratorAndTx(t *testing.T) {
+// back/migrations: up is idempotent, every Down section works, up again restores the schema.
+func TestMigrations(t *testing.T) {
 	ctx := context.Background()
 	pool := dbtest.Pool(t)
+	dbtest.Migrate(t, pool)
 
-	m := db.Migrator{
-		Schema: "b0_test",
-		Dir:    "migrations",
-		FS: fstest.MapFS{
-			"migrations/00001_init.sql": {Data: []byte(
-				"-- +goose Up\nCREATE TABLE items (id int PRIMARY KEY, name text NOT NULL);\n" +
-					"-- +goose Down\nDROP TABLE items;\n")},
-		},
-	}
-	dbtest.Migrate(t, pool, m)
-
-	// Idempotent second run.
-	if err := m.Up(ctx, pool); err != nil {
+	if err := dbtest.Up(ctx, pool); err != nil {
 		t.Fatalf("second Up: %v", err)
 	}
-
-	var version int64
-	if err := pool.QueryRow(ctx, "SELECT max(version_id) FROM b0_test.goose_db_version").Scan(&version); err != nil {
+	var applied int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM public.goose_db_version WHERE version_id > 0 AND is_applied").Scan(&applied); err != nil {
 		t.Fatalf("version table: %v", err)
 	}
-	if version != 1 {
-		t.Fatalf("version = %d, want 1", version)
+	if applied != len(dbtest.Schemas) {
+		t.Fatalf("applied migrations = %d, want %d", applied, len(dbtest.Schemas))
+	}
+	tablesExist := func() bool {
+		t.Helper()
+		var ok bool
+		err := pool.QueryRow(ctx, `SELECT to_regclass('users.users') IS NOT NULL
+			AND to_regclass('listings.listings') IS NOT NULL
+			AND to_regclass('applications.applications') IS NOT NULL`).Scan(&ok)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
+	if !tablesExist() {
+		t.Fatal("tables of the contexts must exist after Up")
 	}
 
-	// Table landed in the context schema, not in public.
-	var exists bool
-	if err := pool.QueryRow(ctx, "SELECT to_regclass('b0_test.items') IS NOT NULL").Scan(&exists); err != nil || !exists {
-		t.Fatalf("b0_test.items must exist: %v", err)
+	sqlDB := stdlib.OpenDB(*pool.Config().ConnConfig.Copy())
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, os.DirFS(dbtest.MigrationsDir()),
+		goose.WithDisableGlobalRegistry(true))
+	if err != nil {
+		t.Fatal(err)
 	}
+	if _, err := provider.DownTo(ctx, 0); err != nil {
+		t.Fatalf("down to 0: %v", err)
+	}
+	var schemas int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pg_namespace WHERE nspname IN ('users', 'listings', 'applications')").Scan(&schemas); err != nil {
+		t.Fatal(err)
+	}
+	if schemas != 0 {
+		t.Fatalf("%d context schemas left after down to 0", schemas)
+	}
+	if err := dbtest.Up(ctx, pool); err != nil {
+		t.Fatalf("Up after down: %v", err)
+	}
+	if !tablesExist() {
+		t.Fatal("tables of the contexts must exist after down + up")
+	}
+}
+
+func TestWithTx(t *testing.T) {
+	ctx := context.Background()
+	pool := dbtest.Pool(t)
+	for _, q := range []string{
+		"DROP SCHEMA IF EXISTS b0_test CASCADE",
+		"CREATE SCHEMA b0_test",
+		"CREATE TABLE b0_test.items (id int PRIMARY KEY, name text NOT NULL)",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS b0_test CASCADE") })
 
 	// Commit.
 	err := db.WithTx(ctx, pool, func(ctx context.Context, tx pgx.Tx) error {
@@ -75,14 +113,5 @@ func TestMigratorAndTx(t *testing.T) {
 	}
 	if n != 1 {
 		t.Fatalf("rows = %d, want 1 (second insert rolled back)", n)
-	}
-}
-
-func TestMigratorEmpty(t *testing.T) {
-	pool := dbtest.Pool(t)
-	m := db.Migrator{Schema: "b0_empty", FS: fstest.MapFS{}, Dir: "migrations"}
-	t.Cleanup(func() { dbtest.ResetSchema(t, pool, m.Schema) })
-	if err := m.Up(context.Background(), pool); err != nil {
-		t.Fatalf("empty migrator must be a no-op: %v", err)
 	}
 }

@@ -25,7 +25,7 @@ import (
 func setup(t *testing.T) (*postgres.Repository, *pgxpool.Pool) {
 	t.Helper()
 	pool := dbtest.Pool(t)
-	dbtest.Migrate(t, pool, postgres.Migrator)
+	dbtest.Migrate(t, pool)
 	return postgres.New(pool), pool
 }
 
@@ -66,9 +66,9 @@ func ids(items []*listings.Listing) []uuid.UUID {
 	return out
 }
 
-func TestMigratorIdempotent(t *testing.T) {
+func TestMigrationsIdempotent(t *testing.T) {
 	_, pool := setup(t)
-	if err := postgres.Migrator.Up(context.Background(), pool); err != nil {
+	if err := dbtest.Up(context.Background(), pool); err != nil {
 		t.Fatalf("second Up: %v", err)
 	}
 }

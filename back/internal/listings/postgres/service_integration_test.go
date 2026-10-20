@@ -20,7 +20,7 @@ import (
 // must not run in parallel packages.
 func TestServiceOnPostgres(t *testing.T) {
 	pool := dbtest.Pool(t)
-	dbtest.Migrate(t, pool, postgres.Migrator)
+	dbtest.Migrate(t, pool)
 	svc := service.New(postgres.New(pool))
 	ctx := context.Background()
 	author := uuid.New()
