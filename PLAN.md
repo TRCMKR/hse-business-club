@@ -55,6 +55,7 @@ B0 + F0 (Dockerfile'ы) ── I0 compose + observability stack ─────�
 | I0 | `tasks/I0-compose.md` | docker-compose (db, minio, back, front), env, профиль observability, корневой Makefile | `docker compose up` |
 | I1 | `tasks/I1-smoke-and-qa.md` | smoke-скрипт, сквозная ручная проверка, фиксы на стыке | `make smoke` зелёный |
 | I2 | `tasks/I2-readme.md` | корневой README, скриншоты, TODO для ручного заполнения | README |
+| I3 | `tasks/I3-deploy-kamal.md` | бонус: стенд `hbc.trcmkr.ru` через Kamal (два конфига + accessories db/minio), по запросу пользователя | `make deploy` |
 
 ## Как запускать
 
@@ -75,4 +76,4 @@ B0 + F0 (Dockerfile'ы) ── I0 compose + observability stack ─────�
 
 - README §«Пример проверки решения ИИ» и §«Потраченное время» — только вручную (ТЗ).
 - Учёт времени по каждой волне.
-- Решение о деплое (бонус) — отдельная задача по запросу.
+- Решение о деплое (бонус) — задача I3 (запрошена 2026-10-20); сама выкладка на сервер — только с подтверждения пользователя.
