@@ -1,0 +1,59 @@
+# Kamal 2 config for the front (Nuxt SSR + BFF proxy). The only public service of the
+# stand: kamal-proxy (already running on the server, shared with other apps) terminates
+# TLS for hbc.trcmkr.ru and forwards to :3000. The API is reached over the `kamal`
+# docker network via the back's network alias, so deploy config/deploy.back.yml first.
+#
+# Usage: `make deploy-setup` / `make deploy` from the repo root (they load .env.deploy).
+
+service: hbc-front
+
+image: trcmkr/hbc-front
+
+servers:
+  web:
+    hosts:
+      - 72.4.68.165
+    options:
+      network-alias: hbc-front
+      # The server has 1 CPU / ~960 MB RAM shared with other apps; see README §Деплой.
+      memory: 192m
+
+proxy:
+  ssl: true
+  host: hbc.trcmkr.ru
+  app_port: 3000
+  healthcheck:
+    path: /login
+
+registry:
+  username:
+    - KAMAL_REGISTRY_USERNAME
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+  # Builds from the working tree (an explicit context disables Kamal's git clone).
+  context: front
+  dockerfile: front/Dockerfile
+
+env:
+  clear:
+    NUXT_API_BASE_URL: http://hbc-back:8080
+    NUXT_MOCK_API: "false"
+    # Served over HTTPS by kamal-proxy (DECISIONS 2026-10-20 01:36).
+    NUXT_COOKIE_SECURE: "true"
+    # Keep the V8 heap well below the container memory limit.
+    NODE_OPTIONS: --max-old-space-size=128
+
+ssh:
+  user: root
+
+# Small disk (~1.8 GB free): Kamal keeps the running container plus N stopped ones,
+# so 1 = the current and one previous version (enough for `kamal rollback`).
+retain_containers: 1
+
+logging:
+  options:
+    max-size: 10m
+    max-file: "3"

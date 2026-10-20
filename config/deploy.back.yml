@@ -1,0 +1,117 @@
+# Kamal 2 config for the back (API) and its accessories: PostgreSQL and MinIO.
+# Deployed first; the front (config/deploy.front.yml) reaches it over the `kamal` docker
+# network as http://hbc-back:8080. Nothing here is published to the internet (SPEC §5):
+# the role runs without kamal-proxy and the accessories publish no ports.
+#
+# Usage: `make deploy-setup` / `make deploy` from the repo root (they load .env.deploy).
+# Secrets are resolved by .kamal/secrets from environment variables.
+
+service: hbc-back
+
+image: trcmkr/hbc-back
+
+servers:
+  web:
+    hosts:
+      - 72.4.68.165
+    # Internal service: no kamal-proxy route, no public host. Kamal waits for the
+    # Dockerfile HEALTHCHECK (/healthz) to report healthy instead.
+    proxy: false
+    options:
+      network-alias: hbc-back
+      # The server has 1 CPU / ~960 MB RAM shared with other apps; see README §Деплой.
+      # Avatar normalization decodes photos up to 8000×8000 in memory, hence the headroom.
+      memory: 320m
+
+registry:
+  username:
+    - KAMAL_REGISTRY_USERNAME
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+  # Builds from the working tree (an explicit context disables Kamal's git clone).
+  context: back
+  dockerfile: back/Dockerfile
+
+env:
+  clear:
+    APP_ENV: production
+    HTTP_ADDR: ":8080"
+    # Debug listener (/docs/, /metrics, pprof) stays inside the container network.
+    DEBUG_ADDR: ":8081"
+    GRPC_ADDR: "127.0.0.1:8082"
+    S3_ENDPOINT: "hbc-minio:9000"
+    S3_USE_SSL: "false"
+    S3_BUCKET: hbc-avatars
+    # Browsers talk to the front's SSR proxy, not to the API; set for completeness.
+    CORS_ORIGINS: https://hbc.trcmkr.ru
+    SEED_DEMO_DATA: "true"
+    LOG_LEVEL: info
+    POSTGRES_MAX_CONNS: "5"
+    # docker-entrypoint.sh waits this long for the DB before `goose up` (default 30).
+    # On the first `kamal setup` the db accessory runs initdb on a busy 1-CPU host.
+    MIGRATIONS_WAIT_SECONDS: "60"
+    # Soft Go heap limit below the container limit: GC works harder instead of OOM.
+    GOMEMLIMIT: 250MiB
+  secret:
+    - JWT_SECRET
+    - POSTGRES_DSN
+    - S3_ACCESS_KEY
+    - S3_SECRET_KEY
+
+accessories:
+  db:
+    image: postgres:17-alpine
+    host: 72.4.68.165
+    # Small instance: defaults (128MB shared_buffers, 100 connections) are sized for more RAM.
+    cmd: postgres -c shared_buffers=32MB -c max_connections=20
+    env:
+      clear:
+        POSTGRES_USER: hbc
+        POSTGRES_DB: hbc
+      secret:
+        - POSTGRES_PASSWORD
+    # Bind mount on the host: /root/hbc-back-db/data
+    directories:
+      - data:/var/lib/postgresql/data
+    options:
+      network-alias: hbc-db
+      memory: 160m
+
+  minio:
+    # Same digest as docker-compose.yaml (minio/minio is no longer on Docker Hub).
+    image: cgr.dev/chainguard/minio:latest@sha256:2915cb406f38ed6ff9634de0a3e4a9423e2dda06a6f1aca18f8c968aa37a01f6
+    host: 72.4.68.165
+    cmd: server /data
+    env:
+      clear:
+        GOMEMLIMIT: 120MiB
+      secret:
+        - MINIO_ROOT_USER
+        - MINIO_ROOT_PASSWORD
+    # Bind mount on the host: /root/hbc-back-minio/data
+    directories:
+      - data:/data
+    options:
+      network-alias: hbc-minio
+      # The image runs as uid 65532; the host directory is created by root.
+      user: root
+      memory: 160m
+
+ssh:
+  user: root
+
+# Small disk (~1.8 GB free): Kamal keeps the running container plus N stopped ones,
+# so 1 = the current and one previous version (enough for `kamal rollback`).
+retain_containers: 1
+
+# First boot: PostgreSQL initdb, the entrypoint waits for the DB (up to 60 s), applies
+# goose migrations, seeds demo data; the first HEALTHCHECK runs after 10 s.
+deploy_timeout: 120
+
+logging:
+  options:
+    max-size: 10m
+    max-file: "3"
