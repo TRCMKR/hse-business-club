@@ -18,13 +18,14 @@ bounded-context'а (`users`, `listings`, `applications`) в своих схем�
 ```sh
 make test-env-up          # postgres:17 на :5433 и MinIO на :9000 (../docker-compose.yaml + ../docker-compose.test.yaml)
 cp .env.example .env      # .env читается только при APP_ENV=local
+make migration-up         # goose up из ./migrations в POSTGRES_DSN (см. «Миграции»)
 SEED_DEMO_DATA=true make run   # :8080 — API, :8081 — debug, gRPC — 127.0.0.1:8082
 ```
 
-При старте: миграции схем `users` → `listings` → `applications`, проверка/создание бакета,
-демо-данные (если `SEED_DEMO_DATA=true` и таблица `users.users` пуста), затем сервер. До
-окончания миграций порты не отвечают, поэтому `/readyz` = 200 означает «миграции применены,
-БД и хранилище доступны». Данные тестового окружения (корневой `docker-compose.test.yaml`, проект `hbc-test-env`) живут в tmpfs и пропадают при
+Приложение само миграции не применяет и считает схему готовой (в контейнере их применяет
+entrypoint, см. «Миграции»). При старте: проверка/создание бакета, демо-данные (если
+`SEED_DEMO_DATA=true` и таблица `users.users` пуста), затем сервер; `/readyz` = 200 —
+«БД и хранилище доступны». Данные тестового окружения (корневой `docker-compose.test.yaml`, проект `hbc-test-env`) живут в tmpfs и пропадают при
 `make test-env-down`.
 
 Демо-аккаунты (SPEC §6), пароль у всех `demo1234`: `anna`, `boris`, `vera`, `dmitry`.
@@ -61,7 +62,9 @@ curl localhost:8081/metrics      # Prometheus
 | `make test-e2e` | то же только с postgres, гоняет HTTP e2e-тесты `tests/e2e` (тег `e2e`) |
 | `make test-all` | `test` + `test-integration` + `test-e2e` на одном поднятии инфраструктуры |
 | `make run` / `make build` | запуск / сборка `./build/hbc` с версией из git |
-| `make migration-create ctx=users name=init` | новая SQL-миграция в `internal/<ctx>/postgres/migrations` |
+| `make migration-create name=add_x` | новая SQL-миграция `migrations/<timestamp>_add_x.sql` |
+| `make migration-up` / `make migration-down` | применить все / откатить последнюю миграцию в `POSTGRES_DSN` |
+| `make migration-status` | статус миграций `POSTGRES_DSN` |
 | `make test-env-up` / `make test-env-down` | поднять / удалить тестовую инфраструктуру |
 
 Переменные целей: `TEST_ENV=external` — не поднимать compose, а использовать уже запущенные
@@ -70,14 +73,49 @@ bcrypt под race-детектором медленный). Цели с compose
 падения тестов, код возврата сохраняется; уже поднятую `make test-env-up` инфраструктуру
 они тоже погасят.
 
+## Миграции
+
+Схема БД — только в [`migrations/`](migrations): goose SQL-файлы `YYYYMMDDHHMMSS_<name>.sql`
+(как в других проектах автора), секции `-- +goose Up` / `-- +goose Down`, одна таблица версий
+`public.goose_db_version`. Каждый контекст остаётся в своей схеме: миграция создаёт её
+(`CREATE SCHEMA IF NOT EXISTS listings`) и объекты с полными именами (`listings.listings`),
+FK между схемами нет. Порядок `users` → `listings` → `applications` задают номера.
+
+```sh
+make migration-create name=add_listing_views   # пустой файл с текущим UTC-timestamp
+make migration-up                              # применить все новые
+make migration-down                            # откатить последнюю
+make migration-status                          # что применено, что нет
+```
+
+goose CLI запускается через `go run …/cmd/goose@<версия из go.mod>` (ставить глобально не
+нужно, первый запуск скачивает модуль), только с драйвером Postgres. DSN — `POSTGRES_DSN`
+(из `.env` или окружения), по умолчанию тестовое окружение
+`postgres://hbc:hbc@localhost:5433/hbc`. Другая база: `POSTGRES_DSN=… make migration-status`.
+
+**В контейнере** (compose, стенд): образ содержит бинарник `goose` (собран в builder-стадии
+той же версией) и `/app/migrations`. Entrypoint `docker-entrypoint.sh` ждёт БД до 30 с
+(`MIGRATIONS_WAIT_SECONDS`), выполняет `goose up` и делает `exec hbc` — приложение получает
+PID 1 и SIGTERM. Повторный старт пишет `goose: no migrations to run`; ошибка миграции или
+недоступная БД — контейнер завершается с кодом 1, `hbc` не стартует. Отдельного шага
+миграций в `docker-compose.yaml` и при деплое не нужно.
+
+**В тестах** integration- и e2e-тесты применяют ту же папку библиотекой goose
+(`internal/platform/db/dbtest`: `Migrate`, `Up`, `Reset` — `DROP SCHEMA … CASCADE` и таблицы
+версий).
+
 ## Тесты
 
 - **unit** — домены, сервисы на фейках, BFF на фейках портов, сервер (gateway, ошибки, метрики).
-- **integration** (`//go:build integration`) — репозитории контекстов на настоящем Postgres
-  (каждый контекст — свой пакет и своя схема), `blob/s3` на MinIO.
+- **integration** (`//go:build integration`) — репозитории контекстов на настоящем Postgres,
+  миграции `migrations/` (up идемпотентен, down до нуля, снова up), `blob/s3` на MinIO.
+  Каждый тест начинает с чистой базы (`dbtest.Migrate`: `Reset` + goose up, после теста —
+  `Reset`). База и таблица версий общие, поэтому пакеты, которые ходят в Postgres, берут
+  advisory-lock и выполняются по очереди (остальные — параллельно).
 - **e2e** (`//go:build e2e`, `tests/e2e`) — приложение целиком in-process (`app.New`) на
   свободных портах `127.0.0.1:0`: реальный gRPC-хоп и grpc-gateway, Postgres из
-  `TEST_POSTGRES_DSN`, `blob/memory` вместо S3. Перед каждым тестом — `TRUNCATE` всех таблиц,
+  `TEST_POSTGRES_DSN` (в `TestMain` — `dbtest.Reset` + goose up), `blob/memory` вместо S3.
+  Перед каждым тестом — `TRUNCATE` всех таблиц,
   у каждого экземпляра свой Prometheus-реестр. Сценарии: основной сценарий SPEC §1, правила
   §2.3 (повтор/отзыв/повторный отклик, своя/закрытая публикация, 403/404, идемпотентность),
   лента (фильтры, поиск, пагинация, валидация), регистрация/вход/профиль, фото, сид,
@@ -148,7 +186,9 @@ docker run --rm --network hbc-test-env_default -p 8080:8080 -p 8081:8081 \
 
 ```
 cmd/hbc/                 composition root: config → logger → telemetry → pool → blob → app → run
-internal/app/            сборка: миграции контекстов, сервисы, адаптеры, сид, BFF, сервер
+migrations/              goose SQL всех схем (единственный источник схемы БД)
+docker-entrypoint.sh     entrypoint образа: goose up → exec hbc
+internal/app/            сборка: сервисы, адаптеры, сид, BFF, сервер
 internal/adapters/       стыки контекстов: applications.ListingReader поверх listings.Service
 internal/seed/           демо-данные SPEC §6 через сервисы контекстов
 internal/bff/            реализация hbc.v1 (22 RPC): валидация, композиция, маппинг ошибок
