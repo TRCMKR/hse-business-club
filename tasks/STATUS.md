@@ -23,7 +23,7 @@
 | I0 | merged | task/I0 | opus | 02:14 | 02:41 | tasks/reports/I0.md | итерация 1: конфликт с B5 → слит, принят |
 | I1 | merged | task/I1 | opus | 03:28 | 04:05 | tasks/reports/I1.md | принять (6 не блокирующих) |
 | I2 | merged | task/I2 | opus | 04:11 | 04:35 | tasks/reports/I2.md | принять (3 фактические правки README внесены) |
-| I3 | rework | task/I3 | opus | 05:18 | 05:44 | tasks/reports/I3.md | итерация 1: принять с правками до выкладки (память бэка 320m, deploy_timeout 120, валидация HBC_*) |
+| I3 | accepted (ждёт merge B6) | task/I3 | opus | 05:18 | 06:00 | tasks/reports/I3.md | итерация 1: принять с правками → внесены, `kamal config: ok` |
 | B6 | review | task/B6 | opus | 05:32 | 06:05 | tasks/reports/B6.md | в работе |
 
 ## Журнал событий
@@ -80,7 +80,8 @@
 - 05:32 — по запросу пользователя: B6 — миграции через goose CLI из `back/migrations/` (ARCHITECTURE §1/§4/§6, SPEC §3, DECISIONS обновлены). Запущен исполнитель. Сервер и домен для I3 подтверждены, выкладку делает пользователь.
 - 05:44 — I3: исполнитель закончил (конфиги валидны, кросс-сборка amd64 обоих образов прошла; сервер не трогал). Запущен ревьюер.
 - 05:55 — I3: ревью принят с правками до выкладки (6 пунктов); возвращено исполнителю. В main-дереве восстановлены `front/lib/blob-avatar/dist/*.d.ts`, удалённые побочным эффектом `npm ci` (`install-links` пересобирает пакет без tsc) — перед `make deploy` проверять `git status`.
-- 06:05 — B6: исполнитель закончил (миграции в `back/migrations/`, Migrator удалён, entrypoint с goose; test-all ×2, smoke 16/16). Запущен ревьюер.
+- 05:56 — B6: исполнитель закончил (миграции в `back/migrations/`, Migrator удалён, entrypoint с goose; test-all ×2, smoke 16/16). Запущен ревьюер.
+- 06:00 — I3: правки внесены (`b8cf5c6`), проверены координатором (`make deploy-config` ok). Merge после B6.
 
 ## Время по волнам
 
