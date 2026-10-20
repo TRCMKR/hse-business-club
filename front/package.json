@@ -17,7 +17,8 @@
     "lint:fix": "npm run eslint:fix && npm run stylelint:fix && npm run typescript",
     "api": "swagger-typescript-api generate -p ../back/pkg/api/hbc/v1/hbc.swagger.json -o ./api/generated -n hbc.ts --axios --module-name-first-tag",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@fe/blob-avatar": "file:lib/blob-avatar",
@@ -39,8 +40,10 @@
     "yup": "^1.7.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@nuxt/eslint": "^1.9.0",
     "@nuxt/test-utils": "^3.19.2",
+    "@playwright/test": "^1.64.1",
     "@stylistic/eslint-plugin": "^5.5.0",
     "@stylistic/stylelint-config": "^3.0.1",
     "@stylistic/stylelint-plugin": "^4.0.0",
